@@ -1,0 +1,3 @@
+[submodule "vistrails"]
+	path = vistrails
+	url = git@vistrails.org:vistrails.git
