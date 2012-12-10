@@ -1,22 +1,25 @@
 import logging
 import os, os.path
 import sys
+import traceback
 
 
 def main():
+    root_dir = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), '..'))
+
     # Attempt to import this very file
     try:
         import dat.main
     except ImportError:
-        sys.path.insert(
-            0,
-            os.path.abspath(
-                    os.path.join(os.path.dirname(__file__), '..')))
+        sys.path.insert(0, root_dir)
         try:
             import dat.main
         except ImportError:
             sys.stderr.write("Error: unable to find the dat Python package\n")
             sys.exit(1)
+
+    dat.main.application_path = root_dir
 
     # Attempt to import VisTrails
     vistrails_root = os.getenv('VISTRAILS_ROOT')
@@ -45,8 +48,12 @@ def main():
                              "VISTRAILS_ROOT environment\nvariable.\n")
             sys.exit(1)
 
-    import gui.application
-    gui.application.start()
+    try:
+        import gui.application
+        sys.exit(gui.application.start())
+    except Exception:
+        sys.stderr.write("Critical: Application exiting with an exception:\n")
+        traceback.print_exc(file=sys.stderr)
 
 
 if __name__ == '__main__':
