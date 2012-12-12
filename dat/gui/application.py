@@ -3,7 +3,7 @@ from PyQt4 import QtGui
 
 from dat.gui.window import MainWindow
 
-import core.requirements
+import vistrails.core.requirements
 
 
 def start():
@@ -17,8 +17,8 @@ def start():
     # I believe this requires changes in VisTrails
 
     try:
-        core.requirements.check_all_vistrails_requirements()
-    except core.requirements.MissingRequirement, e:
+        vistrails.core.requirements.check_all_vistrails_requirements()
+    except vistrails.core.requirements.MissingRequirement, e:
         QtGui.QMessageBox.critical(
                 None,
                 _("Missing requirement"),

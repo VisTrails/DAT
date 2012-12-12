@@ -26,9 +26,10 @@ def main():
     if vistrails_root is not None:
         logging.info("Adding VISTRAILS_ROOT to the Python path: %s" %
                      vistrails_root)
-        sys.path.append(vistrails_root)
+        sys.path.insert(0, vistrails_root)
+        sys.path.insert(0, os.path.join(vistrails_root, 'vistrails'))
     try:
-        import core
+        import vistrails.core
     except ImportError:
         if vistrails_root is not None:
             sys.stderr.write("Couldn't import VisTrails.\n"
@@ -37,20 +38,20 @@ def main():
                              "there.\n"
                              "Please update or remove it.\n")
             sys.exit(1)
-        sys.path.append(os.path.abspath(
-                os.path.join(os.path.dirname(__file__),
-                             '../vistrails/vistrails')))
+        sys.path.insert(0, os.path.join(root_dir, 'vistrails'))
+        sys.path.insert(0, os.path.join(root_dir, 'vistrails/vistrails'))
         try:
-            import core
+            import vistrails.core
         except ImportError:
+            print sys.path
             sys.stderr.write("Error: unable to find VisTrails.\n"
                              "Make sure it is installed correctly, or set the "
                              "VISTRAILS_ROOT environment\nvariable.\n")
             sys.exit(1)
 
     try:
-        import gui.application
-        sys.exit(gui.application.start())
+        import dat.gui.application
+        sys.exit(dat.gui.application.start())
     except Exception:
         sys.stderr.write("Critical: Application exiting with an exception:\n")
         traceback.print_exc(file=sys.stderr)
