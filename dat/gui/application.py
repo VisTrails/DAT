@@ -3,7 +3,32 @@ from PyQt4 import QtGui
 
 from dat.gui.window import MainWindow
 
+from vistrails.core.application import (set_vistrails_application,
+        VistrailsApplicationInterface)
 import vistrails.core.requirements
+
+import vistrails.gui.theme
+
+
+class Application(VistrailsApplicationInterface):
+    def __init__(self):
+        VistrailsApplicationInterface.__init__(self)
+        self.builderWindow = None
+        set_vistrails_application(self)
+
+        vistrails.gui.theme.initializeCurrentTheme()
+
+        VistrailsApplicationInterface.init(self)
+        from vistrails.gui.vistrails_window import QVistrailsWindow
+        self.builderWindow = QVistrailsWindow()
+        self.builderWindow.setVisible(True) # DEBUG : this will be hidden by default
+        self.vistrailsStartup.init()
+
+    def is_running(self):
+        return True
+
+    def is_running_gui(self):
+        return True
 
 
 def start():
@@ -28,6 +53,7 @@ def start():
         return 1
 
     # VistrailsApplicationSingleton#init() goes here
+    Application()
 
     # -----
 

@@ -4,7 +4,12 @@ import sys
 import traceback
 
 
-def main():
+application_path = None
+
+
+def setup_vistrails():
+    """This function is also used to setup tests.
+    """
     root_dir = os.path.abspath(
             os.path.join(os.path.dirname(__file__), '..'))
 
@@ -21,33 +26,28 @@ def main():
 
     dat.main.application_path = root_dir
 
-    # Attempt to import VisTrails
+    # VisTrails location
     vistrails_root = os.getenv('VISTRAILS_ROOT')
-    if vistrails_root is not None:
-        logging.info("Adding VISTRAILS_ROOT to the Python path: %s" %
-                     vistrails_root)
-        sys.path.insert(0, vistrails_root)
-        sys.path.insert(0, os.path.join(vistrails_root, 'vistrails'))
-    try:
-        import vistrails.core
-    except ImportError:
-        if vistrails_root is not None:
-            sys.stderr.write("Couldn't import VisTrails.\n"
-                             "A VISTRAILS_ROOT environment variable is set, "
-                             "but VisTrails couldn't be\nimported from "
-                             "there.\n"
-                             "Please update or remove it.\n")
-            sys.exit(1)
-        sys.path.insert(0, os.path.join(root_dir, 'vistrails'))
-        sys.path.insert(0, os.path.join(root_dir, 'vistrails/vistrails'))
-        try:
-            import vistrails.core
-        except ImportError:
-            print sys.path
-            sys.stderr.write("Error: unable to find VisTrails.\n"
-                             "Make sure it is installed correctly, or set the "
-                             "VISTRAILS_ROOT environment\nvariable.\n")
-            sys.exit(1)
+    if vistrails_root is None:
+        vistrails_root = os.path.join(root_dir, 'vistrails')
+
+    # Clean up the PYTHONPATH, because we don't want Vistrails sources to be
+    # directly accessible or something like that
+    # Shouldn't cause issues, unless there are third-party libraries installed
+    # inside the DAT source tree (why would you do that?)
+    i = 0
+    while i < len(sys.path):
+        path = os.path.realpath(sys.path[i])
+        if path != root_dir and path.startswith(root_dir):
+            sys.path.pop(i)
+        else:
+            i += 1
+
+    sys.path.insert(0, vistrails_root)
+
+
+def main():
+    setup_vistrails()
 
     try:
         import dat.gui.application
