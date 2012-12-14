@@ -4,6 +4,9 @@ import dat.gui
 from dat.gui.variables import VariablePanel
 from dat.gui.plots import PlotPanel
 
+from vistrails.core.application import get_vistrails_application
+from vistrails.packages.spreadsheet.spreadsheet_controller import spreadsheetController
+
 
 class MainWindow(QtGui.QMainWindow):
     def __init__(self):
@@ -14,16 +17,32 @@ class MainWindow(QtGui.QMainWindow):
         _ = dat.gui.translate(MainWindow)
 
         menubar = self.menuBar()
-        fileMenu = menubar.addMenu(_("menu1"))
+
+        fileMenu = menubar.addMenu(_("&File"))
+        openAction = fileMenu.addAction(_("&Open..."))
+        openAction.setEnabled(False)
+        saveAction = fileMenu.addAction(_("&Save"))
+        saveAction.setEnabled(False)
+        saveAsAction = fileMenu.addAction(_("Save &as..."))
+        saveAsAction.setEnabled(False)
+        fileMenu.addSeparator()
         quitAction = fileMenu.addAction(_("&Quit"))
         self.connect(quitAction, QtCore.SIGNAL("triggered()"),
                      QtGui.qApp, QtCore.SLOT("quit()"))
 
-        spreadsheet_placeholder = QtGui.QLabel("TODO : spreadsheet here")
-        spreadsheet_placeholder.setStyleSheet(
-                "QLabel { background-color : white; }")
-        self.setCentralWidget(spreadsheet_placeholder)
+        viewMenu = menubar.addMenu(_("&View"))
+        showBuilderAction = viewMenu.addAction(_("Show &builder window"))
+        self.connect(showBuilderAction, QtCore.SIGNAL("triggered()"),
+                     get_vistrails_application().showBuilderWindow)
 
+        # Embed the spreadsheet window as the central widget
+        self.spreadsheetWindow = spreadsheetController.findSpreadsheetWindow(
+                show=False)
+        self.setCentralWidget(self.spreadsheetWindow)
+        self.spreadsheetWindow.setVisible(True)
+
+        # Create the panels
+        # DockWidgetClosable is not permitted
         self._variables = VariablePanel()
         self._plots = PlotPanel()
 
