@@ -28,9 +28,9 @@ class NotificationDispatcher(object):
                 notifications = self._view_notifications[view] = {}
         elif window is not None:
             try:
-                notifications = self._window_notifications[view]
+                notifications = self._window_notifications[window]
             except KeyError:
-                notifications = self._window_notifications[view] = {}
+                notifications = self._window_notifications[window] = {}
         else:
             notifications = self._global_notifications
 
