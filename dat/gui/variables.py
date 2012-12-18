@@ -2,6 +2,7 @@ from PyQt4 import QtCore, QtGui
 
 import dat.gui
 from dat.gui import get_icon
+from dat.gui.lists import DraggableListWidget
 
 
 class VariablePanel(QtGui.QWidget):
@@ -34,7 +35,7 @@ class VariablePanel(QtGui.QWidget):
         toolbar.addAction(rename_variable)
         layout.addWidget(toolbar)
 
-        self._list_widget = QtGui.QListWidget()
+        self._list_widget = DraggableListWidget(self, 'X-Vistrails/DATVariable')
         self._list_widget.addItem("Var1")
         self._list_widget.addItem("Var2")
         self._list_widget.addItem("Var3")

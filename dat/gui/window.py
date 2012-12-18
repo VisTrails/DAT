@@ -1,8 +1,8 @@
 from PyQt4 import QtCore, QtGui
 
 import dat.gui
-from dat.gui.variables import VariablePanel
 from dat.gui.plots import PlotPanel
+from dat.gui.variables import VariablePanel
 
 from vistrails.core.application import get_vistrails_application
 from vistrails.packages.spreadsheet.spreadsheet_controller import spreadsheetController
