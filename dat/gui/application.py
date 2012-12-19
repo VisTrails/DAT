@@ -3,6 +3,7 @@ import sys
 from PyQt4 import QtGui
 
 from dat.gui.window import MainWindow
+import dat.manager
 
 from vistrails.core.application import (set_vistrails_application,
         VistrailsApplicationInterface)
@@ -132,6 +133,10 @@ class Application(NotificationDispatcher, VistrailsApplicationInterface):
                 spreadsheetController)
         from dat.gui.cellcontainer import DATCellContainer
         spreadsheetController.setCellContainerClass(DATCellContainer)
+
+        # Discover the plots and variables from packages and register to
+        # notifications for packages loaded in the future
+        dat.manager.Manager().init()
 
     # Various getters required by VisTrails's code...
 

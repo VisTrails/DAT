@@ -3,6 +3,7 @@ from PyQt4 import QtCore, QtGui
 import dat.gui
 from dat.gui import get_icon
 from dat.gui.lists import DraggableListWidget
+from dat.gui.load_variable_dialog import LoadVariableDialog
 
 
 class VariablePanel(QtGui.QWidget):
@@ -43,10 +44,12 @@ class VariablePanel(QtGui.QWidget):
 
         self.setLayout(layout)
 
+        self._variable_loader = LoadVariableDialog(self)
+
     def new_variable(self):
         """Called when a button is clicked.
         """
-        # TODO : display variable loader dialog
+        self._variable_loader.load_variable()
 
     def delete_variable(self):
         """Called when a button is clicked.
@@ -67,9 +70,8 @@ class VariablePanel(QtGui.QWidget):
                 QtGui.QMessageBox.Cancel)
         if confirm == QtGui.QMessageBox.Ok:
             for item in selected:
-                # We're using Python, we can't just 'delete item;'
                 self._list_widget.takeItem(
-                        self._list_widget.indexFromItem(item))
+                        self._list_widget.row(item))
 
     def rename_variable(self):
         """Called when a button is clicked.
