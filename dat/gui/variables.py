@@ -4,6 +4,8 @@ import dat.gui
 from dat.gui import get_icon
 from dat.gui.lists import DraggableListWidget
 from dat.gui.load_variable_dialog import LoadVariableDialog
+import dat.manager
+from dat.utils import bisect
 
 
 class VariablePanel(QtGui.QWidget):
@@ -37,14 +39,16 @@ class VariablePanel(QtGui.QWidget):
         layout.addWidget(toolbar)
 
         self._list_widget = DraggableListWidget(self, 'X-Vistrails/DATVariable')
-        self._list_widget.addItem("Var1")
-        self._list_widget.addItem("Var2")
-        self._list_widget.addItem("Var3")
         layout.addWidget(self._list_widget)
 
         self.setLayout(layout)
 
         self._variable_loader = LoadVariableDialog(self)
+
+        dat.manager.Manager().add_variable_observer((self.variable_added,
+                                                     self.variable_removed))
+        for varname in dat.manager.Manager().variables:
+            self.variable_added(varname)
 
     def new_variable(self):
         """Called when a button is clicked.
@@ -69,9 +73,9 @@ class VariablePanel(QtGui.QWidget):
                 QtGui.QMessageBox.Ok | QtGui.QMessageBox.Cancel,
                 QtGui.QMessageBox.Cancel)
         if confirm == QtGui.QMessageBox.Ok:
+            manager = dat.manager.Manager()
             for item in selected:
-                self._list_widget.takeItem(
-                        self._list_widget.row(item))
+                manager.remove_variable(str(item.text()))
 
     def rename_variable(self):
         """Called when a button is clicked.
@@ -93,6 +97,28 @@ class VariablePanel(QtGui.QWidget):
                 _("New name:"),
                 QtGui.QLineEdit.Normal,
                 selected.text())
+        new_name = str(new_name)
 
         if proceed and new_name:
-            selected.setText(new_name)
+            if dat.manager.Manager().get_variable(new_name) is not None:
+                QtGui.QMessageBox.warning(
+                        self, _("Couldn't rename variable"),
+                        _("A variable '{name}' already exists!")
+                                .format(name=new_name))
+                return
+            varname = str(selected.text())
+            dat.manager.Manager().rename_variable(varname, new_name)
+                # This will trigger a variable_removed then a variable_added
+
+    def variable_added(self, varname):
+        pos = bisect(
+                self._list_widget.count(),
+                lambda i: str(self._list_widget.item(i).text()),
+                varname)
+        self._list_widget.insertItem(pos, varname)
+
+    def variable_removed(self, varname):
+        for i in xrange(self._list_widget.count()):
+            if self._list_widget.item(i).text() == varname:
+                self._list_widget.takeItem(i)
+                break

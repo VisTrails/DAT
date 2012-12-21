@@ -11,9 +11,11 @@ class Manager(object):
     def __init__(self):
         self._plot_observers = set()
         self._loader_observers = set()
+        self._variable_observers = set()
 
         self._plots = set()
         self._variable_loaders = set()
+        self._variables = dict()
 
     def add_plot_observer(self, callbacks):
         """Registers an observer for the plots.
@@ -32,6 +34,15 @@ class Manager(object):
         if not isinstance(callbacks, tuple) or not len(callbacks) == 2:
             raise TypeError
         self._loader_observers.add(callbacks)
+
+    def add_variable_observer(self, callbacks):
+        """Registers an observer for the variables.
+
+        callbacks is a tuple (variable_added, variable_removed).
+        """
+        if not isinstance(callbacks, tuple) or not len(callbacks) == 2:
+            raise TypeError
+        self._variable_observers.add(callbacks)
 
     def init(self):
         """Initial setup of the Manager.
@@ -110,6 +121,33 @@ class Manager(object):
         for loader in list(self._variable_loaders):
             if loader.package_identifier == package.identifier:
                 self._remove_loader(loader)
+
+    def new_variable(self, varname, variable):
+        if varname in self._variables:
+            raise ValueError("A variable named %s already exists!")
+        self._variables[varname] = variable
+        for obs in self._variable_observers:
+            obs[0](varname)
+
+    def remove_variable(self, varname):
+        del self._variables[varname]
+        for obs in self._variable_observers:
+            obs[1](varname)
+
+    def rename_variable(self, old_varname, new_varname):
+        variable = self._variables.pop(old_varname)
+        for obs in self._variable_observers:
+            obs[1](old_varname)
+        self._variables[new_varname] = variable
+        for obs in self._variable_observers:
+            obs[0](new_varname)
+
+    def get_variable(self, varname):
+        return self._variables.get(varname)
+
+    def _get_variables(self):
+        return self._variables.iterkeys()
+    variables = property(_get_variables)
 
     def __call__(self):
         return self

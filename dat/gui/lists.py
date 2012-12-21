@@ -12,7 +12,6 @@ class DraggableListWidget(QtGui.QListWidget):
         data = QtCore.QMimeData()
         data.setData(self._mime_type,
                      element.text().toAscii())
-        data.pwetpwet = 42
         return data
 
     def startDrag(self, actions):

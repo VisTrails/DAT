@@ -1,8 +1,33 @@
+import re
 from PyQt4 import QtCore, QtGui
 
 import dat.gui
 import dat.manager
 from dat.packages import FileVariableLoader, CustomVariableLoader
+
+
+_varname_format = re.compile('^(.+) \(([0-9]+)\)$')
+
+def unique_varname(varname):
+    """Make a variable name unique.
+
+    Adds or increment a number suffix to a variable name to make it unique.
+
+    >>> unique_varname('variable')
+    'variable (2)'
+    >>> unique_varname('variable (4)')
+    'variable (5)'
+    """
+    match = _varname_format.match(varname)
+    num = 1
+    if match is not None:
+        varname = match.group(1)
+        num = int(match.group(2))
+    while True:
+        num += 1
+        new_varname = '%s (%d)' % (varname, num)
+        if dat.manager.Manager().get_variable(new_varname) is None:
+            return new_varname
 
 
 class FileLoaderPanel(QtGui.QWidget):
@@ -104,6 +129,12 @@ class FileLoaderPanel(QtGui.QWidget):
         # TODO : set variable name under condition
         pass
 
+    def load(self):
+        if self._loader_list.currentIndex() == -1:
+            return None
+        loader = self._loader_stack.currentWidget()
+        return loader.load()
+
 
 class LoadVariableDialog(QtGui.QDialog):
     def __init__(self, parent=None):
@@ -183,7 +214,7 @@ class LoadVariableDialog(QtGui.QDialog):
             self._remove_tabs(lambda tab: isinstance(tab, loader))
 
     def default_variable_name_changed(self, loader, new_default_name):
-        # TODO
+        # TODO : set variable name under condition
         pass
 
     def load_variable(self):
@@ -200,5 +231,19 @@ class LoadVariableDialog(QtGui.QDialog):
             self.setVisible(False)
 
     def load_clicked(self):
-        # TODO : set variable name under condition
+        varname = self._varname_edit.text()
+        if varname.isNull() or varname.isEmpty():
+            self._varname_edit.setFocus()
+            return False
+        varname = str(varname)
+        if dat.manager.Manager().get_variable(varname) is not None:
+            self._varname_edit.setText(unique_varname(varname))
+            self._varname_edit.setFocus()
+            return False
+        loader = self._tabs[self._tab_widget.currentIndex()]
+        variable = loader.load()
+        if variable is None:
+            # Here we assume the loader displayed the error itself in some way
+            return False
+        dat.manager.Manager().new_variable(varname, variable)
         return True

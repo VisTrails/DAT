@@ -19,7 +19,7 @@ sys.path.append(start_dir)
 class Program(unittest.TestProgram):
     def createTests(self):
         if self.testNames is None:
-            self.test = tests = self.testLoader.discover(
+            self.test = self.testLoader.discover(
                     start_dir=start_dir,
                     pattern='test_*.py',
                     top_level_dir=top_level)
