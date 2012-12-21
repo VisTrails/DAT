@@ -1,3 +1,32 @@
+"""Interface with VisTrails packages.
+
+This is the only module that VisTrails packages need to import. It provides
+the classes and methods necessary to define plot types and variable loaders.
+
+You might want to maintain compatibility with VisTrails, like so:
+try:
+    import dat.packages
+    from dat.gui import translate # Optional; you might want to use it if you
+        # want to internationalize your strings
+except ImportError:
+    pass # This happens if the package was imported from VisTrails, not from
+        # DAT
+        # In that case, don't define plots or variable loaders.
+else:
+    _ = translate('packages.MyPackage') # Create a translator (optional)
+
+    _plots = [
+        Plot(...),
+    ]
+
+    class MyLoader(dat.packages.CustomVariableLoader):
+        ...
+
+    _variable_loaders = [
+        MyLoader: _("My new loader"),
+    ]
+"""
+
 from PyQt4 import QtGui
 
 from vistrails.core.modules.vistrails_module import Module
@@ -20,8 +49,47 @@ class Port(object):
         self.optional = optional
 
 
+class ModuleWrapper(object):
+    """Object representing a VisTrails module in a DAT variable pipeline.
+
+    This is a wrapper returned by Variable#add_module. It is used by VisTrails
+    packages to build a pipeline for a new variable.
+    """
+    def add_function(self, inputport_name, value):
+        # TODO : Add a function with a specific value for a port of this
+        # module
+        pass
+
+    def connect_outputport_to(self, outputport_name, other_module, inputport_name):
+        # TODO : Connect the given output port of this module to the given
+        # input port of another module
+        # The modules must be ModuleWrapper's for the same Variable
+        pass
+
+
 class Variable(object):
-    pass
+    """Object representing a DAT variable.
+
+    This is a wrapper used by VisTrails packages to build a pipeline for a new
+    variable. This variable is then stored in the Manager.
+    Wrapper objects are restored from the Vistrail file easily: they are
+    children versions of the version tagged 'dat-vars', and have a tag
+    'dat-var-name' where 'name' is the name of that specific DAT variable.
+    """
+    def __init__(self):
+        # TODO : create or get the version tagged 'dat-vars'
+        # This is the base version of all DAT variables. It consists of a
+        # single OutputPort module with name 'value'
+        pass
+
+    def add_module(self, module_type):
+        # TODO : add a new module to the pipeline and return a wrapper for it
+        return ModuleWrapper()
+
+    def select_output_port(self, module, outputport_name):
+        # TODO : connect the output port with the given name of the given
+        # wrapped module to the OutputPort module (added at version 'dat-vars')
+        pass
 
 
 class _BaseVariableLoader(object):
