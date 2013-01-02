@@ -29,6 +29,8 @@ else:
 
 from PyQt4 import QtGui
 
+from dat import DEFAULT_VARIABLE_NAME
+
 from vistrails.core.modules.vistrails_module import Module
 
 
@@ -111,14 +113,15 @@ class _BaseVariableLoader(object):
         You don't need to worry about already taken names, this default will be
         made unique if need be.
         """
-        return "variable"
+        DEFAULT_VARIABLE_NAME
 
     def default_variable_name_changed(self, new_default_name):
         """Call this function to signal that the default variable name changed.
 
         This can happen if the user selected a different file, ...
         """
-        self.default_variable_name_observer(self, new_default_name)
+        if self.default_variable_name_observer is not None:
+            self.default_variable_name_observer(self, new_default_name)
 
 
 class CustomVariableLoader(QtGui.QWidget, _BaseVariableLoader):

@@ -1,6 +1,7 @@
 import re
 from PyQt4 import QtCore, QtGui
 
+from dat import DEFAULT_VARIABLE_NAME
 import dat.gui
 import dat.manager
 from dat.packages import FileVariableLoader, CustomVariableLoader
@@ -96,8 +97,10 @@ class FileLoaderPanel(QtGui.QWidget):
                     widget = loader(filename)
                     widget.default_variable_name_observer = (
                             self.default_variable_name_changed)
-                    self._loader_list.addItem(loader.loader_tab_name, widget)
+                    # The order of these lines is important, because adding an
+                    # item to the list emits a signal
                     self._loader_stack.addWidget(widget)
+                    self._loader_list.addItem(loader.loader_tab_name, widget)
             if self._loader_stack.count() == 0:
                 self._loader_stack.addWidget(
                         QtGui.QLabel(_("No loader accepts this file")))
@@ -114,6 +117,10 @@ class FileLoaderPanel(QtGui.QWidget):
             return
         self._loader_stack.setCurrentIndex(index)
 
+        self.default_variable_name_observer(
+                self,
+                self._loader_stack.widget(index).get_default_variable_name())
+
     def add_file_loader(self, loader):
         if not loader in self._file_loaders:
             self._file_loaders.add(loader)
@@ -126,8 +133,18 @@ class FileLoaderPanel(QtGui.QWidget):
         self.select_file('')
 
     def default_variable_name_changed(self, loader, new_default_name):
-        # TODO : set variable name under condition
-        pass
+        if self._loader_list.currentIndex() == -1:
+            return None
+        current_loader = self._loader_stack.currentWidget()
+        if current_loader is loader:
+            self.default_variable_name_observer(self, new_default_name)
+
+    def get_default_variable_name(self):
+        if self._loader_list.currentIndex() == -1:
+            return DEFAULT_VARIABLE_NAME
+        current_loader = self._loader_stack.currentWidget()
+        name = current_loader.get_default_variable_name()
+        return name
 
     def load(self):
         if self._loader_list.currentIndex() == -1:
@@ -149,8 +166,8 @@ class LoadVariableDialog(QtGui.QDialog):
         main_layout = QtGui.QVBoxLayout()
 
         self._tab_widget = QtGui.QTabWidget()
-        self._file_loader = FileLoaderPanel()
-        self._add_tab(self._file_loader, _("File"))
+        self.connect(self._tab_widget, QtCore.SIGNAL('currentChanged(int)'),
+                     self.update_varname)
         main_layout.addWidget(self._tab_widget)
 
         varname_layout = QtGui.QHBoxLayout()
@@ -160,12 +177,13 @@ class LoadVariableDialog(QtGui.QDialog):
         main_layout.addLayout(varname_layout)
 
         buttons_layout = QtGui.QHBoxLayout()
-        load_cont_button = QtGui.QPushButton(_("Load and continue"))
+        load_cont_button = QtGui.QPushButton(_("Load and close"))
         self.connect(load_cont_button, QtCore.SIGNAL('clicked()'),
-                     self.loadcont_clicked)
+                     self.loadclose_clicked)
         buttons_layout.addWidget(load_cont_button)
         load_button = QtGui.QPushButton(_("Load"))
-        self.connect(load_button, QtCore.SIGNAL('clicked()'), self.load_clicked)
+        self.connect(load_button, QtCore.SIGNAL('clicked()'),
+                     self.load_clicked)
         buttons_layout.addWidget(load_button)
         cancel_button = QtGui.QPushButton(_("Cancel"))
         self.connect(cancel_button, QtCore.SIGNAL('clicked()'), self.cancel)
@@ -174,10 +192,29 @@ class LoadVariableDialog(QtGui.QDialog):
 
         self.setLayout(main_layout)
 
+        self._file_loader = FileLoaderPanel()
+        self._file_loader.default_variable_name_observer = (
+                self.default_variable_name_changed)
+        self._add_tab(self._file_loader, _("File"))
+
         dat.manager.Manager().add_loader_observer((self.loader_added,
                                                    self.loader_removed))
         for loader in dat.manager.Manager().variable_loaders:
             self.loader_added(loader)
+
+        idx = self._tab_widget.currentIndex()
+        if idx >= 0:
+            loader = self._tabs[idx]
+            self._default_varname = loader.get_default_variable_name()
+        else:
+            self._default_varname = DEFAULT_VARIABLE_NAME
+        self._varname_edit.setText(self._default_varname)
+
+    def update_varname(self, idx):
+        if idx >= 0:
+            loader = self._tabs[idx]
+            self.default_variable_name_changed(
+                    None, loader.get_default_variable_name())
 
     def _add_tab(self, tab, name):
         widget = QtGui.QWidget()
@@ -186,8 +223,10 @@ class LoadVariableDialog(QtGui.QDialog):
         lay.addStretch()
         widget.setLayout(lay)
 
-        self._tab_widget.addTab(widget, name)
+        # The order of these lines is important, because adding a tab emits a
+        # signal
         self._tabs.append(tab)
+        self._tab_widget.addTab(widget, name)
 
     def _remove_tabs(self, tabfilter):
         idx = 0
@@ -214,8 +253,20 @@ class LoadVariableDialog(QtGui.QDialog):
             self._remove_tabs(lambda tab: isinstance(tab, loader))
 
     def default_variable_name_changed(self, loader, new_default_name):
-        # TODO : set variable name under condition
-        pass
+        idx = self._tab_widget.currentIndex()
+        if idx == -1:
+            return
+        current_loader = self._tabs[idx]
+        if not (loader is None or loader is current_loader):
+            return
+
+        varname = self._varname_edit.text()
+        # If the field is empty or its content is the previous default name,
+        # we set it to the new default name
+        if (varname.isNull() or varname.isEmpty() or
+                str(varname) == self._default_varname):
+            self._default_varname = new_default_name
+            self._varname_edit.setText(self._default_varname)
 
     def load_variable(self):
         if not self.isVisible():
@@ -226,7 +277,7 @@ class LoadVariableDialog(QtGui.QDialog):
     def cancel(self):
         self.setVisible(False)
 
-    def loadcont_clicked(self):
+    def loadclose_clicked(self):
         if self.load_clicked():
             self.setVisible(False)
 
