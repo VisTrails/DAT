@@ -78,11 +78,11 @@ class Variable(object):
     children versions of the version tagged 'dat-vars', and have a tag
     'dat-var-name' where 'name' is the name of that specific DAT variable.
     """
-    def __init__(self):
+    def __init__(self, type=None):
         # TODO : create or get the version tagged 'dat-vars'
         # This is the base version of all DAT variables. It consists of a
         # single OutputPort module with name 'value'
-        pass
+        self.type = type
 
     def add_module(self, module_type):
         # TODO : add a new module to the pipeline and return a wrapper for it
@@ -91,6 +91,7 @@ class Variable(object):
     def select_output_port(self, module, outputport_name):
         # TODO : connect the output port with the given name of the given
         # wrapped module to the OutputPort module (added at version 'dat-vars')
+        # Check that the port is compatible to self.type
         pass
 
 
