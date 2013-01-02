@@ -1,7 +1,16 @@
-from PyQt4 import QtGui
+from PyQt4 import QtCore, QtGui
 
+from dat import MIMETYPE_DAT_PLOT
 from dat.gui.lists import DraggableListWidget
 import dat.manager
+
+
+class PlotList(DraggableListWidget):
+    def buildData(self, element):
+        data = QtCore.QMimeData()
+        data.setData(self._mime_type, '')
+        data.plot = element.plot
+        return data
 
 
 class PlotItem(QtGui.QListWidgetItem):
@@ -16,7 +25,7 @@ class PlotPanel(QtGui.QWidget):
 
         layout = QtGui.QVBoxLayout()
 
-        self._list_widget = DraggableListWidget(self, 'X-Vistrails/DATPlot')
+        self._list_widget = PlotList(self, MIMETYPE_DAT_PLOT)
         layout.addWidget(self._list_widget)
 
         self.setLayout(layout)
