@@ -30,6 +30,7 @@ else:
 from PyQt4 import QtGui
 
 from dat import DEFAULT_VARIABLE_NAME
+import dat.manager
 
 from vistrails.core.modules.vistrails_module import Module
 
@@ -93,6 +94,10 @@ class Variable(object):
         # wrapped module to the OutputPort module (added at version 'dat-vars')
         # Check that the port is compatible to self.type
         pass
+
+    def _get_name(self):
+        return dat.manager.Manager()._get_variable_name(self)
+    name = property(_get_name)
 
 
 class _BaseVariableLoader(object):

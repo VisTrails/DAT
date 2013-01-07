@@ -16,6 +16,7 @@ class Manager(object):
         self._plots = set()
         self._variable_loaders = set()
         self._variables = dict()
+        self._variables_reverse = dict()
 
     def add_plot_observer(self, callbacks):
         """Registers an observer for the plots.
@@ -126,19 +127,22 @@ class Manager(object):
         if varname in self._variables:
             raise ValueError("A variable named %s already exists!")
         self._variables[varname] = variable
+        self._variables_reverse[variable] = varname
         for obs in self._variable_observers:
             obs[0](varname)
 
     def remove_variable(self, varname):
-        del self._variables[varname]
+        del self._variables_reverse[self._variables.pop(varname)]
         for obs in self._variable_observers:
             obs[1](varname)
 
     def rename_variable(self, old_varname, new_varname):
         variable = self._variables.pop(old_varname)
+        del self._variables_reverse[variable]
         for obs in self._variable_observers:
             obs[1](old_varname)
         self._variables[new_varname] = variable
+        self._variables_reverse[variable] = new_varname
         for obs in self._variable_observers:
             obs[0](new_varname)
 
@@ -148,6 +152,9 @@ class Manager(object):
     def _get_variables(self):
         return self._variables.iterkeys()
     variables = property(_get_variables)
+
+    def _get_variable_name(self, variable):
+        return self._variables_reverse[variable] # Might raise KeyError
 
     def __call__(self):
         return self

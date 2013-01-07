@@ -137,6 +137,7 @@ class VariableDroppingOverlay(Overlay):
         qp.drawText(5, 5 + ascent, self._cell._plot.name + " (")
 
         for i, port in enumerate(self._cell._plot.ports):
+            # TODO : display variable names for already-assigned ports
             y, h = self._parameters[i]
             if self._compatible_ports:
                 if self._compatible_ports[i]:
