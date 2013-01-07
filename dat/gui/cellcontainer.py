@@ -31,7 +31,7 @@ class Overlay(object):
         pass
 
 
-class DropDeniedOverlay(Overlay):
+class VariableDropEmptyCell(Overlay):
     """Used when dragging a variable over a cell without a plot.
 
     A plot must be dropped first, so that the types of the parameters are
@@ -39,6 +39,8 @@ class DropDeniedOverlay(Overlay):
     """
 
     def draw(self, qp):
+        _ = translate(VariableDropEmptyCell)
+
         Overlay.draw(self, qp)
 
         qp.setPen(Overlay.no_pen)
@@ -47,12 +49,30 @@ class DropDeniedOverlay(Overlay):
                 10, 10,
                 self._cell.width() - 20, self._cell.height() - 20)
 
+        qp.drawText(
+                10, 10,
+                self._cell.width() - 20, self._cell.height() - 20,
+                QtCore.Qt.AlignCenter | QtCore.Qt.TextWordWrap,
+                _("You need to drag a plot first"))
+
 
 class PlotDroppingOverlay(Overlay):
     """Shown when dragging a plot in a cell.
 
     Just provides feedback for the user.
     """
+
+    def __init__(self, cellcontainer, mimeData):
+        _ = translate(PlotDroppingOverlay)
+
+        Overlay.__init__(self, cellcontainer, mimeData)
+
+        if cellcontainer._plot is None:
+            text = _("Drop here to add a {plotname} to this cell")
+        else:
+            text = _("Drop here to replace this plot with a new {plotname}")
+        self._text = text.format(
+                plotname=mimeData.plot.name)
 
     def draw(self, qp):
         Overlay.draw(self, qp)
@@ -62,6 +82,12 @@ class PlotDroppingOverlay(Overlay):
         qp.drawRect(
                 10, 10,
                 self._cell.width() - 20, self._cell.height() - 20)
+
+        qp.drawText(
+                10, 10,
+                self._cell.width() - 20, self._cell.height() - 20,
+                QtCore.Qt.AlignCenter | QtCore.Qt.TextWordWrap,
+                self._text)
 
 
 class VariableDroppingOverlay(Overlay):
@@ -111,7 +137,7 @@ class VariableDroppingOverlay(Overlay):
         qp.drawText(5, y, ")")
 
     def set_mouse_position(self, x, y):
-        # TODO
+        # TODO-dat : update overlay (target a parameter)
         pass
 
 
@@ -127,9 +153,9 @@ class PlotPromptOverlay(Overlay):
         qp.setPen(Overlay.text)
         qp.setBrush(QtCore.Qt.NoBrush)
         qp.drawText(
-                0, 0,
-                self._cell.width(), self._cell.height(),
-                QtCore.Qt.AlignCenter,
+                10, 10,
+                self._cell.width() - 20, self._cell.height() - 20,
+                QtCore.Qt.AlignCenter | QtCore.Qt.TextWordWrap,
                 _("Drag a plot in this cell"))
 
 
@@ -182,7 +208,7 @@ class DATCellContainer(QCellContainer):
                 # We can't though, because Qt would stop sending drag and drop
                 # events
                 # We still refuse the QDropEvent when the drop happens
-                self._set_overlay(DropDeniedOverlay, mimeData)
+                self._set_overlay(VariableDropEmptyCell, mimeData)
             else:
                 # TODO-dat : target a specific parameter
                 self._set_overlay(VariableDroppingOverlay, mimeData)
