@@ -30,6 +30,9 @@ class Overlay(object):
     def set_mouse_position(self, x, y):
         pass
 
+    def resize(self, width, height):
+        pass
+
 
 class VariableDropEmptyCell(Overlay):
     """Used when dragging a variable over a cell without a plot.
@@ -198,6 +201,10 @@ class DATCellContainer(QCellContainer):
         else:
             self._overlay = overlay_class(self, mimeData)
             self.repaint()
+
+    def resizeEvent(self, event):
+        super(DATCellContainer, self).resizeEvent(event)
+        self._overlay.resize(self.width(), self.height())
 
     def dragEnterEvent(self, event):
         mimeData = event.mimeData()
