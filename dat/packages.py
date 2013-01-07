@@ -119,7 +119,7 @@ class _BaseVariableLoader(object):
         You don't need to worry about already taken names, this default will be
         made unique if need be.
         """
-        DEFAULT_VARIABLE_NAME
+        return DEFAULT_VARIABLE_NAME
 
     def default_variable_name_changed(self, new_default_name):
         """Call this function to signal that the default variable name changed.
@@ -146,6 +146,10 @@ class CustomVariableLoader(QtGui.QWidget, _BaseVariableLoader):
     If the default variable name changes because of the user changing its
     selection, default_variable_name_changed() can be called to update it.
     """
+    def __init__(self):
+        QtGui.QWidget.__init__(self)
+        _BaseVariableLoader.__init__(self)
+
     def load(self):
         """Load the variable and return it.
 
@@ -176,10 +180,12 @@ class FileVariableLoader(QtGui.QWidget, _BaseVariableLoader):
     def __init__(self):
         """Constructor.
 
-        filename is the file that we want to load. Do not keep the file open
-        while this object exists, it could interfere with other loaders.
+        This constructor receives a 'filename' parameter: the file that we want
+        to load. Do not keep the file open thoughout the life of this object,
+        it could interfere with other loaders.
         """
-        super(FileVariableLoader, self).__init__()
+        QtGui.QWidget.__init__(self)
+        _BaseVariableLoader.__init__(self)
 
     def load(self):
         """Load the variable and return it.
