@@ -57,9 +57,9 @@ class ModuleWrapper(object):
     This is a wrapper returned by Variable#add_module. It is used by VisTrails
     packages to build a pipeline for a new variable.
     """
-    def add_function(self, inputport_name, value):
-        # TODO : Add a function with a specific value for a port of this
-        # module
+    def add_function(self, inputport_name, vt_type, value):
+        # TODO : Add a function with a specific type and value for a port of
+        # this module
         pass
 
     def connect_outputport_to(self, outputport_name, other_module, inputport_name):
