@@ -14,12 +14,18 @@ class Overlay(object):
     def __init__(self, cellcontainer, mimeData):
         self._cell = cellcontainer
 
+    # Background of all overlay (translucent, on top of the cell's content)
     background = QtGui.QColor(255, 255, 255, 127)
-    ok_pen  = QtGui.QColor(102, 153, 255)
-    ok_fill = QtGui.QColor(187, 204, 255)
-    no_pen  = QtGui.QColor(255,  51,  51)
-    no_fill = QtGui.QColor(255, 170, 170)
-    text    = QtGui.QColor(0, 0, 0)
+    # Accepting a drop
+    ok_pen      = QtGui.QColor(102, 153, 255)
+    ok_fill     = QtGui.QColor(187, 204, 255)
+    # Denying a drop
+    no_pen      = QtGui.QColor(255,  51,  51)
+    no_fill     = QtGui.QColor(255, 170, 170)
+    # Hovered
+    targeted    = QtGui.QColor(255, 255, 255)
+    # Text (black)
+    text        = QtGui.QColor(0, 0, 0)
 
     def draw(self, qp):
         qp.fillRect(
@@ -103,6 +109,8 @@ class VariableDroppingOverlay(Overlay):
     def __init__(self, cellcontainer, mimeData):
         Overlay.__init__(self, cellcontainer, mimeData)
 
+        self.resize(cellcontainer.width(), cellcontainer.height())
+
         # Type-checking, so we can show which parameters are suitable to
         # receive the drop
         if not mimeData or not mimeData.hasFormat(MIMETYPE_DAT_VARIABLE):
@@ -113,6 +121,8 @@ class VariableDroppingOverlay(Overlay):
             self._compatible_ports = [issubclass(variable.type, port.type)
                                       for port in self._cell._plot.ports]
 
+        self._cell._parameter_hovered = None
+
     def draw(self, qp):
         Overlay.draw(self, qp)
 
@@ -120,11 +130,14 @@ class VariableDroppingOverlay(Overlay):
         qp.setBrush(QtCore.Qt.NoBrush)
         metrics = qp.fontMetrics()
         ascent = metrics.ascent()
-        height = metrics.height()
-        y = 5 + ascent
-        qp.drawText(5, y, self._cell._plot.name + " (")
+        normalFont = qp.font()
+        requiredFont = QtGui.QFont(qp.font())
+        requiredFont.setBold(True)
+
+        qp.drawText(5, 5 + ascent, self._cell._plot.name + " (")
+
         for i, port in enumerate(self._cell._plot.ports):
-            y += height
+            y, h = self._parameters[i]
             if self._compatible_ports:
                 if self._compatible_ports[i]:
                     qp.setPen(Overlay.ok_pen)
@@ -132,16 +145,75 @@ class VariableDroppingOverlay(Overlay):
                 else:
                     qp.setPen(Overlay.no_pen)
                     qp.setBrush(Overlay.no_fill)
-                qp.drawRect(20, y - ascent, 50, height)
-            qp.setPen(Overlay.text)
+                qp.drawRect(20, y, self._parameter_max_width, h)
             qp.setBrush(QtCore.Qt.NoBrush)
-            qp.drawText(20, y, port.name)
-        y += height
-        qp.drawText(5, y, ")")
+            if port.optional:
+                qp.setFont(normalFont)
+            else:
+                qp.setFont(requiredFont)
+            if i == self._cell._parameter_hovered:
+                qp.setPen(Overlay.targeted)
+            else:
+                qp.setPen(Overlay.text)
+            qp.drawText(20, y + ascent, port.name)
+
+        qp.drawText(
+                5,
+                self._parameters[-1][0] + self._parameters[-1][1] + ascent,
+                ")")
+
+    def resize(self, width, height):
+        metrics = self._cell.fontMetrics()
+        height = metrics.height()
+
+        fontBold = QtGui.QFont(self._cell.font())
+        fontBold.setBold(True)
+        metricsBold = QtGui.QFontMetrics(fontBold)
+        heightBold = metricsBold.height()
+
+        y = 5 # Top margin
+        y += height # Plot name
+
+        # Position the parameters
+        self._parameters = []
+        maxwidth = 0
+        for port in self._cell._plot.ports:
+            if port.optional:
+                width = metrics.width(port.name)
+                h = height
+            else:
+                width = metricsBold.width(port.name)
+                h = heightBold
+            self._parameters.append((y, h))
+            y += h
+            if width > maxwidth:
+                maxwidth = width
+        self._parameter_max_width = maxwidth
 
     def set_mouse_position(self, x, y):
-        # TODO-dat : update overlay (target a parameter)
-        pass
+        # Find the currently targeted port: the compatible port closer to the
+        # mouse
+
+        if not self._compatible_ports:
+            return # Nothing to target
+
+        targeted, mindist = None, None
+        for i, param in enumerate(self._parameters):
+            if self._compatible_ports[i]:
+                if y < param[0]:
+                    dist = param[0] - y
+                elif y > param[0] + param[1]:
+                    dist = y - param[0] + param[1]
+                else:
+                    targeted = i
+                    break
+                if mindist is None or dist < mindist:
+                    mindist = dist
+                    targeted = i
+
+        if self._cell._parameter_hovered != targeted:
+            self._cell._parameter_hovered = targeted
+            self._cell.repaint()
 
 
 class PlotPromptOverlay(Overlay):
@@ -217,7 +289,6 @@ class DATCellContainer(QCellContainer):
                 # We still refuse the QDropEvent when the drop happens
                 self._set_overlay(VariableDropEmptyCell, mimeData)
             else:
-                # TODO-dat : target a specific parameter
                 self._set_overlay(VariableDroppingOverlay, mimeData)
         elif mimeData.hasFormat(MIMETYPE_DAT_PLOT):
             self._set_overlay(PlotDroppingOverlay, mimeData)
@@ -243,17 +314,18 @@ class DATCellContainer(QCellContainer):
         mimeData = event.mimeData()
 
         if mimeData.hasFormat(MIMETYPE_DAT_VARIABLE):
-            if self._plot is None:
-                event.ignore()
-            else:
+            if self._plot and self._parameter_hovered:
                 event.accept()
                 # TODO-dat : add/change a variable to this cell
+            else:
+                event.ignore()
 
         elif mimeData.hasFormat(MIMETYPE_DAT_PLOT):
             event.accept()
             # TODO-dat : change the plot in this cell
             self._plot = mimeData.plot
             self._variables = []
+            self._parameter_hovered = None
             # Deleting a plot must update the pipeline infos in the spreadsheet
             # tab
             # StandardWidgetSheetTabInterface#deleteCell()
