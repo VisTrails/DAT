@@ -130,15 +130,20 @@ class VariableDroppingOverlay(Overlay):
         qp.setBrush(QtCore.Qt.NoBrush)
         metrics = qp.fontMetrics()
         ascent = metrics.ascent()
+        height = metrics.height()
         normalFont = qp.font()
         requiredFont = QtGui.QFont(qp.font())
         requiredFont.setBold(True)
 
+        # Plot name
         qp.drawText(5, 5 + ascent, self._cell._plot.name + " (")
 
         for i, port in enumerate(self._cell._plot.ports):
             # TODO : display variable names for already-assigned ports
             y, h = self._parameters[i]
+
+            # Draw boxes according to the compatibility of the port with the
+            # variable being dragged
             if self._compatible_ports:
                 if self._compatible_ports[i]:
                     qp.setPen(Overlay.ok_pen)
@@ -148,7 +153,13 @@ class VariableDroppingOverlay(Overlay):
                     qp.setBrush(Overlay.no_fill)
                 qp.drawRect(20, y, self._parameter_max_width, h)
             qp.setBrush(QtCore.Qt.NoBrush)
-            if port.optional:
+
+            # The parameter is either set, required or optional
+            variable = self._cell._variables.get(port.name)
+            if variable is not None:
+                qp.setFont(normalFont)
+                qp.drawText(40, y + height + ascent, " = %s" % variable.name)
+            elif port.optional:
                 qp.setFont(normalFont)
             else:
                 qp.setFont(requiredFont)
@@ -158,6 +169,8 @@ class VariableDroppingOverlay(Overlay):
                 qp.setPen(Overlay.text)
             qp.drawText(20, y + ascent, port.name)
 
+        # Closing parenthesis
+        qp.setPen(Overlay.text)
         qp.drawText(
                 5,
                 self._parameters[-1][0] + self._parameters[-1][1] + ascent,
@@ -179,7 +192,11 @@ class VariableDroppingOverlay(Overlay):
         self._parameters = []
         maxwidth = 0
         for port in self._cell._plot.ports:
-            if port.optional:
+            variable = self._cell._variables.get(port.name)
+            if variable is not None:
+                width = 20 + metrics.width(" = %s" % variable.name)
+                h = height * 2
+            elif port.optional:
                 width = metrics.width(port.name)
                 h = height
             else:
@@ -251,7 +268,7 @@ class DATCellContainer(QCellContainer):
         self._overlay = None
 
         self._plot = None # dat.packages:Plot
-        self._variables = []
+        self._variables = {}
 
         self._set_overlay(None)
 
@@ -315,21 +332,25 @@ class DATCellContainer(QCellContainer):
         mimeData = event.mimeData()
 
         if mimeData.hasFormat(MIMETYPE_DAT_VARIABLE):
-            if self._plot and self._parameter_hovered:
+            if self._plot and self._parameter_hovered is not None:
                 event.accept()
-                # TODO-dat : add/change a variable to this cell
+                port_name = self._plot.ports[self._parameter_hovered].name
+                self._variables[port_name] = (
+                        Manager().get_variable(
+                                str(mimeData.data(MIMETYPE_DAT_VARIABLE))))
+                self.try_update()
             else:
                 event.ignore()
 
         elif mimeData.hasFormat(MIMETYPE_DAT_PLOT):
             event.accept()
-            # TODO-dat : change the plot in this cell
             self._plot = mimeData.plot
-            self._variables = []
+            self._variables = {}
             self._parameter_hovered = None
             # Deleting a plot must update the pipeline infos in the spreadsheet
             # tab
             # StandardWidgetSheetTabInterface#deleteCell()
+            self.try_update()
 
         else:
             event.ignore()
@@ -341,3 +362,8 @@ class DATCellContainer(QCellContainer):
 
         if self._overlay:
             self._overlay.draw(QtGui.QPainter(self))
+
+    def try_update(self):
+        # TODO-dat : if enough ports are set, execute the workflow to put a
+        # visualization in the cell
+        pass
