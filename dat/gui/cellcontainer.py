@@ -277,7 +277,10 @@ class DATCellContainer(QCellContainer):
         super(DATCellContainer, self).setCellInfo(cellInfo)
         pipelineInfo = cellInfo.tab.getPipelineInfo(cellInfo.row,
                                                     cellInfo.column)
-        recipe = PlotMap().get_recipe(pipelineInfo)
+        if pipelineInfo is not None:
+            recipe = pipelineInfo and PlotMap().get_recipe(pipelineInfo)
+        else:
+            recipe = None
         if recipe is not None:
             self._plot = recipe.plot
             self._variables = list(recipe.variables)

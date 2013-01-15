@@ -32,6 +32,8 @@ from PyQt4 import QtGui
 from dat import DEFAULT_VARIABLE_NAME
 import dat.manager
 
+from vistrails.core import get_vistrails_application
+from vistrails.core.modules.module_registry import get_module_registry
 from vistrails.core.modules.vistrails_module import Module
 
 
@@ -79,11 +81,50 @@ class Variable(object):
     children versions of the version tagged 'dat-vars', and have a tag
     'dat-var-name' where 'name' is the name of that specific DAT variable.
     """
+    @staticmethod
+    def _get_variables_root():
+        """Create or get the version tagged 'dat-vars'
+        """
+        controller = get_vistrails_application().dat_controller
+        if controller.vistrail.has_tag_str('dat-vars'):
+            root_version = controller.vistrail.get_tag_str('dat-vars')
+            return controller, root_version
+        else:
+            from vistrails.core.db.action import create_action
+            # Create the 'dat-vars' version
+            controller.change_selected_version(0)
+            controller.add_module_action
+            reg = get_module_registry()
+            operations = []
+
+            # Add an OutputPort module
+            descriptor = reg.get_descriptor_by_name(
+                    'edu.utah.sci.vistrails.basic', 'OutputPort')
+            out_mod = controller.create_module_from_descriptor(descriptor)
+            operations.append(('add', out_mod))
+
+            # Add a function to this module
+            operations.extend(
+                    controller.update_function_ops(
+                            out_mod,
+                            'name',
+                            ['value']))
+
+            # Perform the operations
+            action = create_action(operations)
+            controller.add_new_action(action)
+            root_version = controller.perform_action(action)
+            controller.change_selected_version(root_version)
+            # Tag as 'dat-vars'
+            controller.vistrail.set_tag(root_version, 'dat-vars')
+            return controller, root_version
+
     def __init__(self, type=None):
+        self.type = type
         # TODO : create or get the version tagged 'dat-vars'
         # This is the base version of all DAT variables. It consists of a
         # single OutputPort module with name 'value'
-        self.type = type
+        self._controller, self._root_version = Variable._get_variables_root()
 
     def add_module(self, module_type):
         # TODO : add a new module to the pipeline and return a wrapper for it

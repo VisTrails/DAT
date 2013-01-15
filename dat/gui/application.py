@@ -126,7 +126,8 @@ class Application(NotificationDispatcher, VistrailsApplicationInterface):
         self.builderWindow.closeEvent = lambda e: None
         self.vistrailsStartup.init()
         self.builderWindow.link_registry()
-        #self.builderWindow.create_first_vistrail()
+        self.builderWindow.create_first_vistrail()
+        self.dat_controller = self.builderWindow.get_current_controller()
 
         # Set our own spreadsheet cell container class
         from vistrails.packages.spreadsheet.spreadsheet_controller import (
