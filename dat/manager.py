@@ -8,6 +8,14 @@ from vistrails.core.packagemanager import get_package_manager
 
 
 class Manager(object):
+    """Keeps a list of DAT objects (Plots, Variables, VariableLoaders).
+
+    This singleton allows components throughout the application to access them
+    and to get notifications when these lists are changed.
+
+    It also autodiscovers the Plots and VariableLoaders from VisTrails packages
+    when they are loaded, by subscribing to VisTrails's registry notifications.
+    """
     def __init__(self):
         self._plot_observers = set()
         self._loader_observers = set()
@@ -88,6 +96,10 @@ class Manager(object):
     variable_loaders = property(_get_loaders)
 
     def new_package(self, package_identifier, prepend=False):
+        """Called when a package is loaded in VisTrails.
+
+        Discovers and registers Plots and VariableLoaders.
+        """
         pm = get_package_manager()
         package = pm.get_package_by_identifier(package_identifier)
         if hasattr(package.init_module, '_plots'):
@@ -115,6 +127,11 @@ class Manager(object):
                 self._add_loader(loader)
 
     def deleted_package(self, package):
+        """Called when a package is unloaded in VisTrails.
+
+        Removes the Plots and VariableLoaders associated with that package from
+        the lists.
+        """
         for plot in list(self._plots):
             if plot.package_identifier == package.identifier:
                 self._remove_plot(plot)
@@ -124,6 +141,8 @@ class Manager(object):
                 self._remove_loader(loader)
 
     def new_variable(self, varname, variable):
+        """Register a new Variable with DAT.
+        """
         if varname in self._variables:
             raise ValueError("A variable named %s already exists!")
         self._variables[varname] = variable
@@ -132,11 +151,18 @@ class Manager(object):
             obs[0](varname)
 
     def remove_variable(self, varname):
+        """Remove a Variable from DAT.
+        """
         del self._variables_reverse[self._variables.pop(varname)]
         for obs in self._variable_observers:
             obs[1](varname)
 
     def rename_variable(self, old_varname, new_varname):
+        """Rename a Variable.
+
+        Observers will get notified that a Variable was deleted and another
+        added.
+        """
         variable = self._variables.pop(old_varname)
         del self._variables_reverse[variable]
         for obs in self._variable_observers:

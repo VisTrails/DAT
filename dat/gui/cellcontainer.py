@@ -3,6 +3,7 @@ from PyQt4 import QtCore, QtGui
 from dat import MIMETYPE_DAT_VARIABLE, MIMETYPE_DAT_PLOT
 from dat.gui import translate
 from dat.manager import Manager
+from dat.plot_map import PlotMap
 
 from vistrails.packages.spreadsheet.spreadsheet_cell import QCellContainer
 
@@ -268,8 +269,21 @@ class DATCellContainer(QCellContainer):
         self._overlay = None
 
         self._plot = None # dat.packages:Plot
-        self._variables = {}
+        self._variables = dict()
 
+        self._set_overlay(None)
+
+    def setCellInfo(self, cellInfo):
+        super(DATCellContainer, self).setCellInfo(cellInfo)
+        pipelineInfo = cellInfo.tab.getPipelineInfo(cellInfo.row,
+                                                    cellInfo.column)
+        recipe = PlotMap().get_recipe(pipelineInfo)
+        if recipe is not None:
+            self._plot = recipe.plot
+            self._variables = list(recipe.variables)
+        else:
+            self._plot = None
+            self._variables = dict()
         self._set_overlay(None)
 
     def setWidget(self, widget):
@@ -278,10 +292,6 @@ class DATCellContainer(QCellContainer):
             widget.lower()
 
     def _set_overlay(self, overlay_class, mimeData=None):
-        # TODO-dat : check that the contained widget is the correct version;
-        # if not, only allow dropping a new plot to replace the content
-        # The content of the cell might come from a pipeline edited directly
-        # from VisTrails, in which case this interface is irrelevant
         if overlay_class is None:
             # Default overlay
             if self.widget() is None and self._plot is not None:
@@ -371,4 +381,5 @@ class DATCellContainer(QCellContainer):
     def try_update(self):
         # TODO-dat : if enough ports are set, execute the workflow to put a
         # visualization in the cell
+        # Update PlotMap
         pass
