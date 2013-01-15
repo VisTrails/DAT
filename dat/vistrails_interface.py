@@ -5,7 +5,7 @@ the classes and methods necessary to define plot types and variable loaders.
 
 You might want to maintain compatibility with VisTrails, like so:
 try:
-    import dat.packages
+    import dat.vistrails_interface
     from dat.gui import translate # Optional; you might want to use it if you
         # want to internationalize your strings
 except ImportError:
@@ -19,7 +19,7 @@ else:
         Plot(...),
     ]
 
-    class MyLoader(dat.packages.CustomVariableLoader):
+    class MyLoader(dat.vistrails_interface.CustomVariableLoader):
         ...
 
     _variable_loaders = [

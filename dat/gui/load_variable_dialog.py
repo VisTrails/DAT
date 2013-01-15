@@ -4,7 +4,7 @@ from PyQt4 import QtCore, QtGui
 from dat import DEFAULT_VARIABLE_NAME
 import dat.gui
 import dat.manager
-from dat.packages import FileVariableLoader, CustomVariableLoader
+from dat.vistrails_interface import FileVariableLoader, CustomVariableLoader
 
 
 _varname_format = re.compile('^(.+) \(([0-9]+)\)$')

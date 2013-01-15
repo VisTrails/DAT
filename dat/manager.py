@@ -1,6 +1,6 @@
 import warnings
 
-from dat.packages import _BaseVariableLoader, Plot
+from dat.vistrails_interface import _BaseVariableLoader, Plot
 
 from vistrails.core.application import get_vistrails_application
 from vistrails.core.modules.module_registry import get_module_registry

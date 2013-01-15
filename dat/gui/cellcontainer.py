@@ -268,7 +268,7 @@ class DATCellContainer(QCellContainer):
         self.setAcceptDrops(True)
         self._overlay = None
 
-        self._plot = None # dat.packages:Plot
+        self._plot = None # dat.vistrails_interface:Plot
         self._variables = dict()
 
         self._set_overlay(None)
