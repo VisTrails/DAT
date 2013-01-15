@@ -139,7 +139,6 @@ class VariableDroppingOverlay(Overlay):
         qp.drawText(5, 5 + ascent, self._cell._plot.name + " (")
 
         for i, port in enumerate(self._cell._plot.ports):
-            # TODO : display variable names for already-assigned ports
             y, h = self._parameters[i]
 
             # Draw boxes according to the compatibility of the port with the
@@ -152,7 +151,12 @@ class VariableDroppingOverlay(Overlay):
                     qp.setPen(Overlay.no_pen)
                     qp.setBrush(Overlay.no_fill)
                 qp.drawRect(20, y, self._parameter_max_width, h)
+
             qp.setBrush(QtCore.Qt.NoBrush)
+            if i == self._cell._parameter_hovered:
+                qp.setPen(Overlay.targeted)
+            else:
+                qp.setPen(Overlay.text)
 
             # The parameter is either set, required or optional
             variable = self._cell._variables.get(port.name)
@@ -163,10 +167,6 @@ class VariableDroppingOverlay(Overlay):
                 qp.setFont(normalFont)
             else:
                 qp.setFont(requiredFont)
-            if i == self._cell._parameter_hovered:
-                qp.setPen(Overlay.targeted)
-            else:
-                qp.setPen(Overlay.text)
             qp.drawText(20, y + ascent, port.name)
 
         # Closing parenthesis
@@ -221,7 +221,7 @@ class VariableDroppingOverlay(Overlay):
                 if y < param[0]:
                     dist = param[0] - y
                 elif y > param[0] + param[1]:
-                    dist = y - param[0] + param[1]
+                    dist = y - (param[0] + param[1])
                 else:
                     targeted = i
                     break
@@ -278,6 +278,10 @@ class DATCellContainer(QCellContainer):
             widget.lower()
 
     def _set_overlay(self, overlay_class, mimeData=None):
+        # TODO-dat : check that the contained widget is the correct version;
+        # if not, only allow dropping a new plot to replace the content
+        # The content of the cell might come from a pipeline edited directly
+        # from VisTrails, in which case this interface is irrelevant
         if overlay_class is None:
             # Default overlay
             if self.widget() is None and self._plot is not None:
@@ -294,7 +298,8 @@ class DATCellContainer(QCellContainer):
 
     def resizeEvent(self, event):
         super(DATCellContainer, self).resizeEvent(event)
-        self._overlay.resize(self.width(), self.height())
+        if self._overlay is not None:
+            self._overlay.resize(self.width(), self.height())
 
     def dragEnterEvent(self, event):
         mimeData = event.mimeData()
