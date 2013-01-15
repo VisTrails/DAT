@@ -3,7 +3,8 @@ from PyQt4 import QtCore, QtGui
 from dat import MIMETYPE_DAT_VARIABLE, MIMETYPE_DAT_PLOT
 from dat.gui import translate
 from dat.manager import Manager
-from dat.plot_map import PlotMap
+from dat.plot_map import DATRecipe, PlotMap
+from dat import vistrails_interface
 
 from vistrails.packages.spreadsheet.spreadsheet_cell import QCellContainer
 
@@ -382,7 +383,17 @@ class DATCellContainer(QCellContainer):
             self._overlay.draw(QtGui.QPainter(self))
 
     def try_update(self):
-        # TODO-dat : if enough ports are set, execute the workflow to put a
-        # visualization in the cell
-        # Update PlotMap
-        pass
+        """Check if enough ports are set, and execute the workflow
+        """
+        if all(
+                port.optional or self._variables.has_key(port.name)
+                for port in self._plot.ports):
+            # Look this recipe up in the PlotMap
+            recipe = DATRecipe(self._plot, self._variables)
+            pipeline = PlotMap().get_pipeline(recipe)
+            if pipeline is None:
+                # Build the pipeline
+                pipeline = vistrails_interface.create_pipeline(recipe)
+                PlotMap().created_pipeline(recipe, pipeline)
+            vistrails_interface.execute_pipeline_to_cell(self.cellInfo,
+                                                         pipeline)

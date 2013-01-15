@@ -8,7 +8,7 @@ class DATRecipe(object):
         """__init__(plot: Plot, variables: dict of Variables)
         """
         self.plot = plot
-        self.variables = variables
+        self.variables = dict(variables)
         self._hash = hash((
                 self.plot,
                 tuple((k, v.name) for k, v in self.variables.iteritems())))
@@ -20,6 +20,19 @@ class DATRecipe(object):
 
     def __hash__(self):
         return self._hash
+
+
+class PipelineInformation(object):
+    """A simple class holding enough information on a pipeline to locate it.
+    """
+    def __init__(self, version):
+        self.version = version
+
+    def __eq__(self, other):
+        return self.version == other.version
+
+    def __hash__(self):
+        return hash(self.version)
 
 
 class PlotMap(object):
@@ -55,15 +68,15 @@ class PlotMap(object):
                         "Pipelines:\n"
                         "    %s version=%s\n"
                         "    %s version=%s" % (
-                        print_loc(p['locator']), p['version'],
-                        print_loc(pipeline['locator']), pipeline['version']))
+                        print_loc(p.locator), p.version,
+                        print_loc(pipeline.locator), pipeline.version))
         except KeyError:
             pass
-        self._pipeline_to_recipe[(pipeline['locator'], pipeline['version'])] = (pipeline, recipe)
+        self._pipeline_to_recipe[pipeline] = recipe
         self._recipe_to_pipeline[recipe] = pipeline
 
     def get_recipe(self, pipeline):
-        return self._pipeline_to_recipe.get((pipeline['locator'], pipeline['version']), None)
+        return self._pipeline_to_recipe.get(pipeline, None)
 
     def get_pipeline(self, recipe):
         return self._recipe_to_pipeline.get(recipe, None)

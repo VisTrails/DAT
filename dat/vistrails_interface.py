@@ -31,6 +31,7 @@ from PyQt4 import QtGui
 
 from dat import DEFAULT_VARIABLE_NAME
 import dat.manager
+from dat.plot_map import PipelineInformation
 
 from vistrails.core import get_vistrails_application
 from vistrails.core.modules.module_registry import get_module_registry
@@ -236,3 +237,22 @@ class FileVariableLoader(QtGui.QWidget, _BaseVariableLoader):
         parameters.
         """
         raise NotImplementedError
+
+
+def create_pipeline(recipe):
+    """create_pipeline(recipe: DATRecipe) -> PipelineInformation
+    
+    Create a pipeline in the Vistrail and return its information.
+    """
+    # TODO-dat : create a pipeline from a recipe
+    return PipelineInformation(0)
+
+
+def execute_pipeline_to_cell(cellInfo, pipeline):
+    """ execute_pipeline_to_cell(cellInfo: CellInformation,
+                             pipeline: PipelineInformation) -> None
+
+    Execute the referenced pipeline, so that its result gets displayed in the
+    specified spreadsheet cell.
+    """
+    # TODO-dat : execute a pipeline to a cell
