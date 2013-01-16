@@ -38,6 +38,8 @@ from vistrails.core.db.action import create_action
 from vistrails.core.modules.module_registry import get_module_registry
 from vistrails.core.modules.utils import parse_descriptor_string
 from vistrails.core.modules.vistrails_module import Module
+from vistrails.packages.spreadsheet.spreadsheet_execute import \
+    executePipelineWithProgress
 
 
 class Plot(object):
@@ -351,8 +353,53 @@ def create_pipeline(recipe):
     
     Create a pipeline in the Vistrail and return its information.
     """
-    # TODO-dat : create a pipeline from a recipe
-    return PipelineInformation(0)
+    # Build from the root version
+    controller = get_vistrails_application().dat_controller
+    controller.change_selected_version(0)
+
+    reg = get_module_registry()
+
+    operations = []
+
+    # Add the plot subworkflow module
+    plot_module = None
+    # TODO-dat : create a subworkflow module for the Plot
+
+    # Add the Variable subworkflows, but 'inline' them
+    outputport_desc = reg.get_descriptor_by_name(
+            'edu.utah.sci.vistrails.basic', 'OutputPort')
+    for param, variable in recipe.variables.iteritems():
+        pipeline = controller.vistrail.getPipeline(
+                'dat-var-%s' % variable.name)
+
+        # Copy every module but the OutputPort
+        copy_modules = dict()
+        for module in pipeline.modules.itervalues():
+            if module.module_descriptor is outputport_desc:
+                output_id = module.id
+            else:
+                operations.append(('add', module))
+                copy_modules[module.id] = module
+
+        # Copy every connection except the one to the OutputPort module
+        for connection in pipeline.connection_list:
+            if connection.destination.moduleId == output_id:
+                # We connect to the plot's subworkflow module port <param>
+                # instead
+                new_conn = controller.create_connection(
+                        copy_modules[connection.source.moduleId],
+                        connection.source.name,
+                        plot_module,
+                        param)
+                operations.append(('add', new_conn))
+            else:
+                operations.append(('add', connection))
+
+    action = create_action(operations)
+    controller.add_new_action(action)
+    pipeline_version = controller.perform_action(action)
+
+    return PipelineInformation(pipeline_version)
 
 
 def execute_pipeline_to_cell(cellInfo, pipeline):
@@ -362,4 +409,13 @@ def execute_pipeline_to_cell(cellInfo, pipeline):
     Execute the referenced pipeline, so that its result gets displayed in the
     specified spreadsheet cell.
     """
-    # TODO-dat : execute a pipeline to a cell
+    # Retrieve the pipeline
+    controller = get_vistrails_application().dat_controller
+    pipeline = controller.vistrail.getPipeline(pipeline.version)
+    pipeline = cellInfo.tab.setPipelineToLocateAt(
+            cellInfo.row,
+            cellInfo.column,
+            pipeline)
+    executePipelineWithProgress(
+            pipeline,
+            "DAT recipe execution")
