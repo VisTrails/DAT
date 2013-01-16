@@ -34,7 +34,9 @@ import dat.manager
 from dat.plot_map import PipelineInformation
 
 from vistrails.core import get_vistrails_application
+from vistrails.core.db.action import create_action
 from vistrails.core.modules.module_registry import get_module_registry
+from vistrails.core.modules.utils import parse_descriptor_string
 from vistrails.core.modules.vistrails_module import Module
 
 
@@ -61,16 +63,51 @@ class ModuleWrapper(object):
     This is a wrapper returned by Variable#add_module. It is used by VisTrails
     packages to build a pipeline for a new variable.
     """
+    def __init__(self, variable, module_type):
+        self._variable = variable
+        reg = get_module_registry()
+        if isinstance(module_type, str):
+            # TODO-dat : second argument should be the package currently being
+            # loaded
+            d_tuple = parse_descriptor_string(module_type, None)
+            descriptor = reg.get_descriptor_by_name(*d_tuple)
+        elif issubclass(module_type, Module):
+            descriptor = reg.get_descriptor(module_type)
+        else:
+            raise TypeError("add_module() argument must be a Module or str "
+                            "object, not '%s'" % type(module_type))
+        controller = self._variable._controller
+        self._module = controller.create_module_from_descriptor(descriptor)
+        self._variable._operations.append(('add', self._module))
+
     def add_function(self, inputport_name, vt_type, value):
-        # TODO : Add a function with a specific type and value for a port of
-        # this module
-        pass
+        """Add a function for a port of this module.
+        """
+        # TODO-dat : Check type and port name
+        controller = self._variable._controller
+        self._variable._operations.extend(
+                controller.update_function_ops(
+                        self._module,
+                        inputport_name,
+                        [value]))
 
     def connect_outputport_to(self, outputport_name, other_module, inputport_name):
-        # TODO : Connect the given output port of this module to the given
-        # input port of another module
-        # The modules must be ModuleWrapper's for the same Variable
-        pass
+        """Create a connection between ports of two modules.
+
+        Connects the given output port of this module to the given input port
+        of another module.
+
+        The modules must be wrappers for the same Variable.
+        """
+        if self._variable is not other_module._variable:
+            raise ValueError("connect_outputport_to() can only connect "
+                             "modules of the same Variable")
+        # Might raise vistrails.core.modules.module_registry:MissingPort
+        controller = self._variable._controller
+        connection = controller.create_connection(
+                self._module, outputport_name,
+                other_module, inputport_name)
+        self._variable._operations.append(('add', connection))
 
 
 class Variable(object):
@@ -85,13 +122,14 @@ class Variable(object):
     @staticmethod
     def _get_variables_root():
         """Create or get the version tagged 'dat-vars'
+
+        This is the base version of all DAT variables. It consists of a single
+        OutputPort module with name 'value'.
         """
         controller = get_vistrails_application().dat_controller
         if controller.vistrail.has_tag_str('dat-vars'):
             root_version = controller.vistrail.get_tag_str('dat-vars')
-            return controller, root_version
         else:
-            from vistrails.core.db.action import create_action
             # Create the 'dat-vars' version
             controller.change_selected_version(0)
             controller.add_module_action
@@ -118,24 +156,71 @@ class Variable(object):
             controller.change_selected_version(root_version)
             # Tag as 'dat-vars'
             controller.vistrail.set_tag(root_version, 'dat-vars')
-            return controller, root_version
+
+        pipeline = controller.vistrail.getPipeline(root_version)
+        outmod_id = pipeline.modules.keys()
+        assert len(outmod_id) == 1
+        outmod_id = outmod_id[0]
+        return controller, root_version, outmod_id
 
     def __init__(self, type=None):
         self.type = type
-        # TODO : create or get the version tagged 'dat-vars'
-        # This is the base version of all DAT variables. It consists of a
-        # single OutputPort module with name 'value'
-        self._controller, self._root_version = Variable._get_variables_root()
+        # Create or get the version tagged 'dat-vars'
+        self._controller, self._root_version, self._output_module_id = (
+                Variable._get_variables_root())
+
+        # The creation of a Variable is bufferized so as to handle exceptions
+        # in VisTrails packages correctly
+        # All the operations leading to the materialization of this variable
+        # as a pipeline, child of the 'dat-vars' version, are stored in this
+        # list and will be added to the Vistrail when perform_operations() is
+        # called by the Manager
+        self._operations = []
+
+        self._output_designated = False
 
     def add_module(self, module_type):
-        # TODO : add a new module to the pipeline and return a wrapper for it
-        return ModuleWrapper()
+        # Add a new module to the pipeline and return a wrapper
+        return ModuleWrapper(self, module_type)
 
     def select_output_port(self, module, outputport_name):
-        # TODO : connect the output port with the given name of the given
-        # wrapped module to the OutputPort module (added at version 'dat-vars')
-        # Check that the port is compatible to self.type
-        pass
+        """Select the output port of the Variable pipeline.
+
+        The given output port of the given module will be chosen as the output
+        port of the Variable. It is this output port that will be connected to
+        the Plot subworkflow's input port when creating an actual pipeline.
+
+        This function should be called exactly once when creating a Variable.
+        """
+        # Connects the output port with the given name of the given wrapped
+        # module to the OutputPort module (added at version 'dat-vars')
+        # TODO-dat : Check that the port is compatible to self.type
+        if module._variable is not self:
+            raise ValueError("select_output_port() designated a module from a "
+                             "different Variable")
+        elif self._output_designated:
+            raise ValueError("select_output_port() was called more than once")
+
+        controller = self._controller
+        out_mod = controller.current_pipeline.modules[self._output_module_id]
+        connection = controller.create_connection(
+                module._module, outputport_name,
+                out_mod, 'InternalPipe')
+        self._operations.append(('add', connection))
+        self._output_designated = True
+
+    def perform_operations(self):
+        # TODO-dat : call this from somewhere (Manager?)
+        # TODO-dat : removing or renaming a Variable should affect the created
+        # pipeline
+        controller = self._controller
+        controller.change_selected_version(self._root_version)
+
+        action = create_action(self._operations)
+        controller.add_new_action(action)
+        self._var_version = controller.perform_action(action)
+        controller.vistrail.set_tag(self._var_version,
+                                    'dat-var-%s' % self.name)
 
     def _get_name(self):
         return dat.manager.Manager()._get_variable_name(self)
