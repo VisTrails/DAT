@@ -210,15 +210,37 @@ class Variable(object):
         self._output_designated = True
 
     def perform_operations(self):
-        # TODO-dat : call this from somewhere (Manager?)
-        # TODO-dat : removing or renaming a Variable should affect the created
-        # pipeline
+        """Materialize this Variable in the Vistrail.
+
+        Create a pipeline tagged as 'dat-var-<varname>' for this Variable,
+        children of the 'dat-vars' version.
+
+        This is called by the Manager when the Variable is inserted.
+        """
         controller = self._controller
         controller.change_selected_version(self._root_version)
 
         action = create_action(self._operations)
         controller.add_new_action(action)
         self._var_version = controller.perform_action(action)
+        controller.vistrail.set_tag(self._var_version,
+                                    'dat-var-%s' % self.name)
+        controller.change_selected_version(self._var_version)
+
+    def remove(self):
+        """Delete the pipeline from the Vistrail.
+
+        This is called by the Manager when the Variable is removed.
+        """
+        controller = self._controller
+        controller.prune_versions([self._var_version])
+
+    def rename(self):
+        """Change the tag on this version in the Vistrail.
+
+        This is called by the Manager when the Variable is renamed.
+        """
+        controller = self._controller
         controller.vistrail.set_tag(self._var_version,
                                     'dat-var-%s' % self.name)
 

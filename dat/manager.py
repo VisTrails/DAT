@@ -59,6 +59,7 @@ class Manager(object):
         Discovers plots and variable loaders from packages and registers
         notifications for packages loaded in the future.
         """
+        # TODO-dat : load the Variables from the Vistrail
         app = get_vistrails_application()
         app.register_notification("reg_new_package", self.new_package)
         app.register_notification("reg_deleted_package", self.deleted_package)
@@ -147,13 +148,19 @@ class Manager(object):
             raise ValueError("A variable named %s already exists!")
         self._variables[varname] = variable
         self._variables_reverse[variable] = varname
+
+        # Materialize the Variable in the Vistrail
+        variable.perform_operations()
+
         for obs in self._variable_observers:
             obs[0](varname)
 
     def remove_variable(self, varname):
         """Remove a Variable from DAT.
         """
-        del self._variables_reverse[self._variables.pop(varname)]
+        variable = self._variables.pop(varname)
+        variable.remove()
+        del self._variables_reverse[variable]
         for obs in self._variable_observers:
             obs[1](varname)
 
@@ -169,6 +176,7 @@ class Manager(object):
             obs[1](old_varname)
         self._variables[new_varname] = variable
         self._variables_reverse[variable] = new_varname
+        variable.rename()
         for obs in self._variable_observers:
             obs[0](new_varname)
 
