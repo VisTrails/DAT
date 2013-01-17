@@ -156,7 +156,7 @@ class Variable(object):
         """
         controller = get_vistrails_application().dat_controller
         if controller.vistrail.has_tag_str('dat-vars'):
-            root_version = controller.vistrail.get_tag_str('dat-vars')
+            root_version = controller.vistrail.get_version_number('dat-vars')
         else:
             # Create the 'dat-vars' version
             controller.change_selected_version(0)
