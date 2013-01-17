@@ -423,21 +423,42 @@ def create_pipeline(recipe):
         plot_pipeline = vistrail.getPipeline(version)
 
         # Copy every module but the InputPorts
+        new_modules_map = dict() # old module id -> new module
         for module in plot_pipeline.modules.itervalues():
             if module.module_descriptor is not inputport_desc:
-                operations.append(('add', module))
+                # We can't just add this module to the new pipeline!
+                # We need to create a new one to avoid id collisions
+                new_module = controller.create_module_from_descriptor(
+                        module.module_descriptor)
+                operations.append(('add', new_module))
+                new_modules_map[module.id] = new_module
+                # Copy the functions
+                for function in module.functions:
+                    operations.extend(
+                            controller.update_function_ops(
+                                    new_module,
+                                    function.name,
+                                    [param.strValue
+                                     for param in function.params]))
+                            # ModuleParameter has a 'name' attribute, but
+                            # it doesn't seem to be useful
 
         # Copy the connections and locate the input ports
-        plot_modules = dict() # param name -> (module, input port name)
+        plot_params = dict() # param name -> (module, input port name)
         for connection in plot_pipeline.connection_list:
             src = plot_pipeline.modules[connection.source.moduleId]
             if src.module_descriptor is inputport_desc:
                 param = _get_function(src, 'name')
-                plot_modules[param] = (
-                        plot_pipeline.modules[connection.destination.moduleId],
+                plot_params[param] = (
+                        new_modules_map[connection.destination.moduleId],
                         connection.destination.name)
             else:
-                operations.append(('add', connection))
+                new_conn = controller.create_connection(
+                        new_modules_map[connection.source.moduleId],
+                        connection.source.name,
+                        new_modules_map[connection.destination.moduleId],
+                        connection.destination.name)
+                operations.append(('add', new_conn))
 
     # Add the Variable subworkflows, but 'inline' them
     for param, variable in recipe.variables.iteritems():
@@ -468,7 +489,7 @@ def create_pipeline(recipe):
                             param)
                     operations.append(('add', new_conn))
                 else:
-                    var_output_mod, var_output_port = plot_modules[param]
+                    var_output_mod, var_output_port = plot_params[param]
                     new_conn = controller.create_connection(
                             copy_modules[connection.source.moduleId],
                             connection.source.name,
