@@ -3,7 +3,7 @@ from PyQt4 import QtCore, QtGui
 from dat import MIMETYPE_DAT_VARIABLE, MIMETYPE_DAT_PLOT
 from dat.gui import translate
 from dat.manager import Manager
-from dat.plot_map import DATRecipe, PlotMap
+from dat.plot_map import DATRecipe, PipelineInformation, PlotMap
 from dat import vistrails_interface
 
 from vistrails.packages.spreadsheet.spreadsheet_cell import QCellContainer
@@ -263,23 +263,29 @@ class DATCellContainer(QCellContainer):
     variables and plots.
     """
 
-    def __init__(self, widget=None, parent=None):
-        QCellContainer.__init__(self, widget=widget, parent=parent)
+    def __init__(self, cellInfo=None, widget=None, parent=None):
+        self._overlay = None
+        self._variables = dict()
+        self._plot = None # dat.vistrails_interface:Plot
+
+        QCellContainer.__init__(self, cellInfo, widget, parent)
 
         self.setAcceptDrops(True)
-        self._overlay = None
-
-        self._plot = None # dat.vistrails_interface:Plot
-        self._variables = dict()
 
         self._set_overlay(None)
 
-    def setCellInfo(self, cellInfo):
-        super(DATCellContainer, self).setCellInfo(cellInfo)
-        pipelineInfo = cellInfo.tab.getPipelineInfo(cellInfo.row,
-                                                    cellInfo.column)
+    def setWidget(self, widget):
+        super(DATCellContainer, self).setWidget(widget)
+        if widget is None:
+            return
+
+        widget.lower()
+
+        pipelineInfo = self.cellInfo.tab.getCellPipelineInfo(
+                self.cellInfo.row, self.cellInfo.column)
         if pipelineInfo is not None:
-            recipe = pipelineInfo and PlotMap().get_recipe(pipelineInfo)
+            recipe = pipelineInfo and PlotMap().get_recipe(
+                    PipelineInformation(pipelineInfo[0]['version']))
         else:
             recipe = None
         if recipe is not None:
@@ -290,11 +296,6 @@ class DATCellContainer(QCellContainer):
             self._variables = dict()
         self._set_overlay(None)
 
-    def setWidget(self, widget):
-        super(DATCellContainer, self).setWidget(widget)
-        if widget is not None:
-            widget.lower()
-
     def _set_overlay(self, overlay_class, mimeData=None):
         if overlay_class is None:
             # Default overlay
@@ -304,11 +305,9 @@ class DATCellContainer(QCellContainer):
                 self._set_overlay(PlotPromptOverlay)
             elif self._overlay is not None:
                 self._overlay = None
-                self.repaint()
-
         else:
             self._overlay = overlay_class(self, mimeData)
-            self.repaint()
+        self.repaint()
 
     def resizeEvent(self, event):
         super(DATCellContainer, self).resizeEvent(event)

@@ -160,6 +160,8 @@ class Manager(object):
         """
         variable = self._variables.pop(varname)
         variable.remove()
+        # TODO-dat : update PlotMap
+        # TODO-dat : DATCellContainer should listen to this to repaint
         del self._variables_reverse[variable]
         for obs in self._variable_observers:
             obs[1](varname)
@@ -177,6 +179,7 @@ class Manager(object):
         self._variables[new_varname] = variable
         self._variables_reverse[variable] = new_varname
         variable.rename()
+        # TODO-dat : DATCellContainer should listen to this to repaint
         for obs in self._variable_observers:
             obs[0](new_varname)
 
