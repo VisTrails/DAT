@@ -38,6 +38,7 @@ from dat.plot_map import PipelineInformation
 
 from vistrails.core import get_vistrails_application
 from vistrails.core.db.action import create_action
+from vistrails.core.db.locator import XMLFileLocator
 from vistrails.core.modules.module_registry import get_module_registry
 from vistrails.core.modules.utils import parse_descriptor_string
 from vistrails.core.modules.vistrails_module import Module
@@ -383,6 +384,16 @@ class FileVariableLoader(QtGui.QWidget, _BaseVariableLoader):
         raise NotImplementedError
 
 
+def _get_function(module, function_name):
+    """Get the value of a function of a pipeline module.
+    """
+    for function in module.functions:
+        if function.name == function_name:
+            if len(function.params) > 0:
+                return function.params[0].strValue
+    return None
+
+
 def create_pipeline(recipe):
     """create_pipeline(recipe: DATRecipe) -> PipelineInformation
     
@@ -396,13 +407,39 @@ def create_pipeline(recipe):
 
     operations = []
 
-    # Add the plot subworkflow module
-    plot_module = None
-    # TODO-dat : create a subworkflow module for the Plot
-
-    # Add the Variable subworkflows, but 'inline' them
     outputport_desc = reg.get_descriptor_by_name(
             'edu.utah.sci.vistrails.basic', 'OutputPort')
+    inputport_desc = reg.get_descriptor_by_name(
+            'edu.utah.sci.vistrails.basic', 'InputPort')
+
+    # Add the plot subworkflow module
+    if False:
+        # TODO-dat : create a subworkflow module for the Plot
+        plot_module = None
+    else:
+        locator = XMLFileLocator(recipe.plot.subworkflow)
+        vistrail = locator.load()
+        version = vistrail.get_latest_version()
+        plot_pipeline = vistrail.getPipeline(version)
+
+        # Copy every module but the InputPorts
+        for module in plot_pipeline.modules.itervalues():
+            if module.module_descriptor is not inputport_desc:
+                operations.append(('add', module))
+
+        # Copy the connections and locate the input ports
+        plot_modules = dict() # param name -> (module, input port name)
+        for connection in plot_pipeline.connection_list:
+            src = plot_pipeline.modules[connection.source.moduleId]
+            if src.module_descriptor is inputport_desc:
+                param = _get_function(src, 'name')
+                plot_modules[param] = (
+                        plot_pipeline.modules[connection.destination.moduleId],
+                        connection.destination.name)
+            else:
+                operations.append(('add', connection))
+
+    # Add the Variable subworkflows, but 'inline' them
     for param, variable in recipe.variables.iteritems():
         pipeline = controller.vistrail.getPipeline(
                 'dat-var-%s' % variable.name)
@@ -410,7 +447,8 @@ def create_pipeline(recipe):
         # Copy every module but the OutputPort
         copy_modules = dict()
         for module in pipeline.modules.itervalues():
-            if module.module_descriptor is outputport_desc:
+            if (module.module_descriptor is outputport_desc and
+                    _get_function(module, 'name') == 'value'):
                 output_id = module.id
             else:
                 operations.append(('add', module))
@@ -419,14 +457,24 @@ def create_pipeline(recipe):
         # Copy every connection except the one to the OutputPort module
         for connection in pipeline.connection_list:
             if connection.destination.moduleId == output_id:
-                # We connect to the plot's subworkflow module port <param>
-                # instead
-                new_conn = controller.create_connection(
-                        copy_modules[connection.source.moduleId],
-                        connection.source.name,
-                        plot_module,
-                        param)
-                operations.append(('add', new_conn))
+                if False:
+                    # TODO-dat : use a subworkflow for the Plot
+                    # We connect to the plot's subworkflow module port <param>
+                    # instead
+                    new_conn = controller.create_connection(
+                            copy_modules[connection.source.moduleId],
+                            connection.source.name,
+                            plot_module,
+                            param)
+                    operations.append(('add', new_conn))
+                else:
+                    var_output_mod, var_output_port = plot_modules[param]
+                    new_conn = controller.create_connection(
+                            copy_modules[connection.source.moduleId],
+                            connection.source.name,
+                            var_output_mod,
+                            var_output_port)
+                    operations.append(('add', new_conn))
             else:
                 operations.append(('add', connection))
 
