@@ -444,14 +444,18 @@ def create_pipeline(recipe):
                             # it doesn't seem to be useful
 
         # Copy the connections and locate the input ports
-        plot_params = dict() # param name -> (module, input port name)
+        plot_params = dict() # param name -> [(module, input port name)]
         for connection in plot_pipeline.connection_list:
             src = plot_pipeline.modules[connection.source.moduleId]
             if src.module_descriptor is inputport_desc:
                 param = _get_function(src, 'name')
-                plot_params[param] = (
+                try:
+                    ports = plot_params[param]
+                except KeyError:
+                    ports = plot_params[param] = []
+                ports.append((
                         new_modules_map[connection.destination.moduleId],
-                        connection.destination.name)
+                        connection.destination.name))
             else:
                 new_conn = controller.create_connection(
                         new_modules_map[connection.source.moduleId],
@@ -489,13 +493,14 @@ def create_pipeline(recipe):
                             param)
                     operations.append(('add', new_conn))
                 else:
-                    var_output_mod, var_output_port = plot_params[param]
-                    new_conn = controller.create_connection(
-                            copy_modules[connection.source.moduleId],
-                            connection.source.name,
-                            var_output_mod,
-                            var_output_port)
-                    operations.append(('add', new_conn))
+                    params = plot_params.get(param, None)
+                    for var_output_mod, var_output_port in params:
+                        new_conn = controller.create_connection(
+                                copy_modules[connection.source.moduleId],
+                                connection.source.name,
+                                var_output_mod,
+                                var_output_port)
+                        operations.append(('add', new_conn))
             else:
                 operations.append(('add', connection))
 
