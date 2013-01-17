@@ -27,6 +27,9 @@ else:
     ]
 """
 
+import importlib
+import inspect
+import os, os.path
 from PyQt4 import QtGui
 
 from dat import DEFAULT_VARIABLE_NAME
@@ -44,11 +47,30 @@ from vistrails.packages.spreadsheet.spreadsheet_execute import \
 
 class Plot(object):
     def __init__(self, name, **kwargs):
+        """A plot descriptor.
+
+        Describes a Plot. These objects should be created by a VisTrails
+        package for each Plot it want to registers with DAT, and added to a
+        global '_plots' variable in the 'init' module (for a reloadable
+        package).
+
+        name is mandatory and will be displayed to the user.
+        description is a text that explains what your Plot is about, and can be
+        localized.
+        ports should be a list of Port objects describing the input your Plot
+        expects.
+        subworkflow is the path to the subworkflow that will be used for this
+        Plot. In this string, '{package_dir}' will be replaced with the current
+        package's path.
+        """
         self.name = name
         self.description = kwargs.get('description')
 
+        caller = inspect.currentframe().f_back
+        package = os.path.dirname(inspect.getabsfile(caller))
+
         # Build plot from a subworkflow
-        self.subworkflow = kwargs['subworkflow']
+        self.subworkflow = kwargs['subworkflow'].format(package_dir=package)
         self.ports = kwargs['ports']
 
 
@@ -69,9 +91,12 @@ class ModuleWrapper(object):
         self._variable = variable
         reg = get_module_registry()
         if isinstance(module_type, str):
-            # TODO-dat : second argument should be the package currently being
-            # loaded
-            d_tuple = parse_descriptor_string(module_type, None)
+            try:
+                pkg = importlib.import_module(self._variable._vt_package)
+                identifier = pkg.identifier
+            except ImportError, AttributeError:
+                identifier = None
+            d_tuple = parse_descriptor_string(module_type, identifier)
             descriptor = reg.get_descriptor_by_name(*d_tuple)
         elif issubclass(module_type, Module):
             descriptor = reg.get_descriptor(module_type)
@@ -178,6 +203,16 @@ class Variable(object):
         # list and will be added to the Vistrail when perform_operations() is
         # called by the Manager
         self._operations = []
+
+        # Get the VisTrails package that's creating this Variable by inspecting
+        # the stack
+        caller = inspect.currentframe().f_back
+        module = inspect.getmodule(caller).__name__
+        if module.endswith('.__init__'):
+            module = module[:-9]
+        if module.endswith('.init'):
+            module = module[:-5]
+        self._vt_package = module
 
         self._output_designated = False
 
