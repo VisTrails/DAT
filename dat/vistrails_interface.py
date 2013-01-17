@@ -394,6 +394,23 @@ def _get_function(module, function_name):
     return None
 
 
+def copy_module(controller, module, operations):
+    new_module = controller.create_module_from_descriptor(
+            module.module_descriptor)
+    operations.append(('add', new_module))
+    # Copy the functions
+    for function in module.functions:
+        operations.extend(
+                controller.update_function_ops(
+                        new_module,
+                        function.name,
+                        [param.strValue
+                         for param in function.params]))
+                # ModuleParameter has a 'name' attribute, but
+                # it doesn't seem to be useful
+    return new_module
+
+
 def create_pipeline(recipe):
     """create_pipeline(recipe: DATRecipe) -> PipelineInformation
     
@@ -423,25 +440,13 @@ def create_pipeline(recipe):
         plot_pipeline = vistrail.getPipeline(version)
 
         # Copy every module but the InputPorts
-        new_modules_map = dict() # old module id -> new module
+        plot_modules_map = dict() # old module id -> new module
         for module in plot_pipeline.modules.itervalues():
             if module.module_descriptor is not inputport_desc:
                 # We can't just add this module to the new pipeline!
                 # We need to create a new one to avoid id collisions
-                new_module = controller.create_module_from_descriptor(
-                        module.module_descriptor)
-                operations.append(('add', new_module))
-                new_modules_map[module.id] = new_module
-                # Copy the functions
-                for function in module.functions:
-                    operations.extend(
-                            controller.update_function_ops(
-                                    new_module,
-                                    function.name,
-                                    [param.strValue
-                                     for param in function.params]))
-                            # ModuleParameter has a 'name' attribute, but
-                            # it doesn't seem to be useful
+                plot_modules_map[module.id] = copy_module(
+                        controller, module, operations)
 
         # Copy the connections and locate the input ports
         plot_params = dict() # param name -> [(module, input port name)]
@@ -454,13 +459,13 @@ def create_pipeline(recipe):
                 except KeyError:
                     ports = plot_params[param] = []
                 ports.append((
-                        new_modules_map[connection.destination.moduleId],
+                        plot_modules_map[connection.destination.moduleId],
                         connection.destination.name))
             else:
                 new_conn = controller.create_connection(
-                        new_modules_map[connection.source.moduleId],
+                        plot_modules_map[connection.source.moduleId],
                         connection.source.name,
-                        new_modules_map[connection.destination.moduleId],
+                        plot_modules_map[connection.destination.moduleId],
                         connection.destination.name)
                 operations.append(('add', new_conn))
 
@@ -470,14 +475,16 @@ def create_pipeline(recipe):
                 'dat-var-%s' % variable.name)
 
         # Copy every module but the OutputPort
-        copy_modules = dict()
+        var_modules_map = dict()
         for module in pipeline.modules.itervalues():
             if (module.module_descriptor is outputport_desc and
                     _get_function(module, 'name') == 'value'):
                 output_id = module.id
             else:
-                operations.append(('add', module))
-                copy_modules[module.id] = module
+                # We can't just add this module to the new pipeline!
+                # We need to create a new one to avoid id collisions
+                var_modules_map[module.id] = copy_module(
+                        controller, module, operations)
 
         # Copy every connection except the one to the OutputPort module
         for connection in pipeline.connection_list:
@@ -487,7 +494,7 @@ def create_pipeline(recipe):
                     # We connect to the plot's subworkflow module port <param>
                     # instead
                     new_conn = controller.create_connection(
-                            copy_modules[connection.source.moduleId],
+                            var_modules_map[connection.source.moduleId],
                             connection.source.name,
                             plot_module,
                             param)
@@ -496,7 +503,7 @@ def create_pipeline(recipe):
                     params = plot_params.get(param, None)
                     for var_output_mod, var_output_port in params:
                         new_conn = controller.create_connection(
-                                copy_modules[connection.source.moduleId],
+                                var_modules_map[connection.source.moduleId],
                                 connection.source.name,
                                 var_output_mod,
                                 var_output_port)
