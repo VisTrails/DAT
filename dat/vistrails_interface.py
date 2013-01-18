@@ -489,7 +489,7 @@ def create_pipeline(recipe):
                             param)
                     operations.append(('add', new_conn))
                 else:
-                    params = plot_params.get(param, None)
+                    params = plot_params.get(param, [])
                     for var_output_mod, var_output_port in params:
                         new_conn = controller.create_connection(
                                 var_modules_map[connection.source.moduleId],
