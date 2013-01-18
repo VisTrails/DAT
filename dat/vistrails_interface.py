@@ -181,11 +181,11 @@ class Variable(object):
             action = create_action(operations)
             controller.add_new_action(action)
             root_version = controller.perform_action(action)
-            controller.change_selected_version(root_version)
             # Tag as 'dat-vars'
             controller.vistrail.set_tag(root_version, 'dat-vars')
 
-        pipeline = controller.vistrail.getPipeline(root_version)
+        controller.change_selected_version(root_version)
+        pipeline = controller.current_pipeline
         outmod_id = pipeline.modules.keys()
         assert len(outmod_id) == 1
         outmod_id = outmod_id[0]
@@ -527,7 +527,8 @@ def execute_pipeline_to_cell(cellInfo, pipeline):
     """
     # Retrieve the pipeline
     controller = get_vistrails_application().dat_controller
-    pipeline = controller.vistrail.getPipeline(pipeline.version)
+    controller.change_selected_version(pipeline.version)
+    pipeline = controller.current_pipeline
     pipeline = cellInfo.tab.setPipelineToLocateAt(
             cellInfo.row,
             cellInfo.column,
