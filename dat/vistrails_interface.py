@@ -139,7 +139,7 @@ class ModuleWrapper(object):
 
 
 class Variable(object):
-    """Object representing a DAT variable.
+    """Object used to build a DAT variable.
 
     This is a wrapper used by VisTrails packages to build a pipeline for a new
     variable. This variable is then stored in the Manager.
@@ -147,6 +147,43 @@ class Variable(object):
     children versions of the version tagged 'dat-vars', and have a tag
     'dat-var-name' where 'name' is the name of that specific DAT variable.
     """
+
+    class VariableInformation(object):
+        """Object actually representing a DAT variable.
+
+        Because most of the logic/attribute in Variable become unnecessary once
+        the Variable has been materialized in the pipeline, this is the actual
+        class of the object we store. It is created by
+        Variable#perform_operations().
+        """
+        def __init__(self, controller, type):
+            self._controller = controller
+            self.type = type
+
+        def remove(self):
+            """Delete the pipeline from the Vistrail.
+
+            This is called by the Manager when the Variable is removed.
+            """
+            controller = self._controller
+            version = controller.vistrail.get_version_number(
+                    'dat-var-%s' % self.name)
+            controller.prune_versions([version])
+
+        def rename(self, old_varname, new_varname):
+            """Change the tag on this version in the Vistrail.
+
+            This is called by the Manager when the Variable is renamed.
+            """
+            controller = self._controller
+            version = controller.vistrail.get_version_number(
+                    'dat-var-%s' % old_varname)
+            controller.vistrail.set_tag(version, 'dat-var-%s' % new_varname)
+
+        def _get_name(self):
+            return dat.manager.Manager()._get_variable_name(self)
+        name = property(_get_name)
+
     @staticmethod
     def _get_variables_root():
         """Create or get the version tagged 'dat-vars'
@@ -247,7 +284,7 @@ class Variable(object):
         self._operations.append(('add', connection))
         self._output_designated = True
 
-    def perform_operations(self):
+    def perform_operations(self, name):
         """Materialize this Variable in the Vistrail.
 
         Create a pipeline tagged as 'dat-var-<varname>' for this Variable,
@@ -262,29 +299,10 @@ class Variable(object):
         controller.add_new_action(action)
         self._var_version = controller.perform_action(action)
         controller.vistrail.set_tag(self._var_version,
-                                    'dat-var-%s' % self.name)
+                                    'dat-var-%s' % name)
         controller.change_selected_version(self._var_version)
 
-    def remove(self):
-        """Delete the pipeline from the Vistrail.
-
-        This is called by the Manager when the Variable is removed.
-        """
-        controller = self._controller
-        controller.prune_versions([self._var_version])
-
-    def rename(self):
-        """Change the tag on this version in the Vistrail.
-
-        This is called by the Manager when the Variable is renamed.
-        """
-        controller = self._controller
-        controller.vistrail.set_tag(self._var_version,
-                                    'dat-var-%s' % self.name)
-
-    def _get_name(self):
-        return dat.manager.Manager()._get_variable_name(self)
-    name = property(_get_name)
+        return Variable.VariableInformation(controller, self.type)
 
 
 class _BaseVariableLoader(object):

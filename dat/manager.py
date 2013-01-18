@@ -146,11 +146,12 @@ class Manager(object):
         """
         if varname in self._variables:
             raise ValueError("A variable named %s already exists!")
-        self._variables[varname] = variable
-        self._variables_reverse[variable] = varname
 
         # Materialize the Variable in the Vistrail
-        variable.perform_operations()
+        variable = variable.perform_operations(varname)
+
+        self._variables[varname] = variable
+        self._variables_reverse[variable] = varname
 
         for obs in self._variable_observers:
             obs[0](varname)
@@ -178,7 +179,7 @@ class Manager(object):
             obs[1](old_varname)
         self._variables[new_varname] = variable
         self._variables_reverse[variable] = new_varname
-        variable.rename()
+        variable.rename(old_varname, new_varname)
         # TODO-dat : DATCellContainer should listen to this to repaint
         for obs in self._variable_observers:
             obs[0](new_varname)
