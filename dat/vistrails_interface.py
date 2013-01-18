@@ -395,20 +395,9 @@ def _get_function(module, function_name):
 
 
 def copy_module(controller, module, operations):
-    new_module = controller.create_module_from_descriptor(
-            module.module_descriptor)
-    operations.append(('add', new_module))
-    # Copy the functions
-    for function in module.functions:
-        operations.extend(
-                controller.update_function_ops(
-                        new_module,
-                        function.name,
-                        [param.strValue
-                         for param in function.params]))
-                # ModuleParameter has a 'name' attribute, but
-                # it doesn't seem to be useful
-    return new_module
+    module = module.do_copy(True, controller.vistrail.idScope, {})
+    operations.append(('add', module))
+    return module
 
 
 def create_pipeline(recipe):
@@ -514,6 +503,8 @@ def create_pipeline(recipe):
     action = create_action(operations)
     controller.add_new_action(action)
     pipeline_version = controller.perform_action(action)
+    # FIXME : from_root seems to be necessary here, I don't know why
+    controller.change_selected_version(pipeline_version, from_root=True)
 
     return PipelineInformation(pipeline_version)
 
