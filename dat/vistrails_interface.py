@@ -58,12 +58,8 @@ class ModuleWrapper(object):
         self._variable = variable
         reg = get_module_registry()
         if isinstance(module_type, str):
-            try:
-                pkg = importlib.import_module(self._variable._vt_package)
-                identifier = pkg.identifier
-            except (ImportError, AttributeError):
-                identifier = None
-            d_tuple = parse_descriptor_string(module_type, identifier)
+            d_tuple = parse_descriptor_string(module_type,
+                                              self._variable._vt_package_id)
             descriptor = reg.get_descriptor_by_name(*d_tuple)
         elif issubclass(module_type, Module):
             descriptor = reg.get_descriptor(module_type)
@@ -216,7 +212,11 @@ class Variable(object):
             module = module[:-9]
         if module.endswith('.init'):
             module = module[:-5]
-        self._vt_package = module
+        try:
+            pkg = importlib.import_module(module)
+            self._vt_package_id = pkg.identifier
+        except (ImportError, AttributeError):
+            self._vt_package_id = None
 
         self._output_designated = False
 
