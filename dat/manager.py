@@ -59,14 +59,28 @@ class Manager(object):
         Discovers plots and variable loaders from packages and registers
         notifications for packages loaded in the future.
         """
-        # TODO-dat : load the Variables from the Vistrail
         app = get_vistrails_application()
         app.register_notification("reg_new_package", self.new_package)
         app.register_notification("reg_deleted_package", self.deleted_package)
 
+        # Load the Plots and VariableLoaders from the packages
         registry = get_module_registry()
         for package in registry.package_list:
             self.new_package(package.identifier)
+
+        # Load the Variables from the Vistrail
+        # TODO-dat : this is untested
+        controller = get_vistrails_application().dat_controller
+        if controller.vistrail.has_tag_str('dat-vars'):
+            from dat.vistrails_interface import Variable
+            tagmap = controller.vistrail.get_tagMap()
+            for version, tag in tagmap.iteritems():
+                if tag.startswith('dat-var-'):
+                    varname = tag[8:]
+                    # TODO-dat : get the type from the OutputPort module's spec
+                    # input port
+                    variable = Variable.VariableInformation(controller, None)
+                    self._add_variable(varname, variable)
 
     def _add_plot(self, plot):
         self._plots.add(plot)
@@ -149,11 +163,14 @@ class Manager(object):
     def new_variable(self, varname, variable):
         """Register a new Variable with DAT.
         """
-        if varname in self._variables:
-            raise ValueError("A variable named %s already exists!")
-
         # Materialize the Variable in the Vistrail
         variable = variable.perform_operations(varname)
+
+        self._add_variable(varname, variable)
+
+    def _add_variable(self, varname, variable):
+        if varname in self._variables:
+            raise ValueError("A variable named %s already exists!")
 
         self._variables[varname] = variable
         self._variables_reverse[variable] = varname
