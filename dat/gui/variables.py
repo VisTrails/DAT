@@ -111,14 +111,14 @@ class VariablePanel(QtGui.QWidget):
             dat.manager.Manager().rename_variable(varname, new_name)
                 # This will trigger a variable_removed then a variable_added
 
-    def variable_added(self, varname):
+    def variable_added(self, varname, renamed_from=None):
         pos = bisect(
                 self._list_widget.count(),
                 lambda i: str(self._list_widget.item(i).text()),
                 varname)
         self._list_widget.insertItem(pos, varname)
 
-    def variable_removed(self, varname):
+    def variable_removed(self, varname, renamed_to=None):
         for i in xrange(self._list_widget.count()):
             if self._list_widget.item(i).text() == varname:
                 self._list_widget.takeItem(i)

@@ -71,12 +71,14 @@ class Manager(object):
     def _add_plot(self, plot):
         self._plots.add(plot)
         for obs in self._plot_observers:
-            obs[0](plot)
+            if obs[0] is not None:
+                obs[0](plot)
 
     def _remove_plot(self, plot):
         self._plots.remove(plot)
         for obs in self._plot_observers:
-            obs[1](plot)
+            if obs[1] is not None:
+                obs[1](plot)
 
     def _get_plots(self):
         return iter(self._plots)
@@ -85,12 +87,14 @@ class Manager(object):
     def _add_loader(self, loader):
         self._variable_loaders.add(loader)
         for obs in self._loader_observers:
-            obs[0](loader)
+            if obs[0] is not None:
+                obs[0](loader)
 
     def _remove_loader(self, loader):
         self._variable_loaders.remove(loader)
         for obs in self._loader_observers:
-            obs[1](loader)
+            if obs[1] is not None:
+                obs[1](loader)
 
     def _get_loaders(self):
         return iter(self._variable_loaders)
@@ -155,18 +159,20 @@ class Manager(object):
         self._variables_reverse[variable] = varname
 
         for obs in self._variable_observers:
-            obs[0](varname)
+            if obs[0] is not None:
+                obs[0](varname)
 
     def remove_variable(self, varname):
         """Remove a Variable from DAT.
         """
+        # TODO-dat : DATCellContainer should listen to this to repaint
+        for obs in self._variable_observers:
+            if obs[1] is not None:
+                obs[1](varname)
+
         variable = self._variables.pop(varname)
         variable.remove()
-        # TODO-dat : update PlotMap
-        # TODO-dat : DATCellContainer should listen to this to repaint
         del self._variables_reverse[variable]
-        for obs in self._variable_observers:
-            obs[1](varname)
 
     def rename_variable(self, old_varname, new_varname):
         """Rename a Variable.
@@ -174,16 +180,20 @@ class Manager(object):
         Observers will get notified that a Variable was deleted and another
         added.
         """
+        for obs in self._variable_observers:
+            if obs[1] is not None:
+                obs[1](old_varname, renamed_to=new_varname)
+
         variable = self._variables.pop(old_varname)
         del self._variables_reverse[variable]
-        for obs in self._variable_observers:
-            obs[1](old_varname)
         self._variables[new_varname] = variable
         self._variables_reverse[variable] = new_varname
         variable.rename(old_varname, new_varname)
+
         # TODO-dat : DATCellContainer should listen to this to repaint
         for obs in self._variable_observers:
-            obs[0](new_varname)
+            if obs[0] is not None:
+                obs[0](new_varname, renamed_from=old_varname)
 
     def get_variable(self, varname):
         return self._variables.get(varname)

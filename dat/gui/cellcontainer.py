@@ -264,10 +264,9 @@ class DATCellContainer(QCellContainer):
     It adds an overlay feature to the spreadsheet's cells and handles drops of
     variables and plots.
     """
-
     def __init__(self, cellInfo=None, widget=None, parent=None):
         self._overlay = None
-        self._variables = dict()
+        self._variables = dict() # param name -> Variable
         self._plot = None # dat.vistrails_interface:Plot
 
         QCellContainer.__init__(self, cellInfo, widget, parent)
@@ -275,6 +274,32 @@ class DATCellContainer(QCellContainer):
         self.setAcceptDrops(True)
 
         self._set_overlay(None)
+
+        Manager().add_variable_observer((None, self._variable_removed))
+
+    def _variable_removed(self, varname, renamed_to=None):
+        if renamed_to is None:
+            # A variable was removed!
+            if any(
+                    variable.name == varname
+                    for variable in self._variables.itervalues()):
+                # Two cases here:
+                if self.widget() is not None:
+                    # If this cell already contains a result, we'll just turn
+                    # into a dumb VisTrails cell, as the DAT recipe doesn't
+                    # exist anymore
+                    self._plot = None
+                    self._variables = dict()
+                else:
+                    # If this cell didn't already contain a result, we just
+                    # remove the associated parameters
+                    # The user will just have to drop something else
+                    to_remove = []
+                    for param, variable in self._variables.iteritems():
+                        if variable.name == varname:
+                            to_remove.append(param)
+                    for param in to_remove:
+                        del self._variables[param]
 
     def setWidget(self, widget):
         super(DATCellContainer, self).setWidget(widget)

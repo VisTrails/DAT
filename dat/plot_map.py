@@ -1,5 +1,7 @@
 import warnings
 
+import dat.manager
+
 
 class PlotMap(object):
     """Maintains the correspondence DAT recipes and pipelines.
@@ -11,8 +13,11 @@ class PlotMap(object):
     # TODO-dat : this should be serialized and saved in the VT file, as there is no
     # easy way to find out if a pipeline was created by DAT and how
     def __init__(self):
-        self._pipeline_to_recipe = dict()
-        self._recipe_to_pipeline = dict()
+        self._pipeline_to_recipe = dict() # PipelineInformation -> DATRecipe
+        self._recipe_to_pipeline = dict() # DATRecipe -> PipelineInformation
+
+        dat.manager.Manager().add_variable_observer(
+                (None, self._variable_removed))
 
     def created_pipeline(self, recipe, pipeline):
         """Registers a new pipeline as being the result of a DAT recipe.
@@ -46,6 +51,24 @@ class PlotMap(object):
 
     def get_pipeline(self, recipe):
         return self._recipe_to_pipeline.get(recipe, None)
+
+    def _variable_removed(self, varname, renamed_to=None):
+        if renamed_to is None:
+            # A variable was removed!
+            # We'll remove all the mappings that used it
+            to_remove = []
+            for recipe in self._recipe_to_pipeline.iterkeys():
+                if any(
+                        variable.name == varname
+                        for variable in recipe.variables.itervalues()):
+                    to_remove.append(recipe)
+            if to_remove:
+                warnings.warn(
+                        "Variable %r was used in %d pipelines!" % (
+                                varname, len(to_remove)))
+            for recipe in to_remove:
+                del self._pipeline_to_recipe[
+                        self._recipe_to_pipeline.pop(recipe)]
 
     def __call__(self):
         return self
