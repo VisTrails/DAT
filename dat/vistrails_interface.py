@@ -95,7 +95,7 @@ class ModuleWrapper(object):
             try:
                 pkg = importlib.import_module(self._variable._vt_package)
                 identifier = pkg.identifier
-            except ImportError, AttributeError:
+            except (ImportError, AttributeError):
                 identifier = None
             d_tuple = parse_descriptor_string(module_type, identifier)
             descriptor = reg.get_descriptor_by_name(*d_tuple)
