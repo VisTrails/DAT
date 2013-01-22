@@ -73,20 +73,20 @@ class NotificationDispatcher(object):
                               "notification %s" % notification_id)
 
     @staticmethod
-    def _broadcast_notification(notification_id, methods, args):
+    def _broadcast_notification(notification_id, methods, args, kwargs):
         for m in methods:
             try:
-                m(*args)
+                m(*args, **kwargs)
             except Exception:
                 logging.exception("Got exception while sending notification "
                                   "%s" % notification_id)
 
-    def send_notification(self, notification_id, *args):
+    def send_notification(self, notification_id, *args, **kwargs):
         try:
             self._broadcast_notification(
                     notification_id, 
                     self._global_notifications[notification_id],
-                    args)
+                    args, kwargs)
         except KeyError:
             pass
 
@@ -96,7 +96,7 @@ class NotificationDispatcher(object):
                         notification_id, 
                         self._window_notifications[self.builderWindow]
                                                   [notification_id],
-                        args)
+                        args, kwargs)
             except KeyError:
                 pass
 
@@ -106,7 +106,7 @@ class NotificationDispatcher(object):
                         notification_id, 
                         self._view_notifications[view]
                                                 [notification_id],
-                        args)
+                        args, kwargs)
             except KeyError:
                 pass
 
