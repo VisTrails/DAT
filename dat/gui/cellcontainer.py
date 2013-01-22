@@ -7,6 +7,7 @@ from dat.manager import Manager
 from dat.plot_map import PlotMap
 from dat import vistrails_interface
 
+from vistrails.core.application import get_vistrails_application
 from vistrails.packages.spreadsheet.spreadsheet_cell import QCellContainer
 
 
@@ -275,7 +276,10 @@ class DATCellContainer(QCellContainer):
 
         self._set_overlay(None)
 
-        Manager().add_variable_observer((None, self._variable_removed))
+        get_vistrails_application().register_notification(
+                'dat_removed_variable', self._variable_removed)
+        # TODO-dat : this needs to be unregistered at some point!
+        # Use setCellInfo() somehow?
 
     def _variable_removed(self, varname, renamed_to=None):
         if renamed_to is None:

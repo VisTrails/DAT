@@ -8,6 +8,8 @@ from dat.gui.load_variable_dialog import LoadVariableDialog
 import dat.manager
 from dat.utils import bisect
 
+from vistrails.core.application import get_vistrails_application
+
 
 class VariablePanel(QtGui.QWidget):
     def __init__(self):
@@ -46,8 +48,10 @@ class VariablePanel(QtGui.QWidget):
 
         self._variable_loader = LoadVariableDialog(self)
 
-        dat.manager.Manager().add_variable_observer((self.variable_added,
-                                                     self.variable_removed))
+        app = get_vistrails_application()
+        app.register_notification('dat_new_variable', self.variable_added)
+        app.register_notification('dat_removed_variable', self.variable_removed)
+
         for varname in dat.manager.Manager().variables:
             self.variable_added(varname)
 

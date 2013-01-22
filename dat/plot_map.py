@@ -1,6 +1,6 @@
 import warnings
 
-import dat.manager
+from vistrails.core.application import get_vistrails_application
 
 
 class PlotMap(object):
@@ -16,8 +16,8 @@ class PlotMap(object):
         self._pipeline_to_recipe = dict() # PipelineInformation -> DATRecipe
         self._recipe_to_pipeline = dict() # DATRecipe -> PipelineInformation
 
-        dat.manager.Manager().add_variable_observer(
-                (None, self._variable_removed))
+        get_vistrails_application().register_notification(
+                'dat_removed_variable', self._variable_removed)
 
     def created_pipeline(self, recipe, pipeline):
         """Registers a new pipeline as being the result of a DAT recipe.

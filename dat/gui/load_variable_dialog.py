@@ -6,6 +6,8 @@ import dat.gui
 import dat.manager
 from dat.vistrails_interface import FileVariableLoader, CustomVariableLoader
 
+from vistrails.core.application import get_vistrails_application
+
 
 _varname_format = re.compile('^(.+) \(([0-9]+)\)$')
 
@@ -197,8 +199,9 @@ class LoadVariableDialog(QtGui.QDialog):
                 self.default_variable_name_changed)
         self._add_tab(self._file_loader, _("File"))
 
-        dat.manager.Manager().add_loader_observer((self.loader_added,
-                                                   self.loader_removed))
+        app = get_vistrails_application()
+        app.register_notification('dat_new_loader', self.loader_added)
+        app.register_notification('dat_removed_loader', self.loader_removed)
         for loader in dat.manager.Manager().variable_loaders:
             self.loader_added(loader)
 

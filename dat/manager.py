@@ -17,41 +17,10 @@ class Manager(object):
     when they are loaded, by subscribing to VisTrails's registry notifications.
     """
     def __init__(self):
-        self._plot_observers = set()
-        self._loader_observers = set()
-        self._variable_observers = set()
-
         self._plots = set()
         self._variable_loaders = set()
         self._variables = dict()
         self._variables_reverse = dict()
-
-    def add_plot_observer(self, callbacks):
-        """Registers an observer for the plots.
-
-        callbacks is a tuple (plot_added, plot_removed).
-        """
-        if not isinstance(callbacks, tuple) or not len(callbacks) == 2:
-            raise TypeError
-        self._plot_observers.add(callbacks)
-
-    def add_loader_observer(self, callbacks):
-        """Registers an observer for the variable loaders.
-
-        callbacks is a tuple (loader_added, loader_removed).
-        """
-        if not isinstance(callbacks, tuple) or not len(callbacks) == 2:
-            raise TypeError
-        self._loader_observers.add(callbacks)
-
-    def add_variable_observer(self, callbacks):
-        """Registers an observer for the variables.
-
-        callbacks is a tuple (variable_added, variable_removed).
-        """
-        if not isinstance(callbacks, tuple) or not len(callbacks) == 2:
-            raise TypeError
-        self._variable_observers.add(callbacks)
 
     def init(self):
         """Initial setup of the Manager.
@@ -60,6 +29,20 @@ class Manager(object):
         notifications for packages loaded in the future.
         """
         app = get_vistrails_application()
+
+        # dat_new_plot(plot: Plot)
+        app.create_notification('dat_new_plot')
+        # dat_removed_plot(plot: Plot)
+        app.create_notification('dat_removed_plot')
+        # dat_new_loader(loader: BaseVariableLoader)
+        app.create_notification('dat_new_loader')
+        # dat_removed_loader(loader: BaseVariableLoader)
+        app.create_notification('dat_removed_loader')
+        # dat_new_variable(varname: str)
+        app.create_notification('dat_new_variable')
+        # dat_removed_variable(varname: str)
+        app.create_notification('dat_removed_variable')
+
         app.register_notification("reg_new_package", self.new_package)
         app.register_notification("reg_deleted_package", self.deleted_package)
 
@@ -80,19 +63,19 @@ class Manager(object):
                     # TODO-dat : get the type from the OutputPort module's spec
                     # input port
                     variable = Variable.VariableInformation(controller, None)
+
+                    self._variables[varname] = variable
+                    self._variables_reverse[variable] = varname
+
                     self._add_variable(varname, variable)
 
     def _add_plot(self, plot):
         self._plots.add(plot)
-        for obs in self._plot_observers:
-            if obs[0] is not None:
-                obs[0](plot)
+        get_vistrails_application().send_notification('dat_new_plot', plot)
 
     def _remove_plot(self, plot):
         self._plots.remove(plot)
-        for obs in self._plot_observers:
-            if obs[1] is not None:
-                obs[1](plot)
+        get_vistrails_application().send_notification('dat_removed_plot', plot)
 
     def _get_plots(self):
         return iter(self._plots)
@@ -100,15 +83,12 @@ class Manager(object):
 
     def _add_loader(self, loader):
         self._variable_loaders.add(loader)
-        for obs in self._loader_observers:
-            if obs[0] is not None:
-                obs[0](loader)
+        get_vistrails_application().send_notification('dat_new_loader', loader)
 
     def _remove_loader(self, loader):
         self._variable_loaders.remove(loader)
-        for obs in self._loader_observers:
-            if obs[1] is not None:
-                obs[1](loader)
+        get_vistrails_application().send_notification('dat_removed_loader',
+                                                      loader)
 
     def _get_loaders(self):
         return iter(self._variable_loaders)
@@ -163,29 +143,32 @@ class Manager(object):
     def new_variable(self, varname, variable):
         """Register a new Variable with DAT.
         """
-        # Materialize the Variable in the Vistrail
-        variable = variable.perform_operations(varname)
-
-        self._add_variable(varname, variable)
-
-    def _add_variable(self, varname, variable):
         if varname in self._variables:
             raise ValueError("A variable named %s already exists!")
+
+        # Materialize the Variable in the Vistrail
+        variable = variable.perform_operations(varname)
 
         self._variables[varname] = variable
         self._variables_reverse[variable] = varname
 
-        for obs in self._variable_observers:
-            if obs[0] is not None:
-                obs[0](varname)
+        self._add_variable(varname, variable)
+
+    def _add_variable(self, varname, variable, renamed_from=None):
+        get_vistrails_application().send_notification(
+                'dat_new_variable',
+                varname,
+                renamed_from=renamed_from)
+
+    def _remove_variable(self, varname, renamed_to=None):
+        get_vistrails_application().send_notification('dat_removed_variable',
+                                                      varname)
 
     def remove_variable(self, varname):
         """Remove a Variable from DAT.
         """
         # TODO-dat : DATCellContainer should listen to this to repaint
-        for obs in self._variable_observers:
-            if obs[1] is not None:
-                obs[1](varname)
+        self._remove_variable(varname)
 
         variable = self._variables.pop(varname)
         variable.remove()
@@ -197,9 +180,7 @@ class Manager(object):
         Observers will get notified that a Variable was deleted and another
         added.
         """
-        for obs in self._variable_observers:
-            if obs[1] is not None:
-                obs[1](old_varname, renamed_to=new_varname)
+        self._remove_variable(old_varname, renamed_to=new_varname)
 
         variable = self._variables.pop(old_varname)
         del self._variables_reverse[variable]
@@ -208,9 +189,7 @@ class Manager(object):
         variable.rename(old_varname, new_varname)
 
         # TODO-dat : DATCellContainer should listen to this to repaint
-        for obs in self._variable_observers:
-            if obs[0] is not None:
-                obs[0](new_varname, renamed_from=old_varname)
+        self._add_variable(new_varname, renamed_from=old_varname)
 
     def get_variable(self, varname):
         return self._variables.get(varname)

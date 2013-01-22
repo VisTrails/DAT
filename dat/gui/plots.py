@@ -4,6 +4,8 @@ from dat import MIMETYPE_DAT_PLOT
 from dat.gui.lists import DraggableListWidget
 import dat.manager
 
+from vistrails.core.application import get_vistrails_application
+
 
 class PlotList(DraggableListWidget):
     def buildData(self, element):
@@ -30,8 +32,10 @@ class PlotPanel(QtGui.QWidget):
 
         self.setLayout(layout)
 
-        dat.manager.Manager().add_plot_observer((self.plot_added,
-                                                 self.plot_removed))
+        app = get_vistrails_application()
+        app.register_notification('dat_new_plot', self.plot_added)
+        app.register_notification('dat_removed_plot', self.plot_removed)
+
         for plot in dat.manager.Manager().plots:
             self.plot_added(plot)
 
