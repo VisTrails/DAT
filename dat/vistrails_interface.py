@@ -29,12 +29,10 @@ else:
 
 import importlib
 import inspect
-import os, os.path
 from PyQt4 import QtGui
 
-from dat import DEFAULT_VARIABLE_NAME
+from dat import BaseVariableLoader, PipelineInformation, Plot, Port
 import dat.manager
-from dat.plot_map import PipelineInformation
 
 from vistrails.core import get_vistrails_application
 from vistrails.core.db.action import create_action
@@ -46,40 +44,8 @@ from vistrails.packages.spreadsheet.spreadsheet_execute import \
     executePipelineWithProgress
 
 
-class Plot(object):
-    def __init__(self, name, **kwargs):
-        """A plot descriptor.
-
-        Describes a Plot. These objects should be created by a VisTrails
-        package for each Plot it want to registers with DAT, and added to a
-        global '_plots' variable in the 'init' module (for a reloadable
-        package).
-
-        name is mandatory and will be displayed to the user.
-        description is a text that explains what your Plot is about, and can be
-        localized.
-        ports should be a list of Port objects describing the input your Plot
-        expects.
-        subworkflow is the path to the subworkflow that will be used for this
-        Plot. In this string, '{package_dir}' will be replaced with the current
-        package's path.
-        """
-        self.name = name
-        self.description = kwargs.get('description')
-
-        caller = inspect.currentframe().f_back
-        package = os.path.dirname(inspect.getabsfile(caller))
-
-        # Build plot from a subworkflow
-        self.subworkflow = kwargs['subworkflow'].format(package_dir=package)
-        self.ports = kwargs['ports']
-
-
-class Port(object):
-    def __init__(self, name, type=Module, optional=False):
-        self.name = name
-        self.type = type
-        self.optional = optional
+__all__ = ['Plot', 'Port', 'Variable',
+           'CustomVariableLoader', 'FileVariableLoader']
 
 
 class ModuleWrapper(object):
@@ -305,37 +271,7 @@ class Variable(object):
         return Variable.VariableInformation(controller, self.type)
 
 
-class _BaseVariableLoader(object):
-    def __init__(self):
-        self.default_variable_name_observer = None
-
-    def reset(self):
-        """Resets the widget so it can be used again.
-
-        Implement this in subclasses to reset the widget.
-        """
-        pass
-
-    def get_default_variable_name(self):
-        """Default name for the variable that will be loaded.
-
-        You should re-implement this to return a sensible default name for the
-        variable that will be loaded. The user can edit it if need be.
-        You don't need to worry about already taken names, this default will be
-        made unique if need be.
-        """
-        return DEFAULT_VARIABLE_NAME
-
-    def default_variable_name_changed(self, new_default_name):
-        """Call this function to signal that the default variable name changed.
-
-        This can happen if the user selected a different file, ...
-        """
-        if self.default_variable_name_observer is not None:
-            self.default_variable_name_observer(self, new_default_name)
-
-
-class CustomVariableLoader(QtGui.QWidget, _BaseVariableLoader):
+class CustomVariableLoader(QtGui.QWidget, BaseVariableLoader):
     """Custom variable loading tab.
 
     These loaders show up in a tab of their own, allowing to load any kind of
@@ -353,7 +289,7 @@ class CustomVariableLoader(QtGui.QWidget, _BaseVariableLoader):
     """
     def __init__(self):
         QtGui.QWidget.__init__(self)
-        _BaseVariableLoader.__init__(self)
+        BaseVariableLoader.__init__(self)
 
     def load(self):
         """Load the variable and return it.
@@ -364,7 +300,7 @@ class CustomVariableLoader(QtGui.QWidget, _BaseVariableLoader):
         raise NotImplementedError
 
 
-class FileVariableLoader(QtGui.QWidget, _BaseVariableLoader):
+class FileVariableLoader(QtGui.QWidget, BaseVariableLoader):
     """A loader that gets a variable from a file.
 
     Subclasses do not get a tab of their own, but appear on the "File" tab if
@@ -390,7 +326,7 @@ class FileVariableLoader(QtGui.QWidget, _BaseVariableLoader):
         it could interfere with other loaders.
         """
         QtGui.QWidget.__init__(self)
-        _BaseVariableLoader.__init__(self)
+        BaseVariableLoader.__init__(self)
 
     def load(self):
         """Load the variable and return it.

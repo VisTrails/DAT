@@ -1,9 +1,10 @@
 from PyQt4 import QtCore, QtGui
 
-from dat import MIMETYPE_DAT_VARIABLE, MIMETYPE_DAT_PLOT
+from dat import MIMETYPE_DAT_VARIABLE, MIMETYPE_DAT_PLOT, \
+    DATRecipe, PipelineInformation
 from dat.gui import translate
 from dat.manager import Manager
-from dat.plot_map import DATRecipe, PipelineInformation, PlotMap
+from dat.plot_map import PlotMap
 from dat import vistrails_interface
 
 from vistrails.packages.spreadsheet.spreadsheet_cell import QCellContainer
@@ -120,8 +121,9 @@ class VariableDroppingOverlay(Overlay):
         else:
             varname = str(mimeData.data(MIMETYPE_DAT_VARIABLE))
             variable = Manager().get_variable(varname)
-            self._compatible_ports = [issubclass(variable.type, port.type)
-                                      for port in self._cell._plot.ports]
+            self._compatible_ports = [
+                    port is None or issubclass(variable.type, port.type)
+                    for port in self._cell._plot.ports]
 
         self._cell._parameter_hovered = None
 

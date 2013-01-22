@@ -1,6 +1,6 @@
 import warnings
 
-from dat.vistrails_interface import _BaseVariableLoader, Plot
+from dat import BaseVariableLoader, Plot
 
 from vistrails.core.application import get_vistrails_application
 from vistrails.core.modules.module_registry import get_module_registry
@@ -115,8 +115,9 @@ class Manager(object):
                 plot.package_identifier = package_identifier
                 self._add_plot(plot)
         if hasattr(package.init_module, '_variable_loaders'):
-            for loader, name in package.init_module._variable_loaders.iteritems():
-                if not issubclass(loader, _BaseVariableLoader):
+            for loader, name in (package.init_module
+                                        ._variable_loaders.iteritems()):
+                if not issubclass(loader, BaseVariableLoader):
                     warnings.warn(
                             "Package %s (%s) declares in _variable_loaders "
                             "something that is not a variable loader: %r" % (

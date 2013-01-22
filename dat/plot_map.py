@@ -1,40 +1,6 @@
 import warnings
 
 
-class DATRecipe(object):
-    """Just a simple class holding a Plot its parameters.
-    """
-    def __init__(self, plot, variables):
-        """__init__(plot: Plot, variables: dict of Variables)
-        """
-        self.plot = plot
-        self.variables = dict(variables)
-        self._hash = hash((
-                self.plot,
-                tuple((k, v.name) for k, v in self.variables.iteritems())))
-
-    def __eq__(self, other):
-        if not isinstance(other, DATRecipe):
-            raise TypeError
-        return (self.plot, self.variables) == (other.plot, other.variables)
-
-    def __hash__(self):
-        return self._hash
-
-
-class PipelineInformation(object):
-    """A simple class holding enough information on a pipeline to locate it.
-    """
-    def __init__(self, version):
-        self.version = version
-
-    def __eq__(self, other):
-        return self.version == other.version
-
-    def __hash__(self):
-        return hash(self.version)
-
-
 class PlotMap(object):
     """Maintains the correspondence DAT recipes and pipelines.
 
