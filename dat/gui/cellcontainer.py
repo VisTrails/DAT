@@ -44,6 +44,45 @@ class Overlay(object):
         pass
 
 
+class OverlayWidget(QtGui.QLabel):
+    """Wrapper class for the cell overlays.
+
+    The Overlay class is not a QWidget because we don't want to change the
+    widget hierarchy in the DATCellContainer while a drag is in progress. This
+    doesn't confuse Qt a whole lot but dragleave/dragenter event happen while
+    dragging.
+
+    However, another component has to display the overlay since a QWidget's
+    children are always displayed on top of it; drawing in DATCellContainer's
+    paintEvent() method would render the overlay *below* the contained widget.
+
+    This simple wrapper simple renders the DATCellContainer's current overlay.
+    """
+    def __init__(self, cellcontainer):
+        QtGui.QLabel.__init__(self)
+        self._cellcontainer = cellcontainer
+        self._overlay = None
+
+    def paintEvent(self, event):
+        if self._overlay:
+            self._overlay.draw(QtGui.QPainter(self))
+
+    def resizeEvent(self, event):
+        super(OverlayWidget, self).resizeEvent(event)
+
+        if self._overlay is not None:
+            self._overlay.resize(self.width(), self.height())
+
+    def set_mouse_position(self, x, y):
+        if self._overlay is not None:
+            self._overlay.set_mouse_position(x, y)
+            self.repaint()
+
+    def setOverlay(self, overlay):
+        self._overlay = overlay
+        self.repaint()
+
+
 class VariableDropEmptyCell(Overlay):
     """Used when dragging a variable over a cell without a plot.
 
@@ -266,15 +305,15 @@ class DATCellContainer(QCellContainer):
     variables and plots.
     """
     def __init__(self, cellInfo=None, widget=None, parent=None):
-        self._overlay = None
         self._variables = dict() # param name -> Variable
         self._plot = None # dat.vistrails_interface:Plot
+        self._overlay = OverlayWidget(self)
 
         QCellContainer.__init__(self, cellInfo, widget, parent)
-
         self.setAcceptDrops(True)
 
         self._set_overlay(None)
+        self._overlay.setParent(self)
 
         get_vistrails_application().register_notification(
                 'dat_removed_variable', self._variable_removed)
@@ -334,16 +373,15 @@ class DATCellContainer(QCellContainer):
                 self._set_overlay(VariableDroppingOverlay)
             elif self.widget() is None:
                 self._set_overlay(PlotPromptOverlay)
-            elif self._overlay is not None:
-                self._overlay = None
+            else:
+                self._overlay.setOverlay(None)
         else:
-            self._overlay = overlay_class(self, mimeData)
-        self.repaint()
+            self._overlay.setOverlay(overlay_class(self, mimeData))
+        self._overlay.repaint()
 
     def resizeEvent(self, event):
         super(DATCellContainer, self).resizeEvent(event)
-        if self._overlay is not None:
-            self._overlay.resize(self.width(), self.height())
+        self._overlay.setGeometry(0, 0, self.width(), self.height())
 
     def dragEnterEvent(self, event):
         mimeData = event.mimeData()
@@ -405,12 +443,6 @@ class DATCellContainer(QCellContainer):
             event.ignore()
 
         self._set_overlay(None)
-
-    def paintEvent(self, event):
-        QCellContainer.paintEvent(self, event)
-
-        if self._overlay:
-            self._overlay.draw(QtGui.QPainter(self))
 
     def try_update(self):
         """Check if enough ports are set, and execute the workflow
