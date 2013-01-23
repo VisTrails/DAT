@@ -67,7 +67,7 @@ class Manager(object):
                     self._variables[varname] = variable
                     self._variables_reverse[variable] = varname
 
-                    self._add_variable(varname, variable)
+                    self._add_variable(varname)
 
     def _add_plot(self, plot):
         self._plots.add(plot)
@@ -152,9 +152,9 @@ class Manager(object):
         self._variables[varname] = variable
         self._variables_reverse[variable] = varname
 
-        self._add_variable(varname, variable)
+        self._add_variable(varname)
 
-    def _add_variable(self, varname, variable, renamed_from=None):
+    def _add_variable(self, varname, renamed_from=None):
         get_vistrails_application().send_notification(
                 'dat_new_variable',
                 varname,
