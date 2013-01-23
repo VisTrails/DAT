@@ -470,14 +470,30 @@ def execute_pipeline_to_cell(cellInfo, pipeline):
     Execute the referenced pipeline, so that its result gets displayed in the
     specified spreadsheet cell.
     """
+    from vistrails.packages.spreadsheet.basic_widgets import SpreadsheetCell
+
     # Retrieve the pipeline
     controller = get_vistrails_application().dat_controller
     controller.change_selected_version(pipeline.version)
     pipeline = controller.current_pipeline
+
+    # Get the list (hopefully, only one item) of modules inheriting from
+    # SpreadsheetCell
+    cellIds = []
+    for module in pipeline.modules.itervalues():
+        if issubclass(module.module_descriptor.module, SpreadsheetCell):
+            cellIds.append(module.id)
+
+    # Use some dark magic from the spreadsheet package to get a new pipeline
+    # that will use the cell location we want
+    # This is what is used when copying a cell
     pipeline = cellInfo.tab.setPipelineToLocateAt(
             cellInfo.row,
             cellInfo.column,
-            pipeline)
+            pipeline,
+            cellIds)
+
+    # Execute the pipeline with a progress bar
     executePipelineWithProgress(
             pipeline,
             "DAT recipe execution")
