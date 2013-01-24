@@ -496,4 +496,6 @@ def execute_pipeline_to_cell(cellInfo, pipeline):
     # Execute the pipeline with a progress bar
     executePipelineWithProgress(
             pipeline,
-            "DAT recipe execution")
+            "DAT recipe execution",
+            locator=controller.locator,
+            current_version=controller.current_version)

@@ -161,8 +161,10 @@ class Manager(object):
                 renamed_from=renamed_from)
 
     def _remove_variable(self, varname, renamed_to=None):
-        get_vistrails_application().send_notification('dat_removed_variable',
-                                                      varname)
+        get_vistrails_application().send_notification(
+                'dat_removed_variable',
+                varname,
+                renamed_to=renamed_to)
 
     def remove_variable(self, varname):
         """Remove a Variable from DAT.

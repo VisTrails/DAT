@@ -285,6 +285,8 @@ class PlotPromptOverlay(Overlay):
     """
 
     def draw(self, qp):
+        Overlay.draw(self, qp)
+
         _ = translate(PlotPromptOverlay)
 
         qp.setPen(Overlay.text)
@@ -317,8 +319,13 @@ class DATCellContainer(QCellContainer):
 
         get_vistrails_application().register_notification(
                 'dat_removed_variable', self._variable_removed)
-        # TODO-dat : this needs to be unregistered at some point!
-        # Use setCellInfo() somehow?
+
+    def setCellInfo(self, cellInfo):
+        super(DATCellContainer, self).setCellInfo(cellInfo)
+
+        if cellInfo is None: # We were removed from the spreadsheet
+            get_vistrails_application().unregister_notification(
+                    'dat_removed_variable', self._variable_removed)
 
     def _variable_removed(self, varname, renamed_to=None):
         if renamed_to is None:
@@ -344,6 +351,8 @@ class DATCellContainer(QCellContainer):
                     for param in to_remove:
                         del self._variables[param]
 
+                self._set_overlay(None)
+
     def setWidget(self, widget):
         super(DATCellContainer, self).setWidget(widget)
         if widget is None:
@@ -360,7 +369,7 @@ class DATCellContainer(QCellContainer):
             recipe = None
         if recipe is not None:
             self._plot = recipe.plot
-            self._variables = list(recipe.variables)
+            self._variables = dict(recipe.variables)
         else:
             self._plot = None
             self._variables = dict()
