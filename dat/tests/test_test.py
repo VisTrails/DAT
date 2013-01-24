@@ -22,8 +22,3 @@ class Test_startup(unittest.TestCase):
         from vistrails.core.modules.basic_modules import String
         # Verify that it was assigned
         self.assertIsNotNone(String)
-
-    def test_unique_varname(self):
-        from dat.gui.load_variable_dialog import unique_varname
-        self.assertEqual(unique_varname('variable'), 'variable (2)')
-        self.assertEqual(unique_varname('variable (4)'), 'variable (5)')
