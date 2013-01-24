@@ -32,7 +32,6 @@ import inspect
 from PyQt4 import QtGui
 
 from dat import BaseVariableLoader, PipelineInformation, Plot, Port
-import dat.manager
 
 from vistrails.core import get_vistrails_application
 from vistrails.core.db.action import create_action
@@ -135,7 +134,8 @@ class Variable(object):
         class of the object we store. It is created by
         Variable#perform_operations().
         """
-        def __init__(self, controller, type):
+        def __init__(self, name, controller, type):
+            self.name = name
             self._controller = controller
             self.type = type
 
@@ -149,19 +149,17 @@ class Variable(object):
                     'dat-var-%s' % self.name)
             controller.prune_versions([version])
 
-        def rename(self, old_varname, new_varname):
+        def rename(self, new_varname):
             """Change the tag on this version in the Vistrail.
 
             This is called by the Manager when the Variable is renamed.
             """
             controller = self._controller
             version = controller.vistrail.get_version_number(
-                    'dat-var-%s' % old_varname)
+                    'dat-var-%s' % self.name)
             controller.vistrail.set_tag(version, 'dat-var-%s' % new_varname)
 
-        def _get_name(self):
-            return dat.manager.Manager()._get_variable_name(self)
-        name = property(_get_name)
+            self.name = new_varname
 
     @staticmethod
     def _get_variables_root():
@@ -294,7 +292,7 @@ class Variable(object):
                                     'dat-var-%s' % name)
         controller.change_selected_version(self._var_version)
 
-        return Variable.VariableInformation(controller, self.type)
+        return Variable.VariableInformation(name, controller, self.type)
 
 
 class CustomVariableLoader(QtGui.QWidget, BaseVariableLoader):

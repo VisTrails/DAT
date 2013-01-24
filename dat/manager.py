@@ -20,7 +20,6 @@ class Manager(object):
         self._plots = set()
         self._variable_loaders = set()
         self._variables = dict()
-        self._variables_reverse = dict()
 
     def init(self):
         """Initial setup of the Manager.
@@ -65,8 +64,6 @@ class Manager(object):
                     variable = Variable.VariableInformation(controller, None)
 
                     self._variables[varname] = variable
-                    self._variables_reverse[variable] = varname
-
                     self._add_variable(varname)
 
     def _add_plot(self, plot):
@@ -153,7 +150,6 @@ class Manager(object):
         variable = variable.perform_operations(varname)
 
         self._variables[varname] = variable
-        self._variables_reverse[variable] = varname
 
         self._add_variable(varname)
 
@@ -177,7 +173,6 @@ class Manager(object):
 
         variable = self._variables.pop(varname)
         variable.remove()
-        del self._variables_reverse[variable]
 
     def rename_variable(self, old_varname, new_varname):
         """Rename a Variable.
@@ -188,10 +183,8 @@ class Manager(object):
         self._remove_variable(old_varname, renamed_to=new_varname)
 
         variable = self._variables.pop(old_varname)
-        del self._variables_reverse[variable]
         self._variables[new_varname] = variable
-        self._variables_reverse[variable] = new_varname
-        variable.rename(old_varname, new_varname)
+        variable.rename(new_varname)
 
         # TODO-dat : DATCellContainer should listen to this to repaint
         self._add_variable(new_varname, renamed_from=old_varname)
@@ -202,9 +195,6 @@ class Manager(object):
     def _get_variables(self):
         return self._variables.iterkeys()
     variables = property(_get_variables)
-
-    def _get_variable_name(self, variable):
-        return self._variables_reverse[variable] # Might raise KeyError
 
     def __call__(self):
         return self
