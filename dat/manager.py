@@ -99,6 +99,7 @@ class Manager(object):
 
         Discovers and registers Plots and VariableLoaders.
         """
+        from dat.vistrails_interface import resolve_descriptor
         pm = get_package_manager()
         package = pm.get_package_by_identifier(package_identifier)
         if hasattr(package.init_module, '_plots'):
@@ -111,6 +112,8 @@ class Manager(object):
                             plot))
                     continue
                 plot.package_identifier = package_identifier
+                for port in plot.ports:
+                    port.type = resolve_descriptor(port.type)
                 self._add_plot(plot)
         if hasattr(package.init_module, '_variable_loaders'):
             for loader, name in (package.init_module

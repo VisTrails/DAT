@@ -162,7 +162,8 @@ class VariableDroppingOverlay(Overlay):
             varname = str(mimeData.data(MIMETYPE_DAT_VARIABLE))
             variable = Manager().get_variable(varname)
             self._compatible_ports = [
-                    port is None or issubclass(variable.type, port.type)
+                    port is None or issubclass(variable.type.module,
+                                               port.type.module)
                     for port in self._cell._plot.ports]
 
         self._cell._parameter_hovered = None

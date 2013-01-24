@@ -48,6 +48,31 @@ __all__ = ['Plot', 'Port', 'Variable',
            'CustomVariableLoader', 'FileVariableLoader']
 
 
+def resolve_descriptor(param, package_identifier=None):
+    """Resolve a type specifier to a ModuleDescriptor.
+
+    This accepts different arguments and turns it into a ModuleDescriptor:
+      * a ModuleDescriptor
+      * a Module object
+      * a descriptor string
+
+    It should be used when accepting type specifiers from third-party code.
+
+    The optional 'package_identifier' parameter gives the context in which to
+    resolve module names; it is passed to parse_descriptor_string().
+    """
+    reg = get_module_registry()
+
+    if isinstance(param, str):
+        d_tuple = parse_descriptor_string(param, package_identifier)
+        return reg.get_descriptor_by_name(*d_tuple)
+    elif isinstance(param, type) and issubclass(param, Module):
+        return reg.get_descriptor(param)
+    else:
+        raise TypeError("add_module() argument must be a Module or str "
+                        "object, not '%s'" % type(param))
+
+
 class ModuleWrapper(object):
     """Object representing a VisTrails module in a DAT variable pipeline.
 
@@ -56,16 +81,8 @@ class ModuleWrapper(object):
     """
     def __init__(self, variable, module_type):
         self._variable = variable
-        reg = get_module_registry()
-        if isinstance(module_type, str):
-            d_tuple = parse_descriptor_string(module_type,
-                                              self._variable._vt_package_id)
-            descriptor = reg.get_descriptor_by_name(*d_tuple)
-        elif issubclass(module_type, Module):
-            descriptor = reg.get_descriptor(module_type)
-        else:
-            raise TypeError("add_module() argument must be a Module or str "
-                            "object, not '%s'" % type(module_type))
+        descriptor = resolve_descriptor(module_type,
+                                        self._variable._vt_package_id)
         controller = self._variable._controller
         self._module = controller.create_module_from_descriptor(descriptor)
         self._variable._operations.append(('add', self._module))
@@ -191,7 +208,7 @@ class Variable(object):
         return controller, root_version, outmod_id
 
     def __init__(self, type=None):
-        self.type = type
+        self.type = resolve_descriptor(type)
         # Create or get the version tagged 'dat-vars'
         self._controller, self._root_version, self._output_module_id = (
                 Variable._get_variables_root())
@@ -243,11 +260,20 @@ class Variable(object):
             raise ValueError("select_output_port() was called more than once")
 
         controller = self._controller
+
         out_mod = controller.current_pipeline.modules[self._output_module_id]
         connection = controller.create_connection(
                 module._module, outputport_name,
                 out_mod, 'InternalPipe')
         self._operations.append(('add', connection))
+
+        out_mod
+        self._operations.extend(
+                controller.update_function_ops(
+                        out_mod,
+                        'spec',
+                        [self.type.sigstring]))
+
         self._output_designated = True
 
     def perform_operations(self, name):
