@@ -161,6 +161,9 @@ class Application(NotificationDispatcher, VistrailsApplicationInterface):
         self.builderWindow.show()
         self.builderWindow.raise_()
 
+    def try_quit(self):
+        return self.builderWindow.quit()
+
 
 def start():
     app = QtGui.QApplication(sys.argv)
@@ -178,6 +181,7 @@ def start():
 
     Application()
 
+    # Create the main window
     mw = MainWindow()
     mw.setVisible(True)
 

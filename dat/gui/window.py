@@ -56,3 +56,7 @@ class MainWindow(QtGui.QMainWindow):
                               QtGui.QDockWidget.DockWidgetFloatable)
         variables.setWidget(self._variables)
         self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, variables)
+
+    def closeEvent(self, event):
+        if not get_vistrails_application().try_quit():
+            event.ignore()
