@@ -1,6 +1,7 @@
 import warnings
 
 from dat import BaseVariableLoader, Plot
+from dat.vistrails_interface import resolve_descriptor, Variable
 
 from vistrails.core.application import get_vistrails_application
 from vistrails.core.modules.module_registry import get_module_registry
@@ -54,7 +55,6 @@ class Manager(object):
         # TODO-dat : this is untested
         controller = get_vistrails_application().dat_controller
         if controller.vistrail.has_tag_str('dat-vars'):
-            from dat.vistrails_interface import Variable
             tagmap = controller.vistrail.get_tagMap()
             for version, tag in tagmap.iteritems():
                 if tag.startswith('dat-var-'):
@@ -96,7 +96,6 @@ class Manager(object):
 
         Discovers and registers Plots and VariableLoaders.
         """
-        from dat.vistrails_interface import resolve_descriptor
         pm = get_package_manager()
         package = pm.get_package_by_identifier(package_identifier)
         if hasattr(package.init_module, '_plots'):
