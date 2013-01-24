@@ -112,7 +112,7 @@ class ModuleWrapper(object):
         controller = self._variable._controller
         connection = controller.create_connection(
                 self._module, outputport_name,
-                other_module, inputport_name)
+                other_module._module, inputport_name)
         self._variable._operations.append(('add', connection))
 
 
@@ -476,7 +476,12 @@ def create_pipeline(recipe):
                                 var_output_port)
                         operations.append(('add', new_conn))
             else:
-                operations.append(('add', connection))
+                new_conn = controller.create_connection(
+                        var_modules_map[connection.source.moduleId],
+                        connection.source.name,
+                        var_modules_map[connection.destination.moduleId],
+                        connection.destination.name)
+                operations.append(('add', new_conn))
 
     action = create_action(operations)
     controller.add_new_action(action)
