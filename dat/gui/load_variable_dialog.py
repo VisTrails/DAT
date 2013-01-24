@@ -2,7 +2,8 @@ import re
 from PyQt4 import QtCore, QtGui
 
 from dat import DEFAULT_VARIABLE_NAME
-import dat.gui
+from dat.gui import translate
+from dat.gui.generic import AdvancedLineEdit
 import dat.manager
 from dat.vistrails_interface import FileVariableLoader, CustomVariableLoader
 
@@ -37,7 +38,7 @@ class FileLoaderPanel(QtGui.QWidget):
     def __init__(self):
         QtGui.QWidget.__init__(self)
 
-        _ = dat.gui.translate(LoadVariableDialog)
+        _ = translate(LoadVariableDialog)
 
         self._file_loaders = set()
 
@@ -72,7 +73,7 @@ class FileLoaderPanel(QtGui.QWidget):
         self.select_file('')
 
     def pick_file(self):
-        _ = dat.gui.translate(LoadVariableDialog)
+        _ = translate(LoadVariableDialog)
 
         # Pick a file
         picked = QtGui.QFileDialog.getOpenFileName(
@@ -84,7 +85,7 @@ class FileLoaderPanel(QtGui.QWidget):
         self.select_file(str(picked))
 
     def select_file(self, filename):
-        _ = dat.gui.translate(LoadVariableDialog)
+        _ = translate(LoadVariableDialog)
 
         # Update self._file_edit
         self._file_edit.setText(filename)
@@ -159,7 +160,7 @@ class LoadVariableDialog(QtGui.QDialog):
     def __init__(self, parent=None):
         QtGui.QDialog.__init__(self, parent, QtCore.Qt.Dialog)
 
-        _ = dat.gui.translate(LoadVariableDialog)
+        _ = translate(LoadVariableDialog)
 
         self.setWindowTitle(_("Load variable"))
 
@@ -174,7 +175,13 @@ class LoadVariableDialog(QtGui.QDialog):
 
         varname_layout = QtGui.QHBoxLayout()
         varname_layout.addWidget(QtGui.QLabel(_("Variable name:")))
-        self._varname_edit = QtGui.QLineEdit()
+        self._varname_edit = AdvancedLineEdit(
+                "variable",
+                default="variable",
+                validate=self._validate_varname,
+                flags=(AdvancedLineEdit.COLOR_VALIDITY |
+                       AdvancedLineEdit.COLOR_DEFAULTVALUE |
+                       AdvancedLineEdit.FOLLOW_DEFAULT_UPDATE))
         varname_layout.addWidget(self._varname_edit)
         main_layout.addLayout(varname_layout)
 
@@ -208,10 +215,10 @@ class LoadVariableDialog(QtGui.QDialog):
         idx = self._tab_widget.currentIndex()
         if idx >= 0:
             loader = self._tabs[idx]
-            self._default_varname = loader.get_default_variable_name()
+            self._varname_edit.setDefault(loader.get_default_variable_name())
         else:
-            self._default_varname = DEFAULT_VARIABLE_NAME
-        self._varname_edit.setText(self._default_varname)
+            self._varname_edit.setDefault(DEFAULT_VARIABLE_NAME)
+        self._varname_edit.reset()
 
     def update_varname(self, idx):
         if idx >= 0:
@@ -263,13 +270,8 @@ class LoadVariableDialog(QtGui.QDialog):
         if not (loader is None or loader is current_loader):
             return
 
-        varname = self._varname_edit.text()
-        # If the field is empty or its content is the previous default name,
-        # we set it to the new default name
-        if (varname.isNull() or varname.isEmpty() or
-                str(varname) == self._default_varname):
-            self._default_varname = new_default_name
-            self._varname_edit.setText(self._default_varname)
+        self._default_varname = new_default_name
+        self._varname_edit.setDefault(self._default_varname)
 
     def load_variable(self):
         if not self.isVisible():
@@ -300,4 +302,13 @@ class LoadVariableDialog(QtGui.QDialog):
             # Here we assume the loader displayed the error itself in some way
             return False
         dat.manager.Manager().new_variable(varname, variable)
+        self._varname_edit.setDefault(self._default_varname)
+        return True
+
+    def _validate_varname(self, varname):
+        if varname.isNull() or varname.isEmpty():
+            return False
+        varname = str(varname)
+        if dat.manager.Manager().get_variable(varname) is not None:
+            return False
         return True

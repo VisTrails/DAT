@@ -1,7 +1,7 @@
 from PyQt4 import QtCore, QtGui
 
 from dat import MIMETYPE_DAT_PLOT
-from dat.gui.lists import DraggableListWidget
+from dat.gui.generic import DraggableListWidget
 import dat.manager
 
 from vistrails.core.application import get_vistrails_application
