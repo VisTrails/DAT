@@ -206,7 +206,6 @@ class Variable(object):
         return controller, root_version, outmod_id
 
     def __init__(self, type=None):
-        self.type = resolve_descriptor(type)
         # Create or get the version tagged 'dat-vars'
         self._controller, self._root_version, self._output_module_id = (
                 Variable._get_variables_root())
@@ -232,6 +231,7 @@ class Variable(object):
             self._vt_package_id = pkg.identifier
         except (ImportError, AttributeError):
             self._vt_package_id = None
+        self.type = resolve_descriptor(type, self._vt_package_id)
 
         self._output_designated = False
 
