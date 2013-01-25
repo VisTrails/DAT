@@ -1,5 +1,6 @@
 import logging
 import sys
+import warnings
 from PyQt4 import QtGui
 
 from dat.gui.window import MainWindow
@@ -14,6 +15,12 @@ import vistrails.gui.theme
 
 # TODO : maybe this could be pushed back into VisTrails
 class NotificationDispatcher(object):
+    class UsageWarning(UserWarning):
+        """NotificationDispatcher usage warning
+
+        Problems with how notifications are used.
+        """
+
     def __init__(self):
         self._global_notifications = {}
         self._view_notifications = {}
@@ -43,7 +50,10 @@ class NotificationDispatcher(object):
         if notification_id not in notifications:
             notifications[notification_id] = set()
         else:
-            logging.debug("Notification created twice: %s" % notification_id)
+            warnings.warn(
+                    "Notification created twice: %s" % notification_id,
+                    NotificationDispatcher.UsageWarning,
+                    stacklevel=2)
 
     def register_notification(self, notification_id, method,
                               window=None, view=None):
@@ -52,8 +62,11 @@ class NotificationDispatcher(object):
         try:
             notifications[notification_id].add(method)
         except KeyError:
-            logging.debug("Registered to non-existing notification %s" % (
-                    notification_id))
+            warnings.warn(
+                    "Registered to non-existing notification %s" % (
+                            notification_id),
+                    NotificationDispatcher.UsageWarning,
+                    stacklevel=2)
             notifications[notification_id] = set([method])
 
     def unregister_notification(self, notification_id, method,
@@ -63,14 +76,20 @@ class NotificationDispatcher(object):
         try:
             methods = notifications[notification_id]
         except KeyError:
-            logging.debug("Unregistered from non-existing notification %s" % (
-                    notification_id))
+            warnings.warn(
+                    "Unregistered from non-existing notification %s" % (
+                            notification_id),
+                    NotificationDispatcher.UsageWarning,
+                    stacklevel=2)
         else:
             try:
                 methods.remove(method)
             except KeyError:
-                logging.debug("Unregistered non-registered method from "
-                              "notification %s" % notification_id)
+                warnings.warn(
+                        "Unregistered non-registered method from "
+                        "notification %s" % notification_id,
+                        NotificationDispatcher.UsageWarning,
+                        stacklevel=2)
 
     @staticmethod
     def _broadcast_notification(notification_id, methods, args, kwargs):
@@ -114,6 +133,11 @@ class NotificationDispatcher(object):
 class Application(NotificationDispatcher, VistrailsApplicationInterface):
     def __init__(self):
         NotificationDispatcher.__init__(self)
+        # There are lots of issues with how the notifications are used
+        # Although create_notification() exists, it doesn't seem to be used in
+        # every case before register_notification() is called
+        warnings.simplefilter('ignore', NotificationDispatcher.UsageWarning)
+
         VistrailsApplicationInterface.__init__(self)
         self.builderWindow = None
         set_vistrails_application(self)
