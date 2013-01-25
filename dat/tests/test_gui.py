@@ -134,3 +134,156 @@ class Test_gui(unittest.TestCase):
             nd.send_notification('notif_B', nb=4)
             self.assertEqual(len(w), 4)
             self.assertEqual(notif6.calls, [third_call])
+
+
+class Test_advancedlineedit(unittest.TestCase):
+    def setUp(self):
+        from PyQt4 import QtGui
+        self._app = QtGui.QApplication([])
+
+    def tearDown(self):
+        self._app.quit()
+        self._app = None
+
+    def test_validation(self):
+        from dat.gui.generic import AdvancedLineEdit
+        le = AdvancedLineEdit("test",
+                              validate=lambda t: t=="a")
+        self._app.processEvents()
+        self.assertEqual(le.text(), "test")
+        self.assertFalse(le.isValid())
+        self.assertEqual(le._choose_color(), "#DDAAAA")
+
+        le.setText("a")
+        self._app.processEvents()
+        self.assertTrue(le.isValid())
+        self.assertEqual(le._choose_color(), "#AADDAA")
+
+    def test_default(self):
+        from dat.gui.generic import AdvancedLineEdit
+        le = AdvancedLineEdit("test",
+                              default="a")
+        self._app.processEvents()
+        self.assertEqual(le.text(), "test")
+        self.assertFalse(le.isDefault())
+        self.assertEqual(le._choose_color(), "#FFFFFF")
+
+        le.reset()
+        self._app.processEvents()
+        self.assertEqual(le.text(), "a")
+        self.assertTrue(le.isDefault())
+        self.assertEqual(le._choose_color(), "#AAAADD")
+
+    def test_basic(self):
+        from dat.gui.generic import AdvancedLineEdit
+        le = AdvancedLineEdit("test")
+        self._app.processEvents()
+        self.assertEqual(le.text(), "test")
+        self.assertEqual(le._choose_color(), "#FFFFFF")
+        le.setText("42")
+        self._app.processEvents()
+        self.assertEqual(le.text(), "42")
+        self.assertEqual(le._choose_color(), "#FFFFFF")
+
+    def test_both_diff(self):
+        from dat.gui.generic import AdvancedLineEdit
+        le = AdvancedLineEdit("test",
+                              default="b",
+                              validate=lambda t: t == "a")
+        self._app.processEvents()
+        self.assertEqual(le.text(), "test")
+        self.assertFalse(le.isDefault())
+        self.assertFalse(le.isValid())
+        self.assertEqual(le._choose_color(), "#DDAAAA")
+
+        le.reset()
+        self._app.processEvents()
+        self.assertEqual(le.text(), "b")
+        self.assertTrue(le.isDefault())
+        self.assertFalse(le.isValid())
+        self.assertEqual(le._choose_color(), "#DDAAAA")
+
+        le.setText("a")
+        self._app.processEvents()
+        self.assertFalse(le.isDefault())
+        self.assertTrue(le.isValid())
+        self.assertEqual(le._choose_color(), "#AADDAA")
+
+    def test_both_diff_flag_default(self):
+        from dat.gui.generic import AdvancedLineEdit
+        le = AdvancedLineEdit("test",
+                               default="b",
+                               validate=lambda t: t == "a",
+                               flags=AdvancedLineEdit.COLOR_DEFAULTVALUE)
+        self._app.processEvents()
+        self.assertFalse(le.isDefault())
+        self.assertFalse(le.isValid())
+        self.assertEqual(le._choose_color(), "#FFFFFF")
+
+        le.reset()
+        self._app.processEvents()
+        self.assertEqual(le.text(), "b")
+        self.assertTrue(le.isDefault())
+        self.assertFalse(le.isValid())
+        self.assertEqual(le._choose_color(), "#AAAADD")
+
+    def test_both_diff_flag_valid(self):
+        from dat.gui.generic import AdvancedLineEdit
+        le = AdvancedLineEdit("test",
+                               default="b",
+                               validate=lambda t: t == "b",
+                               flags=AdvancedLineEdit.COLOR_VALIDITY)
+        self._app.processEvents()
+        self.assertFalse(le.isDefault())
+        self.assertFalse(le.isValid())
+        self.assertEqual(le._choose_color(), "#DDAAAA")
+
+        le.reset()
+        self._app.processEvents()
+        self.assertEqual(le.text(), "b")
+        self.assertTrue(le.isDefault())
+        self.assertTrue(le.isValid())
+        self.assertEqual(le._choose_color(), "#AADDAA")
+
+    def test_both_same(self):
+        from dat.gui.generic import AdvancedLineEdit
+        le = AdvancedLineEdit("test",
+                              default="a",
+                              validate=lambda t: t == "a")
+        self._app.processEvents()
+        self.assertEqual(le.text(), "test")
+        self.assertFalse(le.isDefault())
+        self.assertFalse(le.isValid())
+        self.assertEqual(le._choose_color(), "#DDAAAA")
+
+        le.setText("a")
+        self._app.processEvents()
+        self.assertTrue(le.isDefault())
+        self.assertTrue(le.isValid())
+        self.assertEqual(le._choose_color(), "#AAAADD")
+
+    def test_follow(self):
+        from dat.gui.generic import AdvancedLineEdit
+        le = AdvancedLineEdit("test",
+                              default="a",
+                              flags=AdvancedLineEdit.FOLLOW_DEFAULT_UPDATE)
+        self._app.processEvents()
+        self.assertFalse(le.isDefault())
+
+        le.setDefault("b")
+        self._app.processEvents()
+        self.assertFalse(le.isDefault())
+        self.assertEqual(le.text(), "test")
+
+        le.setText("b")
+        self._app.processEvents()
+        self.assertTrue(le.isDefault())
+
+        le.setDefault("c")
+        self._app.processEvents()
+        self.assertEqual(le.text(), "c")
+        self.assertTrue(le.isDefault())
+
+        le.setDefault("c")
+        self._app.processEvents()
+        self.assertTrue(le.isDefault())

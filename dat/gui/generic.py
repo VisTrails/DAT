@@ -63,10 +63,11 @@ class AdvancedLineEdit(QtGui.QLineEdit):
             self._reset_button = None
 
         if self._validate is not None:
-            self.connect(self, QtCore.SIGNAL('textChanged(QString)'),
-                         self._text_changed)
             self._prev_validation = None
             self._text_changed(QtCore.QString(contents))
+
+        self.connect(self, QtCore.SIGNAL('textChanged(QString)'),
+                     self._text_changed)
 
     def _text_changed(self, text):
         changed = False
@@ -86,13 +87,16 @@ class AdvancedLineEdit(QtGui.QLineEdit):
                                self._choose_color()))
 
     def _choose_color(self):
-        if (self._flags & AdvancedLineEdit.COLOR_VALIDITY and
+        if (self._validate is not None and
+                self._flags & AdvancedLineEdit.COLOR_VALIDITY and
                 not self._prev_validation):
             return "#DDAAAA" # invalid value
-        elif (self._flags & AdvancedLineEdit.COLOR_DEFAULTVALUE and
+        elif (self._default is not None and
+                self._flags & AdvancedLineEdit.COLOR_DEFAULTVALUE and
                 self._is_default):
             return "#AAAADD" # default value
-        elif (self._flags & AdvancedLineEdit.COLOR_VALIDITY and
+        elif (self._validate is not None and
+                self._flags & AdvancedLineEdit.COLOR_VALIDITY and
                 self._prev_validation):
             return "#AADDAA" # valid value
         else:
