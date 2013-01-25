@@ -168,7 +168,6 @@ class Manager(object):
     def remove_variable(self, varname):
         """Remove a Variable from DAT.
         """
-        # TODO-dat : DATCellContainer should listen to this to repaint
         self._remove_variable(varname)
 
         variable = self._variables.pop(varname)
@@ -186,7 +185,6 @@ class Manager(object):
         self._variables[new_varname] = variable
         variable.rename(new_varname)
 
-        # TODO-dat : DATCellContainer should listen to this to repaint
         self._add_variable(new_varname, renamed_from=old_varname)
 
     def get_variable(self, varname):

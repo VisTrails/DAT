@@ -329,11 +329,11 @@ class DATCellContainer(QCellContainer):
                     'dat_removed_variable', self._variable_removed)
 
     def _variable_removed(self, varname, renamed_to=None):
-        if renamed_to is None:
-            # A variable was removed!
-            if any(
-                    variable.name == varname
-                    for variable in self._variables.itervalues()):
+        if any(
+                variable.name == varname
+                for variable in self._variables.itervalues()):
+            if renamed_to is None:
+                # A variable was removed!
                 # Two cases here:
                 if self.widget() is not None:
                     # If this cell already contains a result, we'll just turn
@@ -353,6 +353,8 @@ class DATCellContainer(QCellContainer):
                         del self._variables[param]
 
                 self._set_overlay(None)
+            else:
+                self._overlay.repaint()
 
     def setWidget(self, widget):
         super(DATCellContainer, self).setWidget(widget)
