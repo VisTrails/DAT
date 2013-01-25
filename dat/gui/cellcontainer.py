@@ -315,8 +315,8 @@ class DATCellContainer(QCellContainer):
         QCellContainer.__init__(self, cellInfo, widget, parent)
         self.setAcceptDrops(True)
 
-        self._set_overlay(None)
         self._overlay.setParent(self)
+        self._set_overlay(None)
 
         get_vistrails_application().register_notification(
                 'dat_removed_variable', self._variable_removed)
@@ -361,7 +361,7 @@ class DATCellContainer(QCellContainer):
         if widget is None:
             return
 
-        widget.lower()
+        widget.raise_()
 
         pipelineInfo = self.cellInfo.tab.getCellPipelineInfo(
                 self.cellInfo.row, self.cellInfo.column)
@@ -387,8 +387,10 @@ class DATCellContainer(QCellContainer):
                 self._set_overlay(PlotPromptOverlay)
             else:
                 self._overlay.setOverlay(None)
+                self._overlay.lower()
         else:
             self._overlay.setOverlay(overlay_class(self, mimeData))
+            self._overlay.raise_()
         self._overlay.repaint()
 
     def resizeEvent(self, event):
