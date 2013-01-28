@@ -448,10 +448,10 @@ def create_pipeline(recipe, cell_info=None):
                 new_ops = [('add', location_module), ('add', loc_cell_conn)]
                 new_ops.extend(
                         controller.update_function_ops(
-                                location_module, 'Row', [str(row)]))
+                                location_module, 'Row', [str(row + 1)]))
                 new_ops.extend(
                         controller.update_function_ops(
-                                location_module, 'Column', [str(col)]))
+                                location_module, 'Column', [str(col + 1)]))
                 operations.extend(new_ops)
 
                 if len(cell_modules) > 1:
@@ -571,11 +571,11 @@ def execute_pipeline_to_cell(cellInfo, pipeline):
         loc_row = get_function(loc_modules[0], 'Row')
         if str(cellInfo.row) != loc_row:
             ops.extend(controller.update_function_ops(
-                    loc_modules[0], 'Row', [str(cellInfo.row)]))
+                    loc_modules[0], 'Row', [str(cellInfo.row + 1)]))
         loc_col = get_function(loc_modules[0], 'Column')
         if str(cellInfo.column) != str(loc_col):
             ops.extend(controller.update_function_ops(
-                    loc_modules[0], 'Column', [str(cellInfo.column)]))
+                    loc_modules[0], 'Column', [str(cellInfo.column + 1)]))
         if ops:
             action = create_action(ops)
             controller.add_new_action(action)
