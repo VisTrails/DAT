@@ -443,7 +443,7 @@ class DATCellContainer(QCellContainer):
             else:
                 self._overlay.setOverlay(None)
                 self._show_button.raise_()
-                self._show_button.setVisible(True)
+                self._show_button.setVisible(self._plot is not None)
                 self._overlay.lower()
                 self._hide_button.setVisible(False)
         else:
@@ -455,7 +455,7 @@ class DATCellContainer(QCellContainer):
 
     def show_overlay(self):
         if self._plot is None:
-            # Shoudln't happen
+            # Shouldn't happen
             return
         self._set_overlay(VariableDroppingOverlay, forced=True)
         self._hide_button.setVisible(True)
