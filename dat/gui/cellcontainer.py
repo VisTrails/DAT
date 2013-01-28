@@ -19,7 +19,7 @@ class Overlay(object):
         self._cell = cellcontainer
 
     # Background of all overlay (translucent, on top of the cell's content)
-    background = QtGui.QColor(255, 255, 255, 127)
+    background = QtGui.QColor(255, 255, 255, 200)
     # Accepting a drop
     ok_pen      = QtGui.QColor(102, 153, 255)
     ok_fill     = QtGui.QColor(187, 204, 255)
@@ -331,7 +331,7 @@ class DATCellContainer(QCellContainer):
         self._hide_button.setParent(self)
         self.connect(self._hide_button, QtCore.SIGNAL('clicked()'),
                      self.hide_overlay)
-        self._hide_button.setGeometry(self.width() - 24, 30, 24, 24)
+        self._hide_button.setGeometry(self.width() - 24, 0, 24, 24)
         self._hide_button.setVisible(False)
 
         self._overlay.setParent(self)
@@ -433,7 +433,7 @@ class DATCellContainer(QCellContainer):
         super(DATCellContainer, self).resizeEvent(event)
         self._overlay.setGeometry(0, 0, self.width(), self.height())
         self._show_button.setGeometry(self.width() - 24, 0, 24, 24)
-        self._hide_button.setGeometry(self.width() - 24, 30, 24, 24)
+        self._hide_button.setGeometry(self.width() - 24, 0, 24, 24)
 
     def dragEnterEvent(self, event):
         mimeData = event.mimeData()
