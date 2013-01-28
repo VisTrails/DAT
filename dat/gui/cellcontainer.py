@@ -40,6 +40,9 @@ class Overlay(object):
     def set_mouse_position(self, x, y):
         pass
 
+    def mouse_clicked(self, x, y):
+        pass
+
     def resize(self, width, height):
         pass
 
@@ -77,6 +80,10 @@ class OverlayWidget(QtGui.QLabel):
         if self._overlay is not None:
             self._overlay.set_mouse_position(x, y)
             self.repaint()
+
+    def mouseReleaseEvent(self, event):
+        super(OverlayWidget, self).mouseReleaseEvent(event)
+        self._overlay.mouse_clicked(event.x(), event.y())
 
     def setOverlay(self, overlay):
         self._overlay = overlay
@@ -157,6 +164,10 @@ class VariableDroppingOverlay(Overlay):
 
         self.resize(cellcontainer.width(), cellcontainer.height())
 
+        self._forced = forced
+        if forced:
+            self._remove_icon = get_icon('remove_parameter.png')
+
         # Type-checking, so we can show which parameters are suitable to
         # receive the drop
         if not mimeData or not mimeData.hasFormat(MIMETYPE_DAT_VARIABLE):
@@ -211,6 +222,14 @@ class VariableDroppingOverlay(Overlay):
             if variable is not None:
                 qp.setFont(normalFont)
                 qp.drawText(40, y + height + ascent, " = %s" % variable.name)
+
+                # Display a button to remove this parameter
+                if self._forced:
+                    self._remove_icon.paint(
+                            qp,
+                            30 + self._parameter_max_width,
+                            y + height,
+                            16, 16)
             elif port.optional:
                 qp.setFont(normalFont)
             else:
@@ -281,6 +300,22 @@ class VariableDroppingOverlay(Overlay):
             self._cell._parameter_hovered = targeted
             self._cell.repaint()
 
+    def mouse_clicked(self, x, y):
+        metrics = self._cell.fontMetrics()
+        height = metrics.height()
+
+        for i, port in enumerate(self._cell._plot.ports):
+            port_y, port_h = self._parameters[i]
+
+            variable = self._cell._variables.get(port.name)
+            if variable is not None:
+                btn_x = 30 + self._parameter_max_width
+                btn_y = port_y + height
+                if btn_x <= x < btn_x + 16 and btn_y <= y < btn_y + 16:
+                    # Button pressed: remove parameter
+                    self._cell.remove_parameter(port.name)
+                    break
+
 
 class PlotPromptOverlay(Overlay):
     """Default content of the overlayed cells.
@@ -330,7 +365,7 @@ class DATCellContainer(QCellContainer):
 
         self._hide_button.setParent(self)
         self.connect(self._hide_button, QtCore.SIGNAL('clicked()'),
-                     self.hide_overlay)
+                     lambda: self._set_overlay(None))
         self._hide_button.setGeometry(self.width() - 24, 0, 24, 24)
         self._hide_button.setVisible(False)
 
@@ -426,9 +461,6 @@ class DATCellContainer(QCellContainer):
         self._hide_button.setVisible(True)
         self._hide_button.raise_()
 
-    def hide_overlay(self):
-        self._set_overlay(None)
-
     def resizeEvent(self, event):
         super(DATCellContainer, self).resizeEvent(event)
         self._overlay.setGeometry(0, 0, self.width(), self.height())
@@ -471,7 +503,7 @@ class DATCellContainer(QCellContainer):
         mimeData = event.mimeData()
 
         if mimeData.hasFormat(MIMETYPE_DAT_VARIABLE):
-            if self._plot and self._parameter_hovered is not None:
+            if self._plot is not None and self._parameter_hovered is not None:
                 event.accept()
                 port_name = self._plot.ports[self._parameter_hovered].name
                 self._variables[port_name] = (
@@ -495,6 +527,12 @@ class DATCellContainer(QCellContainer):
             event.ignore()
 
         self._set_overlay(None)
+
+    def remove_parameter(self, port_name):
+        if self._plot is not None:
+            del self._variables[port_name]
+            self.try_update()
+            self._set_overlay(None)
 
     def try_update(self):
         """Check if enough ports are set, and execute the workflow
