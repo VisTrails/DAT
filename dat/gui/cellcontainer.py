@@ -469,7 +469,7 @@ class DATCellContainer(QCellContainer):
             pipeline = PlotMap().get_pipeline(recipe)
             if pipeline is None:
                 # Build the pipeline
-                pipeline = vistrails_interface.create_pipeline(recipe)
+                pipeline = vistrails_interface.create_pipeline(recipe, self.cellInfo)
                 PlotMap().created_pipeline(recipe, pipeline)
             vistrails_interface.execute_pipeline_to_cell(self.cellInfo,
                                                          pipeline)
