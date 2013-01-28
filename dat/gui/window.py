@@ -28,7 +28,7 @@ class MainWindow(QtGui.QMainWindow):
         fileMenu.addSeparator()
         quitAction = fileMenu.addAction(_("&Quit"))
         self.connect(quitAction, QtCore.SIGNAL("triggered()"),
-                     QtGui.qApp, QtCore.SLOT("quit()"))
+                     self.quitApplication)
 
         viewMenu = menubar.addMenu(_("&View"))
         showBuilderAction = viewMenu.addAction(_("Show &builder window"))
@@ -58,5 +58,8 @@ class MainWindow(QtGui.QMainWindow):
         self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, variables)
 
     def closeEvent(self, event):
-        if not get_vistrails_application().try_quit():
+        if not self.quitApplication():
             event.ignore()
+
+    def quitApplication(self):
+        return get_vistrails_application().try_quit()
