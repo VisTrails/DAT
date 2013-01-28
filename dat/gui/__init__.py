@@ -28,8 +28,17 @@ def translate(context):
     return tr
 
 
+_icon_cache = dict()
+
 def get_icon(name):
     """Loads and return a QIcon.
     """
     # We might want to cache this
-    return QtGui.QIcon(os.path.join(dat.main.application_path, 'dat/resources/icons', name))
+    try:
+        return _icon_cache[name]
+    except KeyError:
+        icon = QtGui.QIcon(os.path.join(dat.main.application_path,
+                                        'dat/resources/icons',
+                                        name))
+        _icon_cache[name] = icon
+        return icon
