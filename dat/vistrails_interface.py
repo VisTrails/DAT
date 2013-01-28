@@ -363,7 +363,7 @@ class FileVariableLoader(QtGui.QWidget, BaseVariableLoader):
         raise NotImplementedError
 
 
-def _get_function(module, function_name):
+def get_function(module, function_name):
     """Get the value of a function of a pipeline module.
     """
     for function in module.functions:
@@ -379,12 +379,26 @@ def copy_module(controller, module, operations):
     return module
 
 
+def find_modules_by_type(pipeline, moduletypes):
+    moduletypes = tuple(moduletypes)
+    result = []
+    for module in pipeline.module_list:
+        desc = module.module_descriptor
+        if issubclass(desc.module, moduletypes):
+            result.append(module)
+    return result
+
+
 def create_pipeline(recipe, cell_info=None):
-    """create_pipeline(recipe: DATRecipe, cell_info: CellInformation) 
+    """create_pipeline(recipe: DATRecipe, cell_info: CellInformation)
         -> PipelineInformation
-    
+
     Create a pipeline in the Vistrail and return its information.
     """
+    # This is only here because of cycles in the spreadsheet dependencies graph
+    from vistrails.packages.spreadsheet.basic_widgets import CellLocation, \
+        SpreadsheetCell
+
     # Build from the root version
     controller = get_vistrails_application().dat_controller
     controller.change_selected_version(0)
@@ -417,42 +431,44 @@ def create_pipeline(recipe, cell_info=None):
                 plot_modules_map[module.id] = copy_module(
                         controller, module, operations)
 
-        #add cell location module if plot subworkflow didn't contain one 
+        # Add a cell location module if the plot subworkflow didn't contain one
         loc_modules = find_modules_by_type(plot_pipeline, [CellLocation])
-        if len(loc_modules) == 0:
-            reg = get_module_registry()
-            desc_name = 'edu.utah.sci.vistrails.spreadsheet'
-            desc = reg.get_descriptor_by_name(desc_name)
+        if cell_info is not None and not loc_modules:
+            desc = reg.get_descriptor_from_module(CellLocation)
             location_module = controller.create_module_from_descriptor(desc)
-            cell_modules = find_modules_by_type([SpreadsheetCell])
-            if len(cell_modules) > 0:
+            cell_modules = find_modules_by_type(plot_pipeline,
+                                                [SpreadsheetCell])
+            if cell_modules:
                 cell_module = plot_modules_map[cell_modules[0].id]
-                loc_cell_conn = controller.create_connection(location_module,
-                                                             'self',
-                                                             cell_module,
-                                                             'Location')
-                row, col = 1, 1
-                if cell_info is not None:
-                    row, col = cell_info.row, cell_info.column
-                location_module.add_function(('Row', [str(row)]))
-                location_module.add_function(('Column', [str(col)]))
-                
-                new_ops = [('add', location_module),('add', loc_cell_conn)]
+                loc_cell_conn = controller.create_connection(
+                        location_module, 'self',
+                        cell_module, 'Location')
+                row, col = cell_info.row, cell_info.column
+
+                new_ops = [('add', location_module), ('add', loc_cell_conn)]
+                new_ops.extend(
+                        controller.update_function_ops(
+                                location_module, 'Row', [str(row)]))
+                new_ops.extend(
+                        controller.update_function_ops(
+                                location_module, 'Column', [str(col)]))
                 operations.extend(new_ops)
+
                 if len(cell_modules) > 1:
-                    warnings.warn("Plot subworkflow contains more than one "
-                                  "spreadsheet cell module. Only one "
-                                  "connected to location module.")
+                    warnings.warn("Plot subworkflow '%s' contains more than "
+                                  "one spreadsheet cell module. Only one "
+                                  "was connected to a location module." %
+                                  recipe.plot.name)
             else:
-                warnings.warn("Plot subworkflow does not contain a "
-                              "spreadsheet cell module")
-                
+                warnings.warn("Plot subworkflow '%s' does not contain a "
+                              "spreadsheet cell module" % recipe.plot.name)
+
         # Copy the connections and locate the input ports
         plot_params = dict() # param name -> [(module, input port name)]
         for connection in plot_pipeline.connection_list:
             src = plot_pipeline.modules[connection.source.moduleId]
             if src.module_descriptor is inputport_desc:
-                param = _get_function(src, 'name')
+                param = get_function(src, 'name')
                 try:
                     ports = plot_params[param]
                 except KeyError:
@@ -477,7 +493,7 @@ def create_pipeline(recipe, cell_info=None):
         var_modules_map = dict()
         for module in pipeline.modules.itervalues():
             if (module.module_descriptor is outputport_desc and
-                    _get_function(module, 'name') == 'value'):
+                    get_function(module, 'name') == 'value'):
                 output_id = module.id
             else:
                 # We can't just add this module to the new pipeline!
@@ -514,7 +530,7 @@ def create_pipeline(recipe, cell_info=None):
                         var_modules_map[connection.destination.moduleId],
                         connection.destination.name)
                 operations.append(('add', new_conn))
-                
+
 
     action = create_action(operations)
     controller.add_new_action(action)
@@ -532,7 +548,9 @@ def execute_pipeline_to_cell(cellInfo, pipeline):
     Execute the referenced pipeline, so that its result gets displayed in the
     specified spreadsheet cell.
     """
-    from vistrails.packages.spreadsheet.basic_widgets import SpreadsheetCell
+    # This is only here because of cycles in the spreadsheet dependencies graph
+    from vistrails.packages.spreadsheet.basic_widgets import CellLocation, \
+        SpreadsheetCell
 
     # Retrieve the pipeline
     controller = get_vistrails_application().dat_controller
@@ -546,28 +564,23 @@ def execute_pipeline_to_cell(cellInfo, pipeline):
         if issubclass(module.module_descriptor.module, SpreadsheetCell):
             cellIds.append(module.id)
 
-    # Use some dark magic from the spreadsheet package to get a new pipeline
-    # that will use the cell location we want
-    # This is what is used when copying a cell
-#    pipeline = cellInfo.tab.setPipelineToLocateAt(
-#            cellInfo.row,
-#            cellInfo.column,
-#            pipeline,
-#            cellIds)
-
-    #update cell location functions if needed
-    #BEN: this may change the current version of the pipeline, does
-    # this need to be updated in DAT somewhere?
-    loc_modules = find_mocules_by_type(pipeline, [CellLocation])
-    if len(loc_modules) > 0:
-        loc_row = get_value_from_function(loc_modules[0], 'Row')
-        if str(cellInfo.row) != str(loc_row):
-            controller.update_function(loc_modules[0], 'Row', 
-                                       [str(cellInfo.row)])
-        loc_col = get_value_from_function(loc_modules[0], 'Column')
+    # Update the CellLocation module's functions if needed
+    loc_modules = find_modules_by_type(pipeline, [CellLocation])
+    if loc_modules:
+        ops = []
+        loc_row = get_function(loc_modules[0], 'Row')
+        if str(cellInfo.row) != loc_row:
+            ops.extend(controller.update_function_ops(
+                    loc_modules[0], 'Row', [str(cellInfo.row)]))
+        loc_col = get_function(loc_modules[0], 'Column')
         if str(cellInfo.column) != str(loc_col):
-            controller.update_function(loc_modules[0], 'Column', 
-                                       [str(cellInfo.column)])
+            ops.extend(controller.update_function_ops(
+                    loc_modules[0], 'Column', [str(cellInfo.column)]))
+        if ops:
+            action = create_action(ops)
+            controller.add_new_action(action)
+            controller.perform_action(action)
+            pipeline = controller.current_pipeline
     else:
         warnings.warn("Pipeline has no cell location modules")
 
@@ -577,17 +590,3 @@ def execute_pipeline_to_cell(cellInfo, pipeline):
             "DAT recipe execution",
             locator=controller.locator,
             current_version=controller.current_version)
-    
-def find_modules_by_type(pipeline, moduletypes):
-    result = []
-    for module in pipeline.module_list:
-        desc = module.module_descriptor
-        if issubclass(desc.module, tuple(moduletypes)):
-            result.append(module)
-    return result
-
-def get_value_from_function(module, fun):
-    for i in xrange(module.getNumFunctions()):
-        if fun == module.functions[i].name:
-            return module.functions[i].params[0].value()
-    return None
