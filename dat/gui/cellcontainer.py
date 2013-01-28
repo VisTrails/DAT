@@ -2,7 +2,7 @@ from PyQt4 import QtCore, QtGui
 
 from dat import MIMETYPE_DAT_VARIABLE, MIMETYPE_DAT_PLOT, \
     DATRecipe, PipelineInformation
-from dat.gui import translate
+from dat.gui import get_icon, translate
 from dat.manager import Manager
 from dat.plot_map import PlotMap
 from dat import vistrails_interface
@@ -15,7 +15,7 @@ class Overlay(object):
     """Base class for the cell overlays.
     """
 
-    def __init__(self, cellcontainer, mimeData):
+    def __init__(self, cellcontainer):
         self._cell = cellcontainer
 
     # Background of all overlay (translucent, on top of the cell's content)
@@ -90,6 +90,9 @@ class VariableDropEmptyCell(Overlay):
     known.
     """
 
+    def __init__(self, cellcontainer, mimeData):
+        Overlay.__init__(self, cellcontainer)
+
     def draw(self, qp):
         _ = translate(VariableDropEmptyCell)
 
@@ -117,7 +120,7 @@ class PlotDroppingOverlay(Overlay):
     def __init__(self, cellcontainer, mimeData):
         _ = translate(PlotDroppingOverlay)
 
-        Overlay.__init__(self, cellcontainer, mimeData)
+        Overlay.__init__(self, cellcontainer)
 
         if cellcontainer._plot is None:
             text = _("Drop here to add a {plotname} to this cell")
@@ -149,8 +152,8 @@ class VariableDroppingOverlay(Overlay):
     type-checks them.
     """
 
-    def __init__(self, cellcontainer, mimeData):
-        Overlay.__init__(self, cellcontainer, mimeData)
+    def __init__(self, cellcontainer, mimeData=None, forced=False):
+        Overlay.__init__(self, cellcontainer)
 
         self.resize(cellcontainer.width(), cellcontainer.height())
 
@@ -310,10 +313,26 @@ class DATCellContainer(QCellContainer):
     def __init__(self, cellInfo=None, widget=None, parent=None):
         self._variables = dict() # param name -> Variable
         self._plot = None # dat.vistrails_interface:Plot
+
         self._overlay = OverlayWidget(self)
+        self._show_button = QtGui.QPushButton()
+        self._show_button.setIcon(get_icon('show_overlay.png'))
+        self._hide_button = QtGui.QPushButton()
+        self._hide_button.setIcon(get_icon('hide_overlay.png'))
 
         QCellContainer.__init__(self, cellInfo, widget, parent)
         self.setAcceptDrops(True)
+
+        self._show_button.setParent(self)
+        self.connect(self._show_button, QtCore.SIGNAL('clicked()'),
+                     self.show_overlay)
+        self._show_button.setGeometry(self.width() - 24, 0, 24, 24)
+
+        self._hide_button.setParent(self)
+        self.connect(self._hide_button, QtCore.SIGNAL('clicked()'),
+                     self.hide_overlay)
+        self._hide_button.setGeometry(self.width() - 24, 30, 24, 24)
+        self._hide_button.setVisible(False)
 
         self._overlay.setParent(self)
         self._set_overlay(None)
@@ -362,6 +381,7 @@ class DATCellContainer(QCellContainer):
             return
 
         widget.raise_()
+        self._show_button.raise_()
 
         pipelineInfo = self.cellInfo.tab.getCellPipelineInfo(
                 self.cellInfo.row, self.cellInfo.column)
@@ -378,7 +398,7 @@ class DATCellContainer(QCellContainer):
             self._variables = dict()
         self._set_overlay(None)
 
-    def _set_overlay(self, overlay_class, mimeData=None):
+    def _set_overlay(self, overlay_class, **kwargs):
         if overlay_class is None:
             # Default overlay
             if self.widget() is None and self._plot is not None:
@@ -387,15 +407,33 @@ class DATCellContainer(QCellContainer):
                 self._set_overlay(PlotPromptOverlay)
             else:
                 self._overlay.setOverlay(None)
+                self._show_button.raise_()
+                self._show_button.setVisible(True)
                 self._overlay.lower()
+                self._hide_button.setVisible(False)
         else:
-            self._overlay.setOverlay(overlay_class(self, mimeData))
+            self._overlay.setOverlay(overlay_class(self, **kwargs))
             self._overlay.raise_()
+            self._show_button.setVisible(False)
+            self._hide_button.setVisible(False)
         self._overlay.repaint()
+
+    def show_overlay(self):
+        if self._plot is None:
+            # Shoudln't happen
+            return
+        self._set_overlay(VariableDroppingOverlay, forced=True)
+        self._hide_button.setVisible(True)
+        self._hide_button.raise_()
+
+    def hide_overlay(self):
+        self._set_overlay(None)
 
     def resizeEvent(self, event):
         super(DATCellContainer, self).resizeEvent(event)
         self._overlay.setGeometry(0, 0, self.width(), self.height())
+        self._show_button.setGeometry(self.width() - 24, 0, 24, 24)
+        self._hide_button.setGeometry(self.width() - 24, 30, 24, 24)
 
     def dragEnterEvent(self, event):
         mimeData = event.mimeData()
@@ -406,11 +444,11 @@ class DATCellContainer(QCellContainer):
                 # We can't though, because Qt would stop sending drag and drop
                 # events
                 # We still refuse the QDropEvent when the drop happens
-                self._set_overlay(VariableDropEmptyCell, mimeData)
+                self._set_overlay(VariableDropEmptyCell, mimeData=mimeData)
             else:
-                self._set_overlay(VariableDroppingOverlay, mimeData)
+                self._set_overlay(VariableDroppingOverlay, mimeData=mimeData)
         elif mimeData.hasFormat(MIMETYPE_DAT_PLOT):
-            self._set_overlay(PlotDroppingOverlay, mimeData)
+            self._set_overlay(PlotDroppingOverlay, mimeData=mimeData)
         else:
             event.ignore()
             return
