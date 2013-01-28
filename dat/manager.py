@@ -52,19 +52,7 @@ class Manager(object):
             self.new_package(package.identifier)
 
         # Load the Variables from the Vistrail
-        # TODO-dat : this is untested
-        controller = get_vistrails_application().dat_controller
-        if controller.vistrail.has_tag_str('dat-vars'):
-            tagmap = controller.vistrail.get_tagMap()
-            for version, tag in tagmap.iteritems():
-                if tag.startswith('dat-var-'):
-                    varname = tag[8:]
-                    # TODO-dat : get the type from the OutputPort module's spec
-                    # input port
-                    variable = Variable.VariableInformation(controller, None)
-
-                    self._variables[varname] = variable
-                    self._add_variable(varname)
+        self.load_variables_from_vistrail()
 
     def _add_plot(self, plot):
         self._plots.add(plot)
@@ -139,6 +127,28 @@ class Manager(object):
         for loader in list(self._variable_loaders):
             if loader.package_identifier == package.identifier:
                 self._remove_loader(loader)
+
+    def load_variables_from_vistrail(self):
+        # TODO-dat : this is untested
+        controller = get_vistrails_application().dat_controller
+        if controller.vistrail.has_tag_str('dat-vars'):
+            tagmap = controller.vistrail.get_tagMap()
+            for version, tag in tagmap.iteritems():
+                if tag.startswith('dat-var-'):
+                    varname = tag[8:]
+                    # TODO-dat : get the type from the OutputPort module's spec
+                    # input port
+                    variable = Variable.VariableInformation(
+                            varname, controller, None)
+
+                    self._variables[varname] = variable
+                    self._add_variable(varname)
+
+    def remove_all_variables(self):
+        for varname in self._variables.iterkeys():
+            self._remove_variable(varname)
+
+        self._variables = dict()
 
     def new_variable(self, varname, variable):
         """Register a new Variable with DAT.

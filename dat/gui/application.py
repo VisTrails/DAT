@@ -152,6 +152,10 @@ class Application(NotificationDispatcher, VistrailsApplicationInterface):
         self.builderWindow.link_registry()
         self.builderWindow.create_first_vistrail()
         self.dat_controller = self.builderWindow.get_current_controller()
+        # TODO-dat : multiple controllers support
+        # Right now, we'll just switch to the other one, forgetting completely
+        # the current one
+        self.register_notification('controller_changed', self.set_controller)
 
         # Set our own spreadsheet cell container class
         from vistrails.packages.spreadsheet.spreadsheet_controller import (
@@ -162,6 +166,14 @@ class Application(NotificationDispatcher, VistrailsApplicationInterface):
         # Discover the plots and variables from packages and register to
         # notifications for packages loaded in the future
         dat.manager.Manager().init()
+
+    def set_controller(self, controller):
+        dat.manager.Manager().remove_all_variables()
+        self.dat_controller = controller
+        dat.manager.Manager().load_variables_from_vistrail()
+
+    def try_quit(self):
+        return self.builderWindow.quit()
 
     # Various getters required by VisTrails's code...
 
@@ -184,9 +196,6 @@ class Application(NotificationDispatcher, VistrailsApplicationInterface):
         self.builderWindow.activateWindow()
         self.builderWindow.show()
         self.builderWindow.raise_()
-
-    def try_quit(self):
-        return self.builderWindow.quit()
 
 
 def start():
