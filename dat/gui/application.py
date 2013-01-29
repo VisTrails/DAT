@@ -172,11 +172,11 @@ class Application(NotificationDispatcher, VistrailsApplicationInterface):
         # (in the event it is not empty)
         dat.plot_map.PlotMap().init()
 
-    # TODO-dat : this is called a lot more frequently than I thought,
-    # not only when changing the active controller
-    # We could filter by checking that controller != self.dat_controller or
-    # find a more suitable VisTrails signal
     def set_controller(self, controller):
+        if controller == self.dat_controller:
+            # VisTrails lets this happen
+            return
+
         dat.manager.Manager().remove_all_variables()
         self.dat_controller = controller
         dat.manager.Manager().load_variables_from_vistrail()
