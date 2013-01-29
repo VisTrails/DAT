@@ -484,7 +484,6 @@ def create_pipeline(recipe, cell_info):
                 _update_func(location_module, 'Row', row+1)
                 _update_func(location_module, 'Column', col+1)
                 
-                
                 if len(cell_modules) > 1:
                     warnings.warn("Plot subworkflow '%s' contains more than "
                                   "one spreadsheet cell module. Only one "
