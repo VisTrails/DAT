@@ -5,6 +5,7 @@ from PyQt4 import QtGui
 
 from dat.gui.window import MainWindow
 import dat.manager
+import dat.plot_map
 
 from vistrails.core.application import (set_vistrails_application,
         VistrailsApplicationInterface)
@@ -167,10 +168,19 @@ class Application(NotificationDispatcher, VistrailsApplicationInterface):
         # notifications for packages loaded in the future
         dat.manager.Manager().init()
 
+        # Initialize the PlotMap; this will load the map from the vistrail
+        # (in the event it is not empty)
+        dat.plot_map.PlotMap().init()
+
+    # TODO-dat : this is called a lot more frequently than I thought,
+    # not only when changing the active controller
+    # We could filter by checking that controller != self.dat_controller or
+    # find a more suitable VisTrails signal
     def set_controller(self, controller):
         dat.manager.Manager().remove_all_variables()
         self.dat_controller = controller
         dat.manager.Manager().load_variables_from_vistrail()
+        dat.plot_map.PlotMap().load_from_vistrail()
 
     def try_quit(self):
         return self.builderWindow.quit()

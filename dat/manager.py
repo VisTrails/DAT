@@ -18,7 +18,7 @@ class Manager(object):
     when they are loaded, by subscribing to VisTrails's registry notifications.
     """
     def __init__(self):
-        self._plots = set()
+        self._plots = dict()
         self._variable_loaders = set()
         self._variables = dict()
 
@@ -55,15 +55,18 @@ class Manager(object):
         self.load_variables_from_vistrail()
 
     def _add_plot(self, plot):
-        self._plots.add(plot)
+        self._plots[plot.name] = plot
         get_vistrails_application().send_notification('dat_new_plot', plot)
 
     def _remove_plot(self, plot):
-        self._plots.remove(plot)
+        del self._plots[plot.name]
         get_vistrails_application().send_notification('dat_removed_plot', plot)
 
+    def get_plot(self, plotname):
+        return self._plots[plotname]
+
     def _get_plots(self):
-        return iter(self._plots)
+        return self._plots.itervalues()
     plots = property(_get_plots)
 
     def _add_loader(self, loader):
@@ -120,7 +123,7 @@ class Manager(object):
         Removes the Plots and VariableLoaders associated with that package from
         the lists.
         """
-        for plot in list(self._plots):
+        for plot in self._plots.itervalues():
             if plot.package_identifier == package.identifier:
                 self._remove_plot(plot)
 
