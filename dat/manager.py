@@ -129,7 +129,6 @@ class Manager(object):
                 self._remove_loader(loader)
 
     def load_variables_from_vistrail(self):
-        # TODO-dat : this is untested
         controller = get_vistrails_application().dat_controller
         if controller.vistrail.has_tag_str('dat-vars'):
             tagmap = controller.vistrail.get_tagMap()

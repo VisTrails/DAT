@@ -20,19 +20,22 @@ class MainWindow(QtGui.QMainWindow):
 
         fileMenu = menubar.addMenu(_("&File"))
         openAction = fileMenu.addAction(_("&Open..."))
-        openAction.setEnabled(False)
+        self.connect(openAction, QtCore.SIGNAL('triggered()'),
+                     self.openFile)
         saveAction = fileMenu.addAction(_("&Save"))
-        saveAction.setEnabled(False)
+        self.connect(saveAction, QtCore.SIGNAL('triggered()'),
+                     self.saveFile)
         saveAsAction = fileMenu.addAction(_("Save &as..."))
-        saveAsAction.setEnabled(False)
+        self.connect(saveAsAction, QtCore.SIGNAL('triggered()'),
+                     self.saveAsFile)
         fileMenu.addSeparator()
         quitAction = fileMenu.addAction(_("&Quit"))
-        self.connect(quitAction, QtCore.SIGNAL("triggered()"),
+        self.connect(quitAction, QtCore.SIGNAL('triggered()'),
                      self.quitApplication)
 
         viewMenu = menubar.addMenu(_("&View"))
         showBuilderAction = viewMenu.addAction(_("Show &builder window"))
-        self.connect(showBuilderAction, QtCore.SIGNAL("triggered()"),
+        self.connect(showBuilderAction, QtCore.SIGNAL('triggered()'),
                      get_vistrails_application().showBuilderWindow)
 
         # Embed the spreadsheet window as the central widget
@@ -56,6 +59,21 @@ class MainWindow(QtGui.QMainWindow):
                               QtGui.QDockWidget.DockWidgetFloatable)
         variables.setWidget(self._variables)
         self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, variables)
+
+    def openFile(self):
+        get_vistrails_application().builderWindow.open_vistrail_default()
+
+    def saveFile(self):
+        from vistrails.core.db.locator import DBLocator, FileLocator
+        bw = get_vistrails_application().builderWindow
+        bw.get_current_view().save_vistrail(
+                bw.dbDefault and DBLocator or FileLocator())
+
+    def saveAsFile(self):
+        from vistrails.core.db.locator import DBLocator, FileLocator
+        bw = get_vistrails_application().builderWindow
+        bw.get_current_view().save_vistrail_as(
+                bw.dbDefault and DBLocator or FileLocator())
 
     def closeEvent(self, event):
         if not self.quitApplication():
