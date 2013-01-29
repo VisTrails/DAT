@@ -388,8 +388,7 @@ def find_modules_by_type(pipeline, moduletypes):
             result.append(module)
     return result
 
-
-def create_pipeline(recipe, cell_info=None):
+def create_pipeline(recipe, cell_info):
     """create_pipeline(recipe: DATRecipe, cell_info: CellInformation)
         -> PipelineInformation
 
@@ -397,7 +396,7 @@ def create_pipeline(recipe, cell_info=None):
     """
     # This is only here because of cycles in the spreadsheet dependencies graph
     from vistrails.packages.spreadsheet.basic_widgets import CellLocation, \
-        SpreadsheetCell
+        SpreadsheetCell, SheetReference
 
     # Build from the root version
     controller = get_vistrails_application().dat_controller
@@ -430,30 +429,62 @@ def create_pipeline(recipe, cell_info=None):
                 # We need to create a new one to avoid id collisions
                 plot_modules_map[module.id] = copy_module(
                         controller, module, operations)
-
-        # Add a cell location module if the plot subworkflow didn't contain one
-        loc_modules = find_modules_by_type(plot_pipeline, [CellLocation])
-        if cell_info is not None and not loc_modules:
-            desc = reg.get_descriptor_from_module(CellLocation)
-            location_module = controller.create_module_from_descriptor(desc)
+                
+        def _get_or_create_module(moduleType):
+            """Creates new module if plot pipeline didn't contain it
+                and warns if multiples found
+            """
+            modules = find_modules_by_type(plot_pipeline, [moduleType])
+            if not modules:
+                desc = reg.get_descriptor_from_module(moduleType)
+                module = controller.create_module_from_descriptor(desc)
+                operations.append(('add',module))
+                return module, True
+            else:
+                #Currently we do not support multiple cell locations in one
+                #pipeline but this may be a feature in the future, to have
+                #linked visualizations in multiple cells
+                if len(modules) > 1:
+                    warnings.warn("Found multiple " + moduleType + " modules "
+                                  "in plot subworkflow, only using one.")
+                return plot_modules_map[modules[0].id], False
+                
+        # Add SheetReference and CellLocation modules if the plot 
+        # subworkflow didn't contain them
+        sheet_module, new_sheet = _get_or_create_module(SheetReference)
+        location_module, new_location = _get_or_create_module(CellLocation)
+            
+        if new_sheet or new_location:
+            # Connect sheet to location to cell
             cell_modules = find_modules_by_type(plot_pipeline,
                                                 [SpreadsheetCell])
             if cell_modules:
                 cell_module = plot_modules_map[cell_modules[0].id]
                 loc_cell_conn = controller.create_connection(
-                        location_module, 'self',
+                        location_module, 'self', 
                         cell_module, 'Location')
+                sheet_loc_conn = controller.create_connection(
+                        sheet_module, 'self', 
+                        location_module, 'SheetReference')
                 row, col = cell_info.row, cell_info.column
-
-                new_ops = [('add', location_module), ('add', loc_cell_conn)]
-                new_ops.extend(
-                        controller.update_function_ops(
-                                location_module, 'Row', [str(row + 1)]))
-                new_ops.extend(
-                        controller.update_function_ops(
-                                location_module, 'Column', [str(col + 1)]))
-                operations.extend(new_ops)
-
+    
+                #add connections
+                operations.append(('add', loc_cell_conn))
+                operations.append(('add', sheet_loc_conn))
+                
+                #update functions
+                def _update_func(_module, _func, _value):
+                    operations.extend(
+                           controller.update_function_ops(
+                                  _module, _func, [str(_value)]))
+                
+                tw = cell_info.tab.tabWidget
+                sheetName = tw.tabText(tw.indexOf(cell_info.tab))
+                _update_func(sheet_module, 'SheetName', sheetName)
+                _update_func(location_module, 'Row', row+1)
+                _update_func(location_module, 'Column', col+1)
+                
+                
                 if len(cell_modules) > 1:
                     warnings.warn("Plot subworkflow '%s' contains more than "
                                   "one spreadsheet cell module. Only one "
