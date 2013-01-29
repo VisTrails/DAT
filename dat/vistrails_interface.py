@@ -388,6 +388,7 @@ def find_modules_by_type(pipeline, moduletypes):
             result.append(module)
     return result
 
+
 def create_pipeline(recipe, cell_info):
     """create_pipeline(recipe: DATRecipe, cell_info: CellInformation)
         -> PipelineInformation
@@ -405,6 +406,12 @@ def create_pipeline(recipe, cell_info):
     reg = get_module_registry()
 
     operations = []
+
+    def connect_modules(src_mod, src_port, dest_mod, dest_port):
+        new_conn = controller.create_connection(
+                src_mod, src_port,
+                dest_mod, dest_port)
+        operations.append(('add', new_conn))
 
     outputport_desc = reg.get_descriptor_by_name(
             'edu.utah.sci.vistrails.basic', 'OutputPort')
@@ -429,69 +436,68 @@ def create_pipeline(recipe, cell_info):
                 # We need to create a new one to avoid id collisions
                 plot_modules_map[module.id] = copy_module(
                         controller, module, operations)
-                
+
         def _get_or_create_module(moduleType):
-            """Creates new module if plot pipeline didn't contain it
-                and warns if multiples found
+            """Returns or creates a new module of the given type.
+
+            Warns if multiple modules of that type were found.
             """
             modules = find_modules_by_type(plot_pipeline, [moduleType])
             if not modules:
                 desc = reg.get_descriptor_from_module(moduleType)
                 module = controller.create_module_from_descriptor(desc)
-                operations.append(('add',module))
+                operations.append(('add', module))
                 return module, True
             else:
-                #Currently we do not support multiple cell locations in one
-                #pipeline but this may be a feature in the future, to have
-                #linked visualizations in multiple cells
+                # Currently we do not support multiple cell locations in one
+                # pipeline but this may be a feature in the future, to have
+                # linked visualizations in multiple cells
                 if len(modules) > 1:
-                    warnings.warn("Found multiple " + moduleType + " modules "
-                                  "in plot subworkflow, only using one.")
+                    warnings.warn("Found multiple %s modules in plot "
+                                  "subworkflow, only using one." % moduleType)
                 return plot_modules_map[modules[0].id], False
-                
-        # Add SheetReference and CellLocation modules if the plot 
-        # subworkflow didn't contain them
-        sheet_module, new_sheet = _get_or_create_module(SheetReference)
-        location_module, new_location = _get_or_create_module(CellLocation)
-            
-        if new_sheet or new_location:
-            # Connect sheet to location to cell
-            cell_modules = find_modules_by_type(plot_pipeline,
-                                                [SpreadsheetCell])
-            if cell_modules:
-                cell_module = plot_modules_map[cell_modules[0].id]
-                loc_cell_conn = controller.create_connection(
-                        location_module, 'self', 
-                        cell_module, 'Location')
-                sheet_loc_conn = controller.create_connection(
-                        sheet_module, 'self', 
+
+        # Connect the CellLocation to the SpreadsheetCell
+        cell_modules = find_modules_by_type(plot_pipeline,
+                                            [SpreadsheetCell])
+        if cell_modules:
+            # Add SheetReference and CellLocation modules if the plot
+            # subworkflow didn't contain them
+            sheet_module, new_sheet = _get_or_create_module(SheetReference)
+            location_module, new_location = _get_or_create_module(CellLocation)
+
+            if new_sheet or new_location:
+                # Connect the SheetReference to the CellLocation
+                connect_modules(
+                        sheet_module, 'self',
                         location_module, 'SheetReference')
+
+            if new_location:
+                # Connect the CellLocation to the SpreadsheetCell
+                cell_module = plot_modules_map[cell_modules[0].id]
+                connect_modules(
+                        location_module, 'self',
+                        cell_module, 'Location')
+
+            if location_module:
+                tabwidget = cell_info.tab.tabWidget
+                sheetName = tabwidget.tabText(tabwidget.indexOf(cell_info.tab))
                 row, col = cell_info.row, cell_info.column
-    
-                #add connections
-                operations.append(('add', loc_cell_conn))
-                operations.append(('add', sheet_loc_conn))
-                
-                #update functions
-                def _update_func(_module, _func, _value):
-                    operations.extend(
-                           controller.update_function_ops(
-                                  _module, _func, [str(_value)]))
-                
-                tw = cell_info.tab.tabWidget
-                sheetName = tw.tabText(tw.indexOf(cell_info.tab))
-                _update_func(sheet_module, 'SheetName', sheetName)
-                _update_func(location_module, 'Row', row+1)
-                _update_func(location_module, 'Column', col+1)
-                
+                operations.extend(controller.update_function_ops(
+                        sheet_module, 'SheetName', [sheetName]))
+                operations.extend(controller.update_function_ops(
+                        location_module, 'Row', [row + 1]))
+                operations.extend(controller.update_function_ops(
+                        location_module, 'Column', [col + 1]))
+
                 if len(cell_modules) > 1:
                     warnings.warn("Plot subworkflow '%s' contains more than "
                                   "one spreadsheet cell module. Only one "
                                   "was connected to a location module." %
                                   recipe.plot.name)
-            else:
-                warnings.warn("Plot subworkflow '%s' does not contain a "
-                              "spreadsheet cell module" % recipe.plot.name)
+        else:
+            warnings.warn("Plot subworkflow '%s' does not contain a "
+                          "spreadsheet cell module" % recipe.plot.name)
 
         # Copy the connections and locate the input ports
         plot_params = dict() # param name -> [(module, input port name)]
@@ -507,12 +513,11 @@ def create_pipeline(recipe, cell_info):
                         plot_modules_map[connection.destination.moduleId],
                         connection.destination.name))
             else:
-                new_conn = controller.create_connection(
+                connect_modules(
                         plot_modules_map[connection.source.moduleId],
                         connection.source.name,
                         plot_modules_map[connection.destination.moduleId],
                         connection.destination.name)
-                operations.append(('add', new_conn))
 
     # Add the Variable subworkflows, but 'inline' them
     for param, variable in recipe.variables.iteritems():
@@ -538,28 +543,25 @@ def create_pipeline(recipe, cell_info):
                     # TODO-dat : use a subworkflow for the Plot
                     # We connect to the plot's subworkflow module port <param>
                     # instead
-                    new_conn = controller.create_connection(
+                    connect_modules(
                             var_modules_map[connection.source.moduleId],
                             connection.source.name,
                             plot_module,
                             param)
-                    operations.append(('add', new_conn))
                 else:
                     params = plot_params.get(param, [])
                     for var_output_mod, var_output_port in params:
-                        new_conn = controller.create_connection(
+                        connect_modules(
                                 var_modules_map[connection.source.moduleId],
                                 connection.source.name,
                                 var_output_mod,
                                 var_output_port)
-                        operations.append(('add', new_conn))
             else:
-                new_conn = controller.create_connection(
+                connect_modules(
                         var_modules_map[connection.source.moduleId],
                         connection.source.name,
                         var_modules_map[connection.destination.moduleId],
                         connection.destination.name)
-                operations.append(('add', new_conn))
 
 
     action = create_action(operations)
