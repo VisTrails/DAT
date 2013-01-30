@@ -349,6 +349,11 @@ class DATCellContainer(QCellContainer):
         self._variables = dict() # param name -> Variable
         self._plot = None # dat.vistrails_interface:Plot
 
+        app = get_vistrails_application()
+        app.register_notification(
+                'dat_removed_variable', self._variable_removed)
+        self._controller = app.get_controller()
+
         self._overlay = OverlayWidget(self)
         self._show_button = QtGui.QPushButton()
         self._show_button.setIcon(get_icon('show_overlay.png'))
@@ -371,11 +376,6 @@ class DATCellContainer(QCellContainer):
 
         self._overlay.setParent(self)
         self._set_overlay(None)
-
-        app = get_vistrails_application()
-        app.register_notification(
-                'dat_removed_variable', self._variable_removed)
-        self._controller = app.get_controller()
     def setCellInfo(self, cellInfo):
         super(DATCellContainer, self).setCellInfo(cellInfo)
 
@@ -549,8 +549,12 @@ class DATCellContainer(QCellContainer):
             pipeline = mngr.get_pipeline(recipe)
             if pipeline is None:
                 # Build the pipeline
-                pipeline = vistrails_interface.create_pipeline(recipe,
-                                                               self.cellInfo)
+                pipeline = vistrails_interface.create_pipeline(
+                        self._controller,
+                        recipe,
+                        self.cellInfo)
                 mngr.created_pipeline(recipe, pipeline)
-            vistrails_interface.execute_pipeline_to_cell(self.cellInfo,
-                                                         pipeline)
+            vistrails_interface.execute_pipeline_to_cell(
+                    self._controller,
+                    self.cellInfo,
+                    pipeline)

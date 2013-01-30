@@ -389,7 +389,7 @@ def find_modules_by_type(pipeline, moduletypes):
     return result
 
 
-def create_pipeline(recipe, cell_info):
+def create_pipeline(controller, recipe, cell_info):
     """create_pipeline(recipe: DATRecipe, cell_info: CellInformation)
         -> PipelineInformation
 
@@ -400,7 +400,6 @@ def create_pipeline(recipe, cell_info):
         SpreadsheetCell, SheetReference
 
     # Build from the root version
-    controller = get_vistrails_application().dat_controller
     controller.change_selected_version(0)
 
     reg = get_module_registry()
@@ -573,7 +572,7 @@ def create_pipeline(recipe, cell_info):
     return PipelineInformation(pipeline_version)
 
 
-def execute_pipeline_to_cell(cellInfo, pipeline):
+def execute_pipeline_to_cell(controller, cellInfo, pipeline):
     """ execute_pipeline_to_cell(cellInfo: CellInformation,
                              pipeline: PipelineInformation) -> None
 
@@ -585,7 +584,6 @@ def execute_pipeline_to_cell(cellInfo, pipeline):
         SpreadsheetCell
 
     # Retrieve the pipeline
-    controller = get_vistrails_application().dat_controller
     controller.change_selected_version(pipeline.version)
     pipeline = controller.current_pipeline
 
