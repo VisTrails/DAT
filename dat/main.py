@@ -55,6 +55,7 @@ def main():
     except Exception:
         sys.stderr.write("Critical: Application exiting with an exception:\n")
         traceback.print_exc(file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == '__main__':
