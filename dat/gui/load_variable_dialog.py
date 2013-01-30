@@ -4,7 +4,8 @@ from PyQt4 import QtCore, QtGui
 from dat import DEFAULT_VARIABLE_NAME
 from dat.gui import translate
 from dat.gui.generic import AdvancedLineEdit
-import dat.manager
+from dat.global_data import GlobalManager
+from dat.vistrail_data import VistrailManager
 from dat.vistrails_interface import FileVariableLoader, CustomVariableLoader
 
 from vistrails.core.application import get_vistrails_application
@@ -12,14 +13,15 @@ from vistrails.core.application import get_vistrails_application
 
 _varname_format = re.compile('^(.+) \(([0-9]+)\)$')
 
-def unique_varname(varname):
+def unique_varname(varname, mngr):
     """Make a variable name unique.
 
     Adds or increment a number suffix to a variable name to make it unique.
 
-    >>> unique_varname('variable')
+    >>> mngr = VistrailManager()
+    >>> unique_varname('variable', mngr)
     'variable (2)'
-    >>> unique_varname('variable (4)')
+    >>> unique_varname('variable (4)', mngr)
     'variable (5)'
     """
     match = _varname_format.match(varname)
@@ -30,7 +32,7 @@ def unique_varname(varname):
     while True:
         num += 1
         new_varname = '%s (%d)' % (varname, num)
-        if dat.manager.Manager().get_variable(new_varname) is None:
+        if mngr.get_variable(new_varname) is None:
             return new_varname
 
 
@@ -157,8 +159,10 @@ class FileLoaderPanel(QtGui.QWidget):
 
 
 class LoadVariableDialog(QtGui.QDialog):
-    def __init__(self, parent=None):
+    def __init__(self, controller, parent=None):
         QtGui.QDialog.__init__(self, parent, QtCore.Qt.Dialog)
+
+        self._vistraildata = VistrailManager(controller)
 
         _ = translate(LoadVariableDialog)
 
@@ -209,7 +213,7 @@ class LoadVariableDialog(QtGui.QDialog):
         app = get_vistrails_application()
         app.register_notification('dat_new_loader', self.loader_added)
         app.register_notification('dat_removed_loader', self.loader_removed)
-        for loader in dat.manager.Manager().variable_loaders:
+        for loader in GlobalManager.variable_loaders:
             self.loader_added(loader)
 
         idx = self._tab_widget.currentIndex()
@@ -292,8 +296,9 @@ class LoadVariableDialog(QtGui.QDialog):
             self._varname_edit.setFocus()
             return False
         varname = str(varname)
-        if dat.manager.Manager().get_variable(varname) is not None:
-            self._varname_edit.setText(unique_varname(varname))
+        if self._vistraildata.get_variable(varname) is not None:
+            varname = unique_varname(varname, self._vistraildata)
+            self._varname_edit.setText(varname)
             self._varname_edit.setFocus()
             return False
         loader = self._tabs[self._tab_widget.currentIndex()]
@@ -301,7 +306,7 @@ class LoadVariableDialog(QtGui.QDialog):
         if variable is None:
             # Here we assume the loader displayed the error itself in some way
             return False
-        dat.manager.Manager().new_variable(varname, variable)
+        self._vistraildata.new_variable(varname, variable)
         self._varname_edit.setDefault(self._default_varname)
         return True
 
@@ -309,6 +314,6 @@ class LoadVariableDialog(QtGui.QDialog):
         if varname.isNull() or varname.isEmpty():
             return False
         varname = str(varname)
-        if dat.manager.Manager().get_variable(varname) is not None:
+        if self._vistraildata.get_variable(varname) is not None:
             return False
         return True

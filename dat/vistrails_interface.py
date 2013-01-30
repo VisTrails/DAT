@@ -121,7 +121,7 @@ class Variable(object):
     """Object used to build a DAT variable.
 
     This is a wrapper used by VisTrails packages to build a pipeline for a new
-    variable. This variable is then stored in the Manager.
+    variable. This variable is then stored in the VistrailData.
     Wrapper objects are restored from the Vistrail file easily: they are
     children versions of the version tagged 'dat-vars', and have a tag
     'dat-var-name' where 'name' is the name of that specific DAT variable.
@@ -143,7 +143,7 @@ class Variable(object):
         def remove(self):
             """Delete the pipeline from the Vistrail.
 
-            This is called by the Manager when the Variable is removed.
+            This is called by the VistrailData when the Variable is removed.
             """
             controller = self._controller
             version = controller.vistrail.get_version_number(
@@ -153,7 +153,7 @@ class Variable(object):
         def rename(self, new_varname):
             """Change the tag on this version in the Vistrail.
 
-            This is called by the Manager when the Variable is renamed.
+            This is called by the VistrailData when the Variable is renamed.
             """
             controller = self._controller
             version = controller.vistrail.get_version_number(
@@ -216,7 +216,7 @@ class Variable(object):
         # All the operations leading to the materialization of this variable
         # as a pipeline, child of the 'dat-vars' version, are stored in this
         # list and will be added to the Vistrail when perform_operations() is
-        # called by the Manager
+        # called by the VistrailData
         self._operations = []
 
         # Get the VisTrails package that's creating this Variable by inspecting
@@ -281,7 +281,7 @@ class Variable(object):
         Create a pipeline tagged as 'dat-var-<varname>' for this Variable,
         children of the 'dat-vars' version.
 
-        This is called by the Manager when the Variable is inserted.
+        This is called by the VistrailData when the Variable is inserted.
         """
         controller = self._controller
         controller.change_selected_version(self._root_version)

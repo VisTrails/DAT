@@ -4,8 +4,8 @@ import warnings
 from PyQt4 import QtGui
 
 from dat.gui.window import MainWindow
-import dat.manager
-import dat.plot_map
+from dat.global_data import GlobalManager
+from dat.vistrail_data import VistrailManager
 
 from vistrails.core.application import (set_vistrails_application,
         VistrailsApplicationInterface)
@@ -152,11 +152,6 @@ class Application(NotificationDispatcher, VistrailsApplicationInterface):
         self.vistrailsStartup.init()
         self.builderWindow.link_registry()
         self.builderWindow.create_first_vistrail()
-        self.dat_controller = self.builderWindow.get_current_controller()
-        # TODO-dat : multiple controllers support
-        # Right now, we'll just switch to the other one, forgetting completely
-        # the current one
-        self.register_notification('controller_changed', self.set_controller)
 
         # Set our own spreadsheet cell container class
         from vistrails.packages.spreadsheet.spreadsheet_controller import (
@@ -164,23 +159,13 @@ class Application(NotificationDispatcher, VistrailsApplicationInterface):
         from dat.gui.cellcontainer import DATCellContainer
         spreadsheetController.setCellContainerClass(DATCellContainer)
 
-        # Discover the plots and variables from packages and register to
-        # notifications for packages loaded in the future
-        dat.manager.Manager().init()
+        # Discover the plots and variable loaders from packages and register to
+        # notifications for packages loaded/unloaded in the future
+        GlobalManager.init()
 
-        # Initialize the PlotMap; this will load the map from the vistrail
-        # (in the event it is not empty)
-        dat.plot_map.PlotMap().init()
-
-    def set_controller(self, controller):
-        if controller == self.dat_controller:
-            # VisTrails lets this happen
-            return
-
-        dat.manager.Manager().remove_all_variables()
-        self.dat_controller = controller
-        dat.manager.Manager().load_variables_from_vistrail()
-        dat.plot_map.PlotMap().load_from_vistrail()
+        # Register the VistrailManager with the 'controller_changed'
+        # notification
+        VistrailManager.init()
 
     def try_quit(self):
         return self.builderWindow.quit()

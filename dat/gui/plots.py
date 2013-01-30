@@ -2,7 +2,7 @@ from PyQt4 import QtCore, QtGui
 
 from dat import MIMETYPE_DAT_PLOT
 from dat.gui.generic import DraggableListWidget
-import dat.manager
+from dat.global_data import GlobalManager
 
 from vistrails.core.application import get_vistrails_application
 
@@ -36,7 +36,7 @@ class PlotPanel(QtGui.QWidget):
         app.register_notification('dat_new_plot', self.plot_added)
         app.register_notification('dat_removed_plot', self.plot_removed)
 
-        for plot in dat.manager.Manager().plots:
+        for plot in GlobalManager.plots:
             self.plot_added(plot)
 
     def plot_added(self, plot):
