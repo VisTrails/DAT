@@ -292,10 +292,10 @@ class LoadVariableDialog(QtGui.QDialog):
 
     def load_clicked(self):
         varname = self._varname_edit.text()
-        if varname.isNull() or varname.isEmpty():
+        varname = str(varname)
+        if not varname or ';' in varname or '=' in varname:
             self._varname_edit.setFocus()
             return False
-        varname = str(varname)
         if self._vistraildata.get_variable(varname) is not None:
             varname = unique_varname(varname, self._vistraildata)
             self._varname_edit.setText(varname)
@@ -311,9 +311,9 @@ class LoadVariableDialog(QtGui.QDialog):
         return True
 
     def _validate_varname(self, varname):
-        if varname.isNull() or varname.isEmpty():
-            return False
         varname = str(varname)
+        if not varname or ';' in varname or '=' in varname:
+            return False
         if self._vistraildata.get_variable(varname) is not None:
             return False
         return True

@@ -120,6 +120,11 @@ class VariablePanel(QtGui.QWidget):
                         _("A variable '{name}' already exists!")
                                 .format(name=new_name))
                 return
+            if ';' in new_name or '=' in new_name:
+                QtGui.QMessageBox.warning(
+                        self, _("Couldn't rename variable"),
+                        _("The name you entered is not valid"))
+                return
             varname = str(selected.text())
             self._vistraildata.rename_variable(varname, new_name)
                 # This will trigger a variable_removed then a variable_added
