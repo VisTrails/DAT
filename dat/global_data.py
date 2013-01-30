@@ -116,7 +116,7 @@ class GlobalManager(object):
         Removes the Plots and VariableLoaders associated with that package from
         the lists.
         """
-        for plot in self._plots.itervalues():
+        for plot in self._plots.values():
             if plot.package_identifier == package.identifier:
                 self._remove_plot(plot)
 

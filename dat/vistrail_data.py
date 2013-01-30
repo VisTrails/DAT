@@ -129,6 +129,16 @@ class VistrailData(object):
         self._add_variable(varname)
 
     def _add_variable(self, varname, renamed_from=None):
+        if renamed_from is not None:
+            # Variable was renamed -- reflect this change on the annotations
+            for recipe, pipeline in self._recipe_to_pipeline.iteritems():
+                if any(
+                        variable.name == varname
+                        for variable in recipe.variables.itervalues()):
+                    self._controller.vistrail.set_annotation(
+                            self._build_annotation_key(pipeline),
+                            self._build_annotation_value(recipe))
+
         get_vistrails_application().send_notification(
                 'dat_new_variable',
                 self._controller,
@@ -161,8 +171,8 @@ class VistrailData(object):
 
                 # Remove the annotation from the current vistrail
                 self._controller.vistrail.set_annotation(
-                        'dat-recipe-%s' % pipeline.version,
-                        self._build_annotation_value(recipe))
+                        self._build_annotation_key(pipeline),
+                        None)
 
     def remove_variable(self, varname):
         """Remove a Variable from DAT.

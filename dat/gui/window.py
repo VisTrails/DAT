@@ -66,8 +66,7 @@ class MainWindow(QtGui.QMainWindow):
                 self._controller_changed)
 
     def _controller_changed(self, controller):
-        if self._variables is not None:
-            self._variables.unregister_notifications()
+        self._variables.unregister_notifications()
         self._variables = VariablePanel(VistrailManager(controller))
         self._variables_dock.setWidget(self._variables)
 
