@@ -13,15 +13,15 @@ from vistrails.core.application import get_vistrails_application
 
 _varname_format = re.compile('^(.+) \(([0-9]+)\)$')
 
-def unique_varname(varname, mngr):
+def unique_varname(varname, vistraildata):
     """Make a variable name unique.
 
     Adds or increment a number suffix to a variable name to make it unique.
 
-    >>> mngr = VistrailManager()
-    >>> unique_varname('variable', mngr)
+    >>> vistraildata = VistrailManager()
+    >>> unique_varname('variable', vistraildata)
     'variable (2)'
-    >>> unique_varname('variable (4)', mngr)
+    >>> unique_varname('variable (4)', vistraildata)
     'variable (5)'
     """
     match = _varname_format.match(varname)
@@ -32,7 +32,7 @@ def unique_varname(varname, mngr):
     while True:
         num += 1
         new_varname = '%s (%d)' % (varname, num)
-        if mngr.get_variable(new_varname) is None:
+        if vistraildata.get_variable(new_varname) is None:
             return new_varname
 
 

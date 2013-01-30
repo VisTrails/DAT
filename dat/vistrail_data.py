@@ -264,23 +264,14 @@ class VistrailManager(object):
                 'dat_controller_changed',
                 controller)
 
-    def _get_current_controller(self):
-        return self._current_controller
-    current_controller = property(_get_current_controller)
-
-    def _get_current_data(self):
-        return self._vistrails[self._current_controller]
-    current_data = property(_get_current_data)
-
-    def __call__(self, controller):
+    def __call__(self, controller=None):
+        if controller is None:
+            controller = self._current_controller
         try:
             return self._vistrails[controller]
         except KeyError:
-            print "- - -"
             warnings.warn("Unknown controller requested from "
                           "VistrailManager:\n  %r" % controller)
-            import traceback; traceback.print_stack()
-            print "-----"
             vistraildata = VistrailData(controller)
             self._vistrail[controller] = vistraildata
             return vistraildata

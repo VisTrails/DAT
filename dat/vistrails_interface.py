@@ -169,7 +169,7 @@ class Variable(object):
         This is the base version of all DAT variables. It consists of a single
         OutputPort module with name 'value'.
         """
-        controller = get_vistrails_application().dat_controller
+        controller = get_vistrails_application().get_controller()
         if controller.vistrail.has_tag_str('dat-vars'):
             root_version = controller.vistrail.get_version_number('dat-vars')
         else:

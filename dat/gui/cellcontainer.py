@@ -346,8 +346,6 @@ class DATCellContainer(QCellContainer):
     variables and plots.
     """
     def __init__(self, cellInfo=None, widget=None, parent=None):
-        self._controller = VistrailManager.current_controller
-
         self._variables = dict() # param name -> Variable
         self._plot = None # dat.vistrails_interface:Plot
 
@@ -374,9 +372,10 @@ class DATCellContainer(QCellContainer):
         self._overlay.setParent(self)
         self._set_overlay(None)
 
-        get_vistrails_application().register_notification(
+        app = get_vistrails_application()
+        app.register_notification(
                 'dat_removed_variable', self._variable_removed)
-
+        self._controller = app.get_controller()
     def setCellInfo(self, cellInfo):
         super(DATCellContainer, self).setCellInfo(cellInfo)
 

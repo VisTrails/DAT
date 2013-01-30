@@ -47,7 +47,7 @@ class MainWindow(QtGui.QMainWindow):
 
         # Create the panels
         # DockWidgetClosable is not permitted
-        self._variables = VariablePanel(VistrailManager.current_data)
+        self._variables = VariablePanel(VistrailManager())
         self._plots = PlotPanel()
 
         plots = QtGui.QDockWidget(_("Plots"))
