@@ -37,7 +37,6 @@ def unique_varname(varname, vistraildata):
 
 
 class VariableNameValidator(object):
-    # TODO-dat : test coverage
     def __init__(self, vistraildata):
         self._vistraildata = vistraildata
 
