@@ -22,8 +22,9 @@ class VistrailData(object):
     """
 
     # Annotation format is:
-    #   <annotation
-    #           key="dat-recipe-PIPELINEVERSION"
+    #   <actionAnnotation
+    #           actionId="PIPELINEVERSION"
+    #           key="dat-recipe"
     #           value="PlotName;param1=varname1;param3=varname2" />
     # replacing:
     #   * PIPELINEVERSION with the version number
@@ -36,21 +37,7 @@ class VistrailData(object):
     #   * Plot, port and variable names don't contain ';' or '='
     #
     # Parameters which are not set are simply omitted from the list
-    _ANNOTATION_KEY = 'dat-recipe-'
-
-    @staticmethod
-    def _build_annotation_key(pipeline):
-        return "%s%s" % (VistrailData._ANNOTATION_KEY, pipeline.version)
-
-    @staticmethod
-    def _read_annotation_key(key):
-        try:
-            if key.startswith(VistrailData._ANNOTATION_KEY):
-                return PipelineInformation(
-                        int(key[len(VistrailData._ANNOTATION_KEY):]))
-        except ValueError:
-            pass
-        return None
+    _ANNOTATION_KEY = 'dat-recipe'
 
     @staticmethod
     def _build_annotation_value(recipe):
@@ -107,11 +94,11 @@ class VistrailData(object):
                         self._variables[varname] = variable
                         self._add_variable(varname)
 
-        # Load mapping from annotations
-        annotations = self._controller.vistrail.annotations
+        # Load mappings from annotations
+        annotations = self._controller.vistrail.action_annotations
         for an in annotations:
-            pipeline = self._read_annotation_key(an.key)
-            if pipeline is not None:
+            if an.key == self._ANNOTATION_KEY:
+                pipeline = PipelineInformation(an.action_id)
                 recipe = self._read_annotation_value(an.value)
                 self._pipeline_to_recipe[pipeline] = recipe
                 self._recipe_to_pipeline[recipe] = pipeline
@@ -140,8 +127,9 @@ class VistrailData(object):
                 if any(
                         variable.name == varname
                         for variable in recipe.variables.itervalues()):
-                    self._controller.vistrail.set_annotation(
-                            self._build_annotation_key(pipeline),
+                    self._controller.vistrail.set_action_annotation(
+                            pipeline.version,
+                            self._ANNOTATION_KEY,
                             self._build_annotation_value(recipe))
 
         get_vistrails_application().send_notification(
@@ -175,8 +163,9 @@ class VistrailData(object):
                 del self._pipeline_to_recipe[pipeline]
 
                 # Remove the annotation from the current vistrail
-                self._controller.vistrail.set_annotation(
-                        self._build_annotation_key(pipeline),
+                self._controller.vistrail.set_action_annotation(
+                        pipeline.version,
+                        self._ANNOTATION_KEY,
                         None)
 
     def remove_variable(self, varname):
@@ -236,8 +225,9 @@ class VistrailData(object):
         self._recipe_to_pipeline[recipe] = pipeline
 
         # Add the annotation in the vistrail
-        self._controller.vistrail.set_annotation(
-                self._build_annotation_key(pipeline),
+        self._controller.vistrail.set_action_annotation(
+                pipeline.version,
+                self._ANNOTATION_KEY,
                 self._build_annotation_value(recipe))
 
     def get_recipe(self, pipeline):
