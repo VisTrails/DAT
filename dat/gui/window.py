@@ -1,6 +1,7 @@
 from PyQt4 import QtCore, QtGui
 
 import dat.gui
+from dat.vistrail_data import VistrailManager
 from dat.gui.plots import PlotPanel
 from dat.gui.variables import VariablePanel
 
@@ -46,7 +47,7 @@ class MainWindow(QtGui.QMainWindow):
 
         # Create the panels
         # DockWidgetClosable is not permitted
-        self._variables = VariablePanel()
+        self._variables = VariablePanel(VistrailManager())
         self._plots = PlotPanel()
 
         plots = QtGui.QDockWidget(_("Plots"))
@@ -54,11 +55,20 @@ class MainWindow(QtGui.QMainWindow):
                           QtGui.QDockWidget.DockWidgetFloatable)
         plots.setWidget(self._plots)
         self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, plots)
-        variables = QtGui.QDockWidget(_("Variables"))
-        variables.setFeatures(QtGui.QDockWidget.DockWidgetMovable |
-                              QtGui.QDockWidget.DockWidgetFloatable)
-        variables.setWidget(self._variables)
-        self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, variables)
+        self._variables_dock = QtGui.QDockWidget(_("Variables"))
+        self._variables_dock.setFeatures(QtGui.QDockWidget.DockWidgetMovable |
+                                         QtGui.QDockWidget.DockWidgetFloatable)
+        self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, self._variables_dock)
+        self._variables_dock.setWidget(self._variables)
+
+        get_vistrails_application().register_notification(
+                'dat_controller_changed',
+                self._controller_changed)
+
+    def _controller_changed(self, controller):
+        self._variables.unregister_notifications()
+        self._variables = VariablePanel(VistrailManager(controller))
+        self._variables_dock.setWidget(self._variables)
 
     def openFile(self):
         get_vistrails_application().builderWindow.open_vistrail_default()

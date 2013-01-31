@@ -5,15 +5,16 @@ import dat.gui
 from dat.gui import get_icon
 from dat.gui.generic import DraggableListWidget
 from dat.gui.load_variable_dialog import LoadVariableDialog
-import dat.manager
 from dat.utils import bisect
 
 from vistrails.core.application import get_vistrails_application
 
 
 class VariablePanel(QtGui.QWidget):
-    def __init__(self):
+    def __init__(self, vistraildata):
         super(VariablePanel, self).__init__()
+
+        self._vistraildata = vistraildata
 
         _ = dat.gui.translate(VariablePanel)
         
@@ -46,14 +47,23 @@ class VariablePanel(QtGui.QWidget):
 
         self.setLayout(layout)
 
-        self._variable_loader = LoadVariableDialog(self)
+        self._variable_loader = LoadVariableDialog(
+                self._vistraildata.controller,
+                self)
 
         app = get_vistrails_application()
         app.register_notification('dat_new_variable', self.variable_added)
-        app.register_notification('dat_removed_variable', self.variable_removed)
+        app.register_notification('dat_removed_variable',
+                                  self.variable_removed)
 
-        for varname in dat.manager.Manager().variables:
-            self.variable_added(varname)
+        for varname in self._vistraildata.variables:
+            self.variable_added(self._vistraildata.controller, varname)
+
+    def unregister_notifications(self):
+        app = get_vistrails_application()
+        app.unregister_notification('dat_new_variable', self.variable_added)
+        app.unregister_notification('dat_removed_variable',
+                                    self.variable_removed)
 
     def new_variable(self):
         """Called when a button is clicked.
@@ -78,9 +88,8 @@ class VariablePanel(QtGui.QWidget):
                 QtGui.QMessageBox.Ok | QtGui.QMessageBox.Cancel,
                 QtGui.QMessageBox.Cancel)
         if confirm == QtGui.QMessageBox.Ok:
-            manager = dat.manager.Manager()
             for item in selected:
-                manager.remove_variable(str(item.text()))
+                self._vistraildata.remove_variable(str(item.text()))
 
     def rename_variable(self):
         """Called when a button is clicked.
@@ -105,24 +114,28 @@ class VariablePanel(QtGui.QWidget):
         new_name = str(new_name)
 
         if proceed and new_name:
-            if dat.manager.Manager().get_variable(new_name) is not None:
+            if self._vistraildata.get_variable(new_name) is not None:
                 QtGui.QMessageBox.warning(
                         self, _("Couldn't rename variable"),
                         _("A variable '{name}' already exists!")
                                 .format(name=new_name))
                 return
             varname = str(selected.text())
-            dat.manager.Manager().rename_variable(varname, new_name)
+            self._vistraildata.rename_variable(varname, new_name)
                 # This will trigger a variable_removed then a variable_added
 
-    def variable_added(self, varname, renamed_from=None):
+    def variable_added(self, controller, varname, renamed_from=None):
+        if controller != self._vistraildata.controller:
+            return
         pos = bisect(
                 self._list_widget.count(),
                 lambda i: str(self._list_widget.item(i).text()),
                 varname)
         self._list_widget.insertItem(pos, varname)
 
-    def variable_removed(self, varname, renamed_to=None):
+    def variable_removed(self, controller, varname, renamed_to=None):
+        if controller != self._vistraildata.controller:
+            return
         for i in xrange(self._list_widget.count()):
             if self._list_widget.item(i).text() == varname:
                 self._list_widget.takeItem(i)

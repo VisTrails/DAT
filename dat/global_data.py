@@ -1,18 +1,19 @@
 import warnings
 
 from dat import BaseVariableLoader, Plot
-from dat.vistrails_interface import resolve_descriptor, Variable
+from dat.vistrails_interface import resolve_descriptor
 
 from vistrails.core.application import get_vistrails_application
 from vistrails.core.modules.module_registry import get_module_registry
 from vistrails.core.packagemanager import get_package_manager
 
 
-class Manager(object):
-    """Keeps a list of DAT objects (Plots, Variables, VariableLoaders).
+class GlobalManager(object):
+    """Keeps a list of DAT objects global to the application.
 
-    This singleton allows components throughout the application to access them
-    and to get notifications when these lists are changed.
+    This singleton allows components throughout the application to access the
+    objects that are global to the DAT application: Plots and VariablesLoaders.
+    It also emits notifications when these lists are changed.
 
     It also autodiscovers the Plots and VariableLoaders from VisTrails packages
     when they are loaded, by subscribing to VisTrails's registry notifications.
@@ -20,7 +21,6 @@ class Manager(object):
     def __init__(self):
         self._plots = dict()
         self._variable_loaders = set()
-        self._variables = dict()
 
     def init(self):
         """Initial setup of the Manager.
@@ -38,10 +38,6 @@ class Manager(object):
         app.create_notification('dat_new_loader')
         # dat_removed_loader(loader: BaseVariableLoader)
         app.create_notification('dat_removed_loader')
-        # dat_new_variable(varname: str)
-        app.create_notification('dat_new_variable')
-        # dat_removed_variable(varname: str)
-        app.create_notification('dat_removed_variable')
 
         app.register_notification("reg_new_package", self.new_package)
         app.register_notification("reg_deleted_package", self.deleted_package)
@@ -50,9 +46,6 @@ class Manager(object):
         registry = get_module_registry()
         for package in registry.package_list:
             self.new_package(package.identifier)
-
-        # Load the Variables from the Vistrail
-        self.load_variables_from_vistrail()
 
     def _add_plot(self, plot):
         self._plots[plot.name] = plot
@@ -123,7 +116,7 @@ class Manager(object):
         Removes the Plots and VariableLoaders associated with that package from
         the lists.
         """
-        for plot in self._plots.itervalues():
+        for plot in self._plots.values():
             if plot.package_identifier == package.identifier:
                 self._remove_plot(plot)
 
@@ -131,82 +124,4 @@ class Manager(object):
             if loader.package_identifier == package.identifier:
                 self._remove_loader(loader)
 
-    def load_variables_from_vistrail(self):
-        controller = get_vistrails_application().dat_controller
-        if controller.vistrail.has_tag_str('dat-vars'):
-            tagmap = controller.vistrail.get_tagMap()
-            for version, tag in tagmap.iteritems():
-                if tag.startswith('dat-var-'):
-                    varname = tag[8:]
-                    # TODO-dat : get the type from the OutputPort module's spec
-                    # input port
-                    variable = Variable.VariableInformation(
-                            varname, controller, None)
-
-                    self._variables[varname] = variable
-                    self._add_variable(varname)
-
-    def remove_all_variables(self):
-        for varname in self._variables.iterkeys():
-            self._remove_variable(varname)
-
-        self._variables = dict()
-
-    def new_variable(self, varname, variable):
-        """Register a new Variable with DAT.
-        """
-        if varname in self._variables:
-            raise ValueError("A variable named %s already exists!")
-
-        # Materialize the Variable in the Vistrail
-        variable = variable.perform_operations(varname)
-
-        self._variables[varname] = variable
-
-        self._add_variable(varname)
-
-    def _add_variable(self, varname, renamed_from=None):
-        get_vistrails_application().send_notification(
-                'dat_new_variable',
-                varname,
-                renamed_from=renamed_from)
-
-    def _remove_variable(self, varname, renamed_to=None):
-        get_vistrails_application().send_notification(
-                'dat_removed_variable',
-                varname,
-                renamed_to=renamed_to)
-
-    def remove_variable(self, varname):
-        """Remove a Variable from DAT.
-        """
-        self._remove_variable(varname)
-
-        variable = self._variables.pop(varname)
-        variable.remove()
-
-    def rename_variable(self, old_varname, new_varname):
-        """Rename a Variable.
-
-        Observers will get notified that a Variable was deleted and another
-        added.
-        """
-        self._remove_variable(old_varname, renamed_to=new_varname)
-
-        variable = self._variables.pop(old_varname)
-        self._variables[new_varname] = variable
-        variable.rename(new_varname)
-
-        self._add_variable(new_varname, renamed_from=old_varname)
-
-    def get_variable(self, varname):
-        return self._variables.get(varname)
-
-    def _get_variables(self):
-        return self._variables.iterkeys()
-    variables = property(_get_variables)
-
-    def __call__(self):
-        return self
-
-Manager = Manager()
+GlobalManager = GlobalManager()

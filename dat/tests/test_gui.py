@@ -21,8 +21,18 @@ class CallRecorder(object):
 class Test_gui(unittest.TestCase):
     def test_unique_varname(self):
         from dat.gui.load_variable_dialog import unique_varname
-        self.assertEqual(unique_varname('variable'), 'variable (2)')
-        self.assertEqual(unique_varname('variable (4)'), 'variable (5)')
+
+        class FakeData(object):
+            def get_variable(self, varname):
+                return None
+        vistraildata = FakeData()
+
+        self.assertEqual(
+                unique_varname('variable', vistraildata),
+                'variable (2)')
+        self.assertEqual(
+                unique_varname('variable (4)', vistraildata),
+                'variable (5)')
 
     def test_translate(self):
         from PyQt4 import QtCore

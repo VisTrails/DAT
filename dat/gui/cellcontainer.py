@@ -3,12 +3,11 @@ from PyQt4 import QtCore, QtGui
 from dat import MIMETYPE_DAT_VARIABLE, MIMETYPE_DAT_PLOT, \
     DATRecipe, PipelineInformation
 from dat.gui import get_icon, translate
-from dat.manager import Manager
-from dat.plot_map import PlotMap
 from dat import vistrails_interface
 
 from vistrails.core.application import get_vistrails_application
 from vistrails.packages.spreadsheet.spreadsheet_cell import QCellContainer
+from dat.vistrail_data import VistrailManager
 
 
 class Overlay(object):
@@ -174,7 +173,8 @@ class VariableDroppingOverlay(Overlay):
             self._compatible_ports = None
         else:
             varname = str(mimeData.data(MIMETYPE_DAT_VARIABLE))
-            variable = Manager().get_variable(varname)
+            variable = (VistrailManager(self._cell._controller)
+                        .get_variable(varname))
             self._compatible_ports = [
                     port is None or issubclass(variable.type.module,
                                                port.type.module)
@@ -349,6 +349,11 @@ class DATCellContainer(QCellContainer):
         self._variables = dict() # param name -> Variable
         self._plot = None # dat.vistrails_interface:Plot
 
+        app = get_vistrails_application()
+        app.register_notification(
+                'dat_removed_variable', self._variable_removed)
+        self._controller = app.get_controller()
+
         self._overlay = OverlayWidget(self)
         self._show_button = QtGui.QPushButton()
         self._show_button.setIcon(get_icon('show_overlay.png'))
@@ -371,10 +376,6 @@ class DATCellContainer(QCellContainer):
 
         self._overlay.setParent(self)
         self._set_overlay(None)
-
-        get_vistrails_application().register_notification(
-                'dat_removed_variable', self._variable_removed)
-
     def setCellInfo(self, cellInfo):
         super(DATCellContainer, self).setCellInfo(cellInfo)
 
@@ -382,7 +383,9 @@ class DATCellContainer(QCellContainer):
             get_vistrails_application().unregister_notification(
                     'dat_removed_variable', self._variable_removed)
 
-    def _variable_removed(self, varname, renamed_to=None):
+    def _variable_removed(self, controller, varname, renamed_to=None):
+        if controller != self._controller:
+            return
         if any(
                 variable.name == varname
                 for variable in self._variables.itervalues()):
@@ -411,6 +414,9 @@ class DATCellContainer(QCellContainer):
                 self._overlay.repaint()
 
     def setWidget(self, widget):
+        # TODO-dat : this might not get run when the cell gets replaced with
+        # another version; this is weird, and prevents the overlay from getting
+        # updated
         super(DATCellContainer, self).setWidget(widget)
         if widget is None:
             return
@@ -421,8 +427,8 @@ class DATCellContainer(QCellContainer):
         pipelineInfo = self.cellInfo.tab.getCellPipelineInfo(
                 self.cellInfo.row, self.cellInfo.column)
         if pipelineInfo is not None:
-            recipe = pipelineInfo and PlotMap().get_recipe(
-                    PipelineInformation(pipelineInfo[0]['version']))
+            pipeline = PipelineInformation(pipelineInfo[0]['version'])
+            recipe = VistrailManager(self._controller).get_recipe(pipeline)
         else:
             recipe = None
         if recipe is not None:
@@ -506,9 +512,9 @@ class DATCellContainer(QCellContainer):
             if self._plot is not None and self._parameter_hovered is not None:
                 event.accept()
                 port_name = self._plot.ports[self._parameter_hovered].name
-                self._variables[port_name] = (
-                        Manager().get_variable(
-                                str(mimeData.data(MIMETYPE_DAT_VARIABLE))))
+                varname = str(mimeData.data(MIMETYPE_DAT_VARIABLE))
+                self._variables[port_name] = (VistrailManager(self._controller)
+                                              .get_variable(varname))
                 self.try_update()
             else:
                 event.ignore()
@@ -540,13 +546,18 @@ class DATCellContainer(QCellContainer):
         if all(
                 port.optional or self._variables.has_key(port.name)
                 for port in self._plot.ports):
-            # Look this recipe up in the PlotMap
+            # Look this recipe up in the VistrailData
+            mngr = VistrailManager(self._controller)
             recipe = DATRecipe(self._plot, self._variables)
-            pipeline = PlotMap().get_pipeline(recipe)
+            pipeline = mngr.get_pipeline(recipe)
             if pipeline is None:
                 # Build the pipeline
-                pipeline = vistrails_interface.create_pipeline(recipe,
-                                                               self.cellInfo)
-                PlotMap().created_pipeline(recipe, pipeline)
-            vistrails_interface.execute_pipeline_to_cell(self.cellInfo,
-                                                         pipeline)
+                pipeline = vistrails_interface.create_pipeline(
+                        self._controller,
+                        recipe,
+                        self.cellInfo)
+                mngr.created_pipeline(recipe, pipeline)
+            vistrails_interface.execute_pipeline_to_cell(
+                    self._controller,
+                    self.cellInfo,
+                    pipeline)
