@@ -6,16 +6,7 @@
 import unittest
 import warnings
 
-
-class CallRecorder(object):
-    def __init__(self, func=None):
-        self.calls = []
-        self._func = func
-
-    def __call__(self, *args, **kwargs):
-        self.calls.append((list(args), kwargs))
-        if self._func is not None:
-            return self._func(*args, **kwargs)
+from dat.tests import CallRecorder
 
 
 class Test_gui(unittest.TestCase):
