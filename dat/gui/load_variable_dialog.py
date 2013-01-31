@@ -36,6 +36,22 @@ def unique_varname(varname, vistraildata):
             return new_varname
 
 
+class VariableNameValidator(object):
+    # TODO-dat : test coverage
+    def __init__(self, vistraildata):
+        self._vistraildata = vistraildata
+
+    def unique(self, name):
+        return self._vistraildata.get_variable(name) is None
+
+    @staticmethod
+    def format(name):
+        return name and ';' not in name and '=' not in name
+
+    def __call__(self, name):
+        return self.format(name) and self.unique(name)
+
+
 class FileLoaderPanel(QtGui.QWidget):
     def __init__(self):
         QtGui.QWidget.__init__(self)
@@ -163,6 +179,7 @@ class LoadVariableDialog(QtGui.QDialog):
         QtGui.QDialog.__init__(self, parent, QtCore.Qt.Dialog)
 
         self._vistraildata = VistrailManager(controller)
+        self._validator = VariableNameValidator(self._vistraildata)
 
         _ = translate(LoadVariableDialog)
 
@@ -182,7 +199,7 @@ class LoadVariableDialog(QtGui.QDialog):
         self._varname_edit = AdvancedLineEdit(
                 "variable",
                 default="variable",
-                validate=self._validate_varname,
+                validate=self._validator,
                 flags=(AdvancedLineEdit.COLOR_VALIDITY |
                        AdvancedLineEdit.COLOR_DEFAULTVALUE |
                        AdvancedLineEdit.FOLLOW_DEFAULT_UPDATE))
@@ -293,10 +310,10 @@ class LoadVariableDialog(QtGui.QDialog):
     def load_clicked(self):
         varname = self._varname_edit.text()
         varname = str(varname)
-        if not varname or ';' in varname or '=' in varname:
+        if not self._validator.format(varname):
             self._varname_edit.setFocus()
             return False
-        if self._vistraildata.get_variable(varname) is not None:
+        if not self._validator.unique(varname):
             varname = unique_varname(varname, self._vistraildata)
             self._varname_edit.setText(varname)
             self._varname_edit.setFocus()
@@ -308,12 +325,4 @@ class LoadVariableDialog(QtGui.QDialog):
             return False
         self._vistraildata.new_variable(varname, variable)
         self._varname_edit.setDefault(self._default_varname)
-        return True
-
-    def _validate_varname(self, varname):
-        varname = str(varname)
-        if not varname or ';' in varname or '=' in varname:
-            return False
-        if self._vistraildata.get_variable(varname) is not None:
-            return False
         return True

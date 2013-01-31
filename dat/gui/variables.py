@@ -3,8 +3,9 @@ from PyQt4 import QtCore, QtGui
 from dat import MIMETYPE_DAT_VARIABLE
 import dat.gui
 from dat.gui import get_icon
-from dat.gui.generic import DraggableListWidget
-from dat.gui.load_variable_dialog import LoadVariableDialog
+from dat.gui.generic import DraggableListWidget, advanced_input_dialog
+from dat.gui.load_variable_dialog import LoadVariableDialog,\
+    VariableNameValidator
 from dat.utils import bisect
 
 from vistrails.core.application import get_vistrails_application
@@ -17,7 +18,7 @@ class VariablePanel(QtGui.QWidget):
         self._vistraildata = vistraildata
 
         _ = dat.gui.translate(VariablePanel)
-        
+
         layout = QtGui.QVBoxLayout()
 
         toolbar = QtGui.QToolBar()
@@ -105,29 +106,30 @@ class VariablePanel(QtGui.QWidget):
 
         selected = selected[0]
 
-        new_name, proceed = QtGui.QInputDialog.getText(
+        validator = VariableNameValidator(self._vistraildata)
+        new_name, proceed = advanced_input_dialog(
                 self,
                 _("Rename variable", "Dialog title"),
                 _("New name:"),
-                QtGui.QLineEdit.Normal,
-                selected.text())
-        new_name = str(new_name)
+                selected.text(),
+                default=selected.text(),
+                validate=validator)
 
         if proceed and new_name:
-            if self._vistraildata.get_variable(new_name) is not None:
+            if not validator.unique(new_name):
                 QtGui.QMessageBox.warning(
                         self, _("Couldn't rename variable"),
                         _("A variable '{name}' already exists!")
                                 .format(name=new_name))
                 return
-            if ';' in new_name or '=' in new_name:
+            if not validator.format(new_name):
                 QtGui.QMessageBox.warning(
                         self, _("Couldn't rename variable"),
                         _("The name you entered is not valid"))
                 return
             varname = str(selected.text())
             self._vistraildata.rename_variable(varname, new_name)
-                # This will trigger a variable_removed then a variable_added
+            # This will trigger a variable_removed then a variable_added
 
     def variable_added(self, controller, varname, renamed_from=None):
         if controller != self._vistraildata.controller:

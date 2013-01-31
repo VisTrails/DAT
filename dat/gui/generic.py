@@ -1,6 +1,6 @@
 from PyQt4 import QtCore, QtGui
 
-from dat.gui import get_icon
+from dat.gui import get_icon, translate
 
 
 class DraggableListWidget(QtGui.QListWidget):
@@ -72,7 +72,7 @@ class AdvancedLineEdit(QtGui.QLineEdit):
     def _text_changed(self, text):
         changed = False
         if self._validate is not None:
-            val = self._validate(text)
+            val = self._validate(str(text))
             if val is not self._prev_validation:
                 self._prev_validation = val
                 changed = True
@@ -130,3 +130,42 @@ class AdvancedLineEdit(QtGui.QLineEdit):
             x = self.width() - 16 - y
 
             self._reset_button.setGeometry(x, y, 16, 16)
+
+
+def advanced_input_dialog(parent, title, label, init_text,
+        default=None, validate=None, flags=AdvancedLineEdit.DEFAULTS):
+    """ advanced_input_dialog(parent: QWidget, title: str, label: str,
+            init_text: str, default: str, validate: function)
+        -> result: str, success: bool
+
+    Function similar to QInputDialog#getText() but uses an AdvancedLineEdit.
+
+    Returns either (result: str, True) or (None, False).
+    """
+    _ = translate('advanced_input_dialog')
+
+    dialog = QtGui.QDialog(parent)
+    dialog.setWindowTitle(title)
+    layout = QtGui.QVBoxLayout()
+
+    layout.addWidget(QtGui.QLabel(label))
+    lineedit = AdvancedLineEdit(init_text, None, default, validate, flags)
+    layout.addWidget(lineedit)
+
+    buttons = QtGui.QHBoxLayout()
+    ok = QtGui.QPushButton(_("Ok", "Accept dialog button"))
+    ok.setDefault(True)
+    QtCore.QObject.connect(ok, QtCore.SIGNAL('clicked()'),
+                           dialog, QtCore.SLOT('accept()'))
+    buttons.addWidget(ok)
+    cancel = QtGui.QPushButton(_("Cancel", "Reject dialog button"))
+    QtCore.QObject.connect(cancel, QtCore.SIGNAL('clicked()'),
+                           dialog, QtCore.SLOT('reject()'))
+    buttons.addWidget(cancel)
+    layout.addLayout(buttons)
+
+    dialog.setLayout(layout)
+    if dialog.exec_() == QtGui.QDialog.Accepted:
+        return str(lineedit.text()), True
+    else:
+        return None, False
