@@ -424,6 +424,9 @@ class DATCellContainer(QCellContainer):
         widget.raise_()
         self._show_button.raise_()
 
+        self.contentsUpdated()
+
+    def contentsUpdated(self):
         pipelineInfo = self.cellInfo.tab.getCellPipelineInfo(
                 self.cellInfo.row, self.cellInfo.column)
         if pipelineInfo is not None:
