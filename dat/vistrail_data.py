@@ -94,13 +94,18 @@ class VistrailData(object):
             for version, tag in tagmap.iteritems():
                 if tag.startswith('dat-var-'):
                     varname = tag[8:]
-                    # TODO-dat : get the type from the OutputPort module's spec
-                    # input port
-                    variable = Variable.VariableInformation(
-                            varname, self._controller, None)
+                    # Get the type from the OutputPort module's spec input port
+                    type = Variable.read_type(
+                            self._controller.vistrail.getPipeline(version))
+                    if type is None:
+                        warnings.warn("Found invalid DAT variable pipeline "
+                                      "%r, ignored" % tag)
+                    else:
+                        variable = Variable.VariableInformation(
+                                varname, self._controller, type)
 
-                    self._variables[varname] = variable
-                    self._add_variable(varname)
+                        self._variables[varname] = variable
+                        self._add_variable(varname)
 
         # Load mapping from annotations
         annotations = self._controller.vistrail.annotations

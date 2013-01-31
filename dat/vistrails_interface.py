@@ -295,6 +295,24 @@ class Variable(object):
 
         return Variable.VariableInformation(name, controller, self.type)
 
+    @staticmethod
+    def read_type(pipeline):
+        """Read the type of a Variable from its pipeline.
+
+        The type is obtained from the 'spec' input port of the 'OutputPort'
+        module.
+        """
+        reg = get_module_registry()
+        OutputPort = reg.get_module_by_name(
+                'edu.utah.sci.vistrails.basic', 'OutputPort')
+        outputs = find_modules_by_type(pipeline, [OutputPort])
+        if len(outputs) == 1:
+            output = outputs[0]
+            if get_function(output, 'name') == 'value':
+                spec = get_function(output, 'spec')
+                return resolve_descriptor(spec)
+        return None
+
 
 class CustomVariableLoader(QtGui.QWidget, BaseVariableLoader):
     """Custom variable loading tab.
