@@ -26,34 +26,81 @@ class VistrailData(object):
     #           actionId="PIPELINEVERSION"
     #           key="dat-recipe"
     #           value="PlotName;param1=varname1;param3=varname2" />
+    #   <actionAnnotation
+    #           actionId="PIPELINEVERSION"
+    #           key="dat-ports"
+    #           value="param1=ID1:PORT1,ID2:PORT2;param2=ID2:PORT2" />
     # replacing:
     #   * PIPELINEVERSION with the version number
     #   * PlotName with the 'name' field of the plot
-    #   * paramN with the name of an input port of the plot
+    #   * param<N> with the name of an input port of the plot
     #   * varname with the current name of a variable
+    #   * ID<P> and PORT<P> with the module id and port name of the plot's
+    #     input for the associated parameter
     #
     # This assumes that:
     #   * Plot names don't change (and are not localized)
     #   * Plot, port and variable names don't contain ';' or '='
     #
     # Parameters which are not set are simply omitted from the list
-    _ANNOTATION_KEY = 'dat-recipe'
+    _RECIPE_KEY = 'dat-recipe'
+    _PORTMAP_KEY = 'dat-ports'
+
+    # TODO-dat : test coverage of these 4 methods
 
     @staticmethod
-    def _build_annotation_value(recipe):
+    def _build_annotation_recipe(recipe):
         value = recipe.plot.name
         for param, variable in recipe.variables.iteritems():
-            value += ";%s=%s" % (param, variable.name)
+            value += ';%s=%s' % (param, variable.name)
         return value
 
-    def _read_annotation_value(self, value):
+    @staticmethod
+    def _read_annotation_recipe(vistraildata, value):
         value = value.split(';')
-        plot = GlobalManager.get_plot(value[0])
-        variables = dict()
-        for assignment in value[1:]:
-            param, varname = assignment.split('=')
-            variables[param] = self.get_variable(varname)
-        return DATRecipe(plot, variables)
+        try:
+            plot = GlobalManager.get_plot(value[0]) # Might raise KeyError
+            variables = dict()
+            for assignment in value[1:]:
+                param, varname = assignment.split('=') # Might raise ValueError
+                variables[param] = vistraildata.get_variable(varname)
+            return DATRecipe(plot, variables)
+        except (KeyError, ValueError):
+            return None
+
+    @staticmethod
+    def _build_annotation_portmap(portmap):
+        value = []
+        for param, portlist in portmap.iteritems():
+            value.append(
+                    "%s=%s" % (
+                            param,
+                            ','.join('%d:%s' % (mod_id, portname)
+                                     for mod_id, portname in portlist)))
+        return ';'.join(value)
+
+    @staticmethod
+    def _read_annotation_portmap(value):
+        try:
+            portmap = dict()
+            dv = value.split(';')
+            for mapping in dv:
+                param, ports = mapping.split('=')
+                if not ports:
+                    portmap[param] = []
+                    continue
+                ports = ports.split(',')
+                portlist = []
+                for port in ports:
+                    port_ = port.split(':')
+                    if len(port_) != 2:
+                        raise ValueError
+                    portlist.append((int(port_[0]), port_[1]))
+                            # Might raise ValueError
+                portmap[param] = portlist
+            return portmap
+        except ValueError:
+            return None
 
     def __init__(self, controller):
         """Initial setup of the VistrailData.
@@ -67,6 +114,8 @@ class VistrailData(object):
 
         self._pipeline_to_recipe = dict() # PipelineInformation -> DATRecipe
         self._recipe_to_pipeline = dict() # DATRecipe -> PipelineInformation
+        self._pipeline_to_portmap = dict() # PipelineInformation -> portmap
+        # portmap: {param: [(mod_id: int, portname: str)]}
 
         app = get_vistrails_application()
 
@@ -96,12 +145,31 @@ class VistrailData(object):
 
         # Load mappings from annotations
         annotations = self._controller.vistrail.action_annotations
+        # First, read the recipes
         for an in annotations:
-            if an.key == self._ANNOTATION_KEY:
+            if an.key == self._RECIPE_KEY:
                 pipeline = PipelineInformation(an.action_id)
-                recipe = self._read_annotation_value(an.value)
-                self._pipeline_to_recipe[pipeline] = recipe
-                self._recipe_to_pipeline[recipe] = pipeline
+                recipe = self._read_annotation_recipe(self, an.value)
+                if recipe is not None:
+                    self._pipeline_to_recipe[pipeline] = recipe
+                    self._recipe_to_pipeline[recipe] = pipeline
+        # Then, read the port maps
+        for an in annotations:
+            if an.key == self._PORTMAP_KEY:
+                pipeline = PipelineInformation(an.action_id)
+                recipe = self._pipeline_to_recipe[pipeline]
+                if not recipe:
+                    # Purge the lone port map
+                    warnings.warn("Found a DAT port map annotation with not "
+                                  "associated recipe -- removing")
+                    self._controller.vistrail.set_action_annotation(
+                            an.action_id,
+                            an.key,
+                            None)
+                else:
+                    portmap = self._read_annotation_portmap(an.value)
+                    if portmap is not None:
+                        self._pipeline_to_portmap[pipeline] = portmap
 
     def _get_controller(self):
         return self._controller
@@ -129,8 +197,8 @@ class VistrailData(object):
                         for variable in recipe.variables.itervalues()):
                     self._controller.vistrail.set_action_annotation(
                             pipeline.version,
-                            self._ANNOTATION_KEY,
-                            self._build_annotation_value(recipe))
+                            self._RECIPE_KEY,
+                            self._build_annotation_recipe(recipe))
 
         get_vistrails_application().send_notification(
                 'dat_new_variable',
@@ -165,7 +233,7 @@ class VistrailData(object):
                 # Remove the annotation from the current vistrail
                 self._controller.vistrail.set_action_annotation(
                         pipeline.version,
-                        self._ANNOTATION_KEY,
+                        self._RECIPE_KEY,
                         None)
 
     def remove_variable(self, varname):
@@ -197,7 +265,7 @@ class VistrailData(object):
         return self._variables.iterkeys()
     variables = property(_get_variables)
 
-    def created_pipeline(self, recipe, pipeline):
+    def created_pipeline(self, recipe, pipeline, portmap=None):
         """Registers a new pipeline as being the result of a DAT recipe.
 
         We now know that this pipeline was created from this plot and
@@ -227,14 +295,24 @@ class VistrailData(object):
         # Add the annotation in the vistrail
         self._controller.vistrail.set_action_annotation(
                 pipeline.version,
-                self._ANNOTATION_KEY,
-                self._build_annotation_value(recipe))
+                self._RECIPE_KEY,
+                self._build_annotation_recipe(recipe))
+
+        if portmap is not None:
+            self._controller.vistrail.set_action_annotation(
+                    pipeline.version,
+                    self._PORTMAP_KEY,
+                    self._build_annotation_portmap(portmap))
+            self._pipeline_to_portmap[pipeline] = portmap
 
     def get_recipe(self, pipeline):
         return self._pipeline_to_recipe.get(pipeline, None)
 
     def get_pipeline(self, recipe):
         return self._recipe_to_pipeline.get(recipe, None)
+
+    def get_portmap(self, pipeline):
+        return self._pipeline_to_portmap.get(pipeline, None)
 
 
 class VistrailManager(object):

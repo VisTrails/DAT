@@ -409,7 +409,7 @@ def find_modules_by_type(pipeline, moduletypes):
 
 def create_pipeline(controller, recipe, cell_info):
     """create_pipeline(recipe: DATRecipe, cell_info: CellInformation)
-        -> PipelineInformation
+        -> PipelineInformation, portmap: dict
 
     Create a pipeline in the Vistrail and return its information.
     """
@@ -573,7 +573,12 @@ def create_pipeline(controller, recipe, cell_info):
     # FIXME : from_root seems to be necessary here, I don't know why
     controller.change_selected_version(pipeline_version, from_root=True)
 
-    return PipelineInformation(pipeline_version)
+    # Convert the modules to module ids in the portmap
+    portmap = dict()
+    for param, portlist in plot_params.iteritems():
+        portmap[param] = [(module.id, port) for module, port in portlist]
+
+    return PipelineInformation(pipeline_version), portmap
 
 
 def execute_pipeline_to_cell(controller, cellInfo, pipeline):

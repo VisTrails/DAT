@@ -56,7 +56,7 @@ class GlobalManager(object):
         get_vistrails_application().send_notification('dat_removed_plot', plot)
 
     def get_plot(self, plotname):
-        return self._plots[plotname]
+        return self._plots[plotname] # Might raise KeyError
 
     def _get_plots(self):
         return self._plots.itervalues()
