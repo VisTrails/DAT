@@ -61,9 +61,9 @@ class OverlayWidget(QtGui.QLabel):
     This simple wrapper simple renders the DATCellContainer's current overlay.
     """
     def __init__(self, cellcontainer):
-        QtGui.QLabel.__init__(self)
         self._cellcontainer = cellcontainer
         self._overlay = None
+        QtGui.QLabel.__init__(self)
 
     def paintEvent(self, event):
         if self._overlay:
