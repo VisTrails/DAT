@@ -318,7 +318,21 @@ class LoadVariableDialog(QtGui.QDialog):
             self._varname_edit.setFocus()
             return False
         loader = self._tabs[self._tab_widget.currentIndex()]
-        variable = loader.load()
+
+        try:
+            variable = loader.load()
+        except Exception, e:
+            _ = translate(LoadVariableDialog)
+
+            QtGui.QMessageBox.critical(
+                    self,
+                    _("Error"),
+                    "%s\n%s: %s" % (
+                            _("Got an exception from the VisTrails package:"),
+                            e.__class__.__name__,
+                            str(e)))
+            return False
+
         if variable is None:
             # Here we assume the loader displayed the error itself in some way
             return False
