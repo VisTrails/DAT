@@ -29,6 +29,7 @@ else:
 
 import importlib
 import inspect
+from itertools import izip
 import warnings
 from PyQt4 import QtGui
 
@@ -90,13 +91,38 @@ class ModuleWrapper(object):
     def add_function(self, inputport_name, vt_type, value):
         """Add a function for a port of this module.
         """
-        # TODO-dat : Check type and port name
+        # Check port name
+        try:
+            port = self._module.module_descriptor.get_port_spec(
+                    inputport_name, 'input')
+        except Exception:
+            raise ValueError("add_function() called for a non-existent input "
+                             "port")
+
+        # Check types
+        if not isinstance(vt_type, (tuple, list)):
+            vt_type = (vt_type,)
+        if not isinstance(value, (tuple, list)):
+            value = [value]
+        if len(vt_type) != len(value):
+            raise ValueError("add_function() received different numbers of "
+                             "types and values")
+        if len(vt_type) != len(port.descriptors()):
+            raise ValueError("add_function() called with a different number "
+                             "of values from the given input port")
+        for t_param, p_descr in izip(vt_type, port.descriptors()):
+            t_descr = resolve_descriptor(t_param,
+                                         self._variable._vt_package_id)
+            if not issubclass(t_descr.module, p_descr.module):
+                raise ValueError("add_function() called with incompatible "
+                                 "types")
+
         controller = self._variable._controller
         self._variable._operations.extend(
                 controller.update_function_ops(
                         self._module,
                         inputport_name,
-                        [value]))
+                        value))
 
     def connect_outputport_to(self, outputport_name, other_module, inputport_name):
         """Create a connection between ports of two modules.
@@ -251,12 +277,26 @@ class Variable(object):
         """
         # Connects the output port with the given name of the given wrapped
         # module to the OutputPort module (added at version 'dat-vars')
-        # TODO-dat : Check that the port is compatible to self.type
         if module._variable is not self:
             raise ValueError("select_output_port() designated a module from a "
                              "different Variable")
         elif self._output_designated:
             raise ValueError("select_output_port() was called more than once")
+
+        # Check that the port is compatible to self.type
+        try:
+            port = module._module.module_descriptor.get_port_spec(
+                    outputport_name, 'output')
+        except Exception:
+            raise ValueError("select_output_port() designated a non-existent "
+                             "port")
+        # The designated output port has to be a subclass of self.type
+        if len(port.descriptors()) != 1:
+            raise ValueError("select_output_port() designated a port with "
+                             "multiple types")
+        if not issubclass(port.descriptors()[0].module, self.type.module):
+            raise ValueError("select_output_port() designated a port with an "
+                             "incompatible type")
 
         controller = self._controller
 
