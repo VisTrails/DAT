@@ -6,6 +6,7 @@ from dat.gui import get_icon, translate
 from dat import vistrails_interface
 
 from vistrails.core.application import get_vistrails_application
+from vistrails.gui.ports_pane import PortsList
 from vistrails.packages.spreadsheet.spreadsheet_cell import QCellContainer
 from dat.vistrail_data import VistrailManager
 
@@ -564,3 +565,59 @@ class DATCellContainer(QCellContainer):
                     self._controller,
                     self.cellInfo,
                     pipeline)
+
+class FunctionEditor(QtGui.QWidget):
+    """Default widget for editing 'advanced' plot settings. (i.e.
+    module function values).
+    """
+    def __init__(self, parent=None):
+        QtGui.QWidget.__init__(self, parent)
+        
+        self.tabWidget = QtGui.QTabWidget(self)
+        self.portsListList = []
+        
+        btnApply = QtGui.QPushButton("&Apply")
+        btnOk = QtGui.QPushButton("O&k")
+        btnReset = QtGui.QPushButton("&Reset")
+        
+        btnApply.clicked.connect(self.applyClicked)
+        btnOk.clicked.connect(self.okClicked)
+        btnReset.clicked.connect(self.resetClicked)
+        
+        layoutButtons = QtGui.QHBoxLayout(self)
+        layoutButtons.addWidget(btnReset)
+        layoutButtons.addSpacing()
+        layoutButtons.addWidget(btnApply)
+        layoutButtons.addWidget(btnOk)
+        
+        vLayout = QtGui.QVBoxLayout(self)
+        vLayout.addWidget(self.tabWidget)
+        vLayout.addLayout(layoutButtons)
+        
+        self.portsListList = []
+        self.recipe = None
+        self.plot = None
+        self.pipeline = None
+    
+    def update_plot(self, recipe, plot, pipeline):
+        self.recipe = recipe
+        self.plot = plot
+        self.pipeline = pipeline
+        self.tabWidget.clear() #doesn't delete widgets, we maintain list separately
+        for i, module in enumerate(recipe.getPlotModules(plot, pipeline)):
+            if len(self.portsListList) <= i:
+                self.portsListList.append(PortsList('input', self))
+            self.portsListList[i].update_module(module)
+            self.tabWidget.addTab(self.portsListList[i], module.name)
+            
+    def applyClicked(self):
+        #TODO: re-execute pipeline based on recipe info
+        pass
+        
+    def okClicked(self):
+        self.applyClicked()
+        self.close()
+        
+    def resetClicked(self):
+        #TODO: if port list auto updates functions, need to reset pipeline to earlier version first
+        self.update_plot(self, self.recipe, self.plot, self.pipeline)
