@@ -414,9 +414,6 @@ class DATCellContainer(QCellContainer):
                 self._overlay.repaint()
 
     def setWidget(self, widget):
-        # TODO-dat : this might not get run when the cell gets replaced with
-        # another version; this is weird, and prevents the overlay from getting
-        # updated
         super(DATCellContainer, self).setWidget(widget)
         if widget is None:
             return

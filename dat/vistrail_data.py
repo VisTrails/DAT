@@ -46,8 +46,6 @@ class VistrailData(object):
     _RECIPE_KEY = 'dat-recipe'
     _PORTMAP_KEY = 'dat-ports'
 
-    # TODO-dat : test coverage of these 4 methods
-
     @staticmethod
     def _build_annotation_recipe(recipe):
         value = recipe.plot.name
