@@ -182,6 +182,8 @@ class VariableDroppingOverlay(Overlay):
                     for port in self._cell._plot.ports]
 
         self._cell._parameter_hovered = None
+        
+        self.defaultEditor = FunctionEditor()
 
     def draw(self, qp):
         Overlay.draw(self, qp)
@@ -304,6 +306,15 @@ class VariableDroppingOverlay(Overlay):
     def mouse_clicked(self, x, y):
         metrics = self._cell.fontMetrics()
         height = metrics.height()
+        
+        if y > self._parameters[-1][0] + self._parameters[-1][1] + height*2:
+            self.dialog = QtGui.QDialog()
+            layout = QtGui.QGridLayout()
+            layout.addWidget(self.defaultEditor,0,0)
+            self.dialog.setLayout(layout)
+            self.defaultEditor.setParent(self.dialog)
+            self._cell.setup_editor(self.defaultEditor)
+            self.dialog.show()
 
         for i, port in enumerate(self._cell._plot.ports):
             port_y, port_h = self._parameters[i]
@@ -565,6 +576,14 @@ class DATCellContainer(QCellContainer):
                     self._controller,
                     self.cellInfo,
                     pipeline)
+            
+    def setup_editor(self, editor):
+        pipelineInfo = self.cellInfo.tab.getCellPipelineInfo(
+                self.cellInfo.row, self.cellInfo.column)
+        if pipelineInfo is not None:
+            pipeline = PipelineInformation(pipelineInfo[0]['version'])
+            recipe = VistrailManager(self._controller).get_recipe(pipeline)
+            editor.update_plot(recipe, self._plot, self._controller.current_pipeline)
 
 class FunctionEditor(QtGui.QWidget):
     """Default widget for editing 'advanced' plot settings. (i.e.
@@ -573,7 +592,7 @@ class FunctionEditor(QtGui.QWidget):
     def __init__(self, parent=None):
         QtGui.QWidget.__init__(self, parent)
         
-        self.tabWidget = QtGui.QTabWidget(self)
+        self.tabWidget = QtGui.QTabWidget()
         self.portsListList = []
         
         btnApply = QtGui.QPushButton("&Apply")
@@ -584,15 +603,17 @@ class FunctionEditor(QtGui.QWidget):
         btnOk.clicked.connect(self.okClicked)
         btnReset.clicked.connect(self.resetClicked)
         
-        layoutButtons = QtGui.QHBoxLayout(self)
+        layoutButtons = QtGui.QHBoxLayout()
         layoutButtons.addWidget(btnReset)
-        layoutButtons.addSpacing()
+        layoutButtons.addStretch()
         layoutButtons.addWidget(btnApply)
         layoutButtons.addWidget(btnOk)
         
-        vLayout = QtGui.QVBoxLayout(self)
+        vLayout = QtGui.QVBoxLayout()
         vLayout.addWidget(self.tabWidget)
         vLayout.addLayout(layoutButtons)
+        
+        self.setLayout(vLayout)
         
         self.portsListList = []
         self.recipe = None
@@ -604,7 +625,7 @@ class FunctionEditor(QtGui.QWidget):
         self.plot = plot
         self.pipeline = pipeline
         self.tabWidget.clear() #doesn't delete widgets, we maintain list separately
-        for i, module in enumerate(recipe.getPlotModules(plot, pipeline)):
+        for i, module in enumerate(recipe.get_plot_modules(plot, pipeline)):
             if len(self.portsListList) <= i:
                 self.portsListList.append(PortsList('input', self))
             self.portsListList[i].update_module(module)
@@ -620,4 +641,9 @@ class FunctionEditor(QtGui.QWidget):
         
     def resetClicked(self):
         #TODO: if port list auto updates functions, need to reset pipeline to earlier version first
-        self.update_plot(self, self.recipe, self.plot, self.pipeline)
+        self.update_plot(self.recipe, self.plot, self.pipeline)
+        
+    def close(self):
+        QtGui.QWidget.close(self)
+        if self.parent:
+            self.parent.close()
