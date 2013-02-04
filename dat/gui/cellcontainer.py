@@ -552,11 +552,12 @@ class DATCellContainer(QCellContainer):
             pipeline = mngr.get_pipeline(recipe)
             if pipeline is None:
                 # Build the pipeline
-                pipeline, param_map = vistrails_interface.create_pipeline(
-                        self._controller,
-                        recipe,
-                        self.cellInfo)
-                mngr.created_pipeline(recipe, pipeline, param_map)
+                pipeline, port_map, var_map = (
+                        vistrails_interface.create_pipeline(
+                                self._controller,
+                                recipe,
+                                self.cellInfo))
+                mngr.created_pipeline(recipe, pipeline, port_map, var_map)
             vistrails_interface.execute_pipeline_to_cell(
                     self._controller,
                     self.cellInfo,

@@ -30,13 +30,19 @@ class VistrailData(object):
     #           actionId="PIPELINEVERSION"
     #           key="dat-ports"
     #           value="param1=ID1:PORT1,ID2:PORT2;param2=ID2:PORT2" />
+    #   <actionAnnotation
+    #           actionId="PIPELINEVERSION"
+    #           key="dat-vars"
+    #           value="param1=CONN1,CONN2;param2=CONN2" />
     # replacing:
     #   * PIPELINEVERSION with the version number
     #   * PlotName with the 'name' field of the plot
     #   * param<N> with the name of an input port of the plot
     #   * varname with the current name of a variable
     #   * ID<P> and PORT<P> with the module id and port name of the plot's
-    #     input for the associated parameter
+    #     input port for the associated parameter
+    #   * CONN<M> with the ids of the connections tying the plot input port to
+    #     the variable set to this port
     #
     # This assumes that:
     #   * Plot names don't change (and are not localized)
@@ -44,7 +50,8 @@ class VistrailData(object):
     #
     # Parameters which are not set are simply omitted from the list
     _RECIPE_KEY = 'dat-recipe'
-    _PARAMMAP_KEY = 'dat-params'
+    _PORTMAP_KEY = 'dat-ports'
+    _VARMAP_KEY = 'dat-vars'
 
     @staticmethod
     def _build_annotation_recipe(recipe):
@@ -67,9 +74,43 @@ class VistrailData(object):
             return None
 
     @staticmethod
-    def _build_annotation_parammap(param_map):
+    def _build_annotation_portmap(port_map):
         value = []
-        for param, conn_list in param_map.iteritems():
+        for param, portlist in port_map.iteritems():
+            value.append(
+                    "%s=%s" % (
+                            param,
+                            ','.join('%d:%s' % (mod_id, portname)
+                                     for mod_id, portname in portlist)))
+        return ';'.join(value)
+
+    @staticmethod
+    def _read_annotation_portmap(value):
+        try:
+            port_map = dict()
+            dv = value.split(';')
+            for mapping in dv:
+                param, ports = mapping.split('=')
+                if not ports:
+                    port_map[param] = []
+                    continue
+                ports = ports.split(',')
+                portlist = []
+                for port in ports:
+                    port_ = port.split(':')
+                    if len(port_) != 2:
+                        raise ValueError
+                    portlist.append((int(port_[0]), port_[1]))
+                            # Might raise ValueError
+                port_map[param] = portlist
+            return port_map
+        except ValueError:
+            return None
+
+    @staticmethod
+    def _build_annotation_varmap(var_map):
+        value = []
+        for param, conn_list in var_map.iteritems():
             value.append(
                     "%s=%s" % (
                             param,
@@ -78,22 +119,22 @@ class VistrailData(object):
         return ';'.join(value)
 
     @staticmethod
-    def _read_annotation_parammap(value):
+    def _read_annotation_varmap(value):
         try:
-            param_map = dict()
+            var_map = dict()
             dv = value.split(';')
             for mapping in dv:
                 param, conns = mapping.split('=')
                 if not conns:
-                    param_map[param] = []
+                    var_map[param] = []
                     continue
                 ports = conns.split(',')
                 conn_list = []
                 for port in ports:
                     conn_list.append(int(port))
                             # Might raise ValueError
-                param_map[param] = conn_list
-            return param_map
+                var_map[param] = conn_list
+            return var_map
         except ValueError:
             return None
 
@@ -109,8 +150,10 @@ class VistrailData(object):
 
         self._pipeline_to_recipe = dict() # PipelineInformation -> DATRecipe
         self._recipe_to_pipeline = dict() # DATRecipe -> PipelineInformation
-        self._pipeline_to_parammap = dict() # PipelineInformation -> param_map
-        # param_map: {param: [conn_id: int]}
+        self._pipeline_to_portmap = dict() # PipelineInformation -> port_map
+        # port_map: {param: [(mod_id: int, portname: str)]}
+        self._pipeline_to_varmap = dict() # PipelineInformation -> var_map
+        # var_map: {param: [conn_id: int]}
 
         app = get_vistrails_application()
 
@@ -148,23 +191,40 @@ class VistrailData(object):
                 if recipe is not None:
                     self._pipeline_to_recipe[pipeline] = recipe
                     self._recipe_to_pipeline[recipe] = pipeline
-        # Then, read the param maps
+        # Then, read the port maps
         for an in annotations:
-            if an.key == self._PARAMMAP_KEY:
+            if an.key == self._PORTMAP_KEY:
                 pipeline = PipelineInformation(an.action_id)
                 recipe = self._pipeline_to_recipe[pipeline]
                 if not recipe:
-                    # Purge the lone param map
-                    warnings.warn("Found a DAT param map annotation with no "
+                    # Purge the lone port map
+                    warnings.warn("Found a DAT port map annotation with not "
                                   "associated recipe -- removing")
                     self._controller.vistrail.set_action_annotation(
                             an.action_id,
                             an.key,
                             None)
                 else:
-                    param_map = self._read_annotation_parammap(an.value)
-                    if param_map is not None:
-                        self._pipeline_to_parammap[pipeline] = param_map
+                    port_map = self._read_annotation_portmap(an.value)
+                    if port_map is not None:
+                        self._pipeline_to_portmap[pipeline] = port_map
+        # Finally, read the variable maps
+        for an in annotations:
+            if an.key == self._VARMAP_KEY:
+                pipeline = PipelineInformation(an.action_id)
+                recipe = self._pipeline_to_recipe[pipeline]
+                if not recipe:
+                    # Purge the lone var map
+                    warnings.warn("Found a DAT variable map annotation with "
+                                  "no associated recipe -- removing")
+                    self._controller.vistrail.set_action_annotation(
+                            an.action_id,
+                            an.key,
+                            None)
+                else:
+                    var_map = self._read_annotation_varmap(an.value)
+                    if var_map is not None:
+                        self._pipeline_to_varmap[pipeline] = var_map
 
     def _get_controller(self):
         return self._controller
@@ -260,7 +320,7 @@ class VistrailData(object):
         return self._variables.iterkeys()
     variables = property(_get_variables)
 
-    def created_pipeline(self, recipe, pipeline, param_map=None):
+    def created_pipeline(self, recipe, pipeline, port_map, var_map):
         """Registers a new pipeline as being the result of a DAT recipe.
 
         We now know that this pipeline was created from this plot and
@@ -293,12 +353,17 @@ class VistrailData(object):
                 self._RECIPE_KEY,
                 self._build_annotation_recipe(recipe))
 
-        if param_map is not None:
-            self._controller.vistrail.set_action_annotation(
-                    pipeline.version,
-                    self._PARAMMAP_KEY,
-                    self._build_annotation_parammap(param_map))
-            self._pipeline_to_parammap[pipeline] = param_map
+        self._controller.vistrail.set_action_annotation(
+                pipeline.version,
+                self._PORTMAP_KEY,
+                self._build_annotation_portmap(port_map))
+        self._pipeline_to_portmap[pipeline] = port_map
+
+        self._controller.vistrail.set_action_annotation(
+                pipeline.version,
+                self._VARMAP_KEY,
+                self._build_annotation_varmap(var_map))
+        self._pipeline_to_varmap[pipeline] = var_map
 
     def get_recipe(self, pipeline):
         return self._pipeline_to_recipe.get(pipeline, None)
@@ -306,8 +371,11 @@ class VistrailData(object):
     def get_pipeline(self, recipe):
         return self._recipe_to_pipeline.get(recipe, None)
 
-    def get_parammap(self, pipeline):
-        return self._pipeline_to_parammap.get(pipeline, None)
+    def get_portmap(self, pipeline):
+        return self._pipeline_to_portmap.get(pipeline, None)
+
+    def get_varmap(self, pipeline):
+        return self._pipeline_to_varmap.get(pipeline, None)
 
 
 class VistrailManager(object):

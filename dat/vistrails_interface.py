@@ -449,7 +449,7 @@ def find_modules_by_type(pipeline, moduletypes):
 
 def create_pipeline(controller, recipe, cell_info):
     """create_pipeline(recipe: DATRecipe, cell_info: CellInformation)
-        -> PipelineInformation, param_map: dict
+        -> PipelineInformation, port_map: dict, var_map: dict
 
     Create a pipeline in the Vistrail and return its information.
     """
@@ -575,7 +575,7 @@ def create_pipeline(controller, recipe, cell_info):
 
     # Maps a parameter name to the list of connections tying the variable to
     # modules of the plot
-    param_map = dict() # param: str -> [conn_id: int]
+    var_map = dict() # param: str -> [conn_id: int]
 
     # Add the Variable subworkflows, but 'inline' them
     for param, variable in recipe.variables.iteritems():
@@ -605,9 +605,9 @@ def create_pipeline(controller, recipe, cell_info):
                             var_output_mod,
                             var_output_port)
                     try:
-                        param_conns = param_map[param]
+                        param_conns = var_map[param]
                     except KeyError:
-                        param_conns = param_map[param] = []
+                        param_conns = var_map[param] = []
                     param_conns.append(conn_id)
             else:
                 connect_modules(
@@ -622,7 +622,12 @@ def create_pipeline(controller, recipe, cell_info):
     # FIXME : from_root seems to be necessary here, I don't know why
     controller.change_selected_version(pipeline_version, from_root=True)
 
-    return PipelineInformation(pipeline_version), param_map
+    # Convert the modules to module ids in the portmap
+    port_map = dict()
+    for param, portlist in plot_params.iteritems():
+        port_map[param] = [(module.id, port) for module, port in portlist]
+
+    return PipelineInformation(pipeline_version), port_map, var_map
 
 
 def execute_pipeline_to_cell(controller, cellInfo, pipeline):
