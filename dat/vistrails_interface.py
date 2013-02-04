@@ -30,7 +30,9 @@ else:
 import importlib
 import inspect
 from itertools import izip
+import sys
 import warnings
+
 from PyQt4 import QtGui
 
 from dat import BaseVariableLoader, PipelineInformation, Plot, Port
@@ -68,8 +70,8 @@ def resolve_descriptor(param, package_identifier=None):
     elif isinstance(param, type) and issubclass(param, Module):
         return reg.get_descriptor(param)
     else:
-        raise TypeError("add_module() argument must be a Module or str "
-                        "object, not '%s'" % type(param))
+        raise TypeError("add_module() argument must be a Module subclass or "
+                        "str object, not '%s'" % type(param))
 
 
 class ModuleWrapper(object):
@@ -432,7 +434,7 @@ def get_function(module, function_name):
 def delete_linked(controller, modules, operations,
                   module_filter=lambda m: True,
                   connection_filter=lambda c: True,
-                  depth_limit=None):
+                  depth=sys.maxint):
     """Delete all modules and connections linked to the specified modules.
 
     module_filter is an optional function called during propagation to modules.
@@ -462,7 +464,7 @@ def delete_linked(controller, modules, operations,
     to_delete = set(module for module in open_list)
 
     # At each step
-    while depth_limit >= 0 and open_list:
+    while depth >= 0 and open_list:
         new_open_list = []
         # For each module considered
         for module in open_list:
@@ -482,13 +484,13 @@ def delete_linked(controller, modules, operations,
                     # And if it passes the filter
                     if module_filter(other_mod):
                         # Remove it
-                        to_delete.append(other_mod)
+                        to_delete.add(other_mod)
                         # And add it to the list
                         new_open_list.append(other_mod)
                 visited_connections.add(connection)
 
         open_list = new_open_list
-        depth_limit -= 1
+        depth -= 1
 
     conn_to_delete = set()
     for module in to_delete:
