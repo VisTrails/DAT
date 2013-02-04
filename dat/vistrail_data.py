@@ -148,12 +148,9 @@ class VistrailData(object):
 
         self._variables = dict()
 
-        self._pipeline_to_recipe = dict() # PipelineInformation -> DATRecipe
-        self._recipe_to_pipeline = dict() # DATRecipe -> PipelineInformation
-        self._pipeline_to_portmap = dict() # PipelineInformation -> port_map
-        # port_map: {param: [(mod_id: int, portname: str)]}
-        self._pipeline_to_varmap = dict() # PipelineInformation -> var_map
-        # var_map: {param: [conn_id: int]}
+        self._cell_to_version = dict() # CellInformation -> int
+        self._version_to_pipeline = dict() # int -> PipelineInformation
+        self._cell_to_pipeline = dict() # CellInformation-> PipelineInformation
 
         app = get_vistrails_application()
 
@@ -186,17 +183,16 @@ class VistrailData(object):
         # First, read the recipes
         for an in annotations:
             if an.key == self._RECIPE_KEY:
-                pipeline = PipelineInformation(an.action_id)
+                version = an.action_id
                 recipe = self._read_annotation_recipe(self, an.value)
                 if recipe is not None:
-                    self._pipeline_to_recipe[pipeline] = recipe
-                    self._recipe_to_pipeline[recipe] = pipeline
+                    pipeline = PipelineInformation(version, recipe)
+                    self._version_to_pipeline[version] = pipeline
         # Then, read the port maps
         for an in annotations:
             if an.key == self._PORTMAP_KEY:
-                pipeline = PipelineInformation(an.action_id)
-                recipe = self._pipeline_to_recipe[pipeline]
-                if not recipe:
+                pipeline = self._version_to_pipeline[an.action_id]
+                if not pipeline:
                     # Purge the lone port map
                     warnings.warn("Found a DAT port map annotation with not "
                                   "associated recipe -- removing")
@@ -207,13 +203,12 @@ class VistrailData(object):
                 else:
                     port_map = self._read_annotation_portmap(an.value)
                     if port_map is not None:
-                        self._pipeline_to_portmap[pipeline] = port_map
+                        pipeline.port_map = port_map
         # Finally, read the variable maps
         for an in annotations:
             if an.key == self._VARMAP_KEY:
-                pipeline = PipelineInformation(an.action_id)
-                recipe = self._pipeline_to_recipe[pipeline]
-                if not recipe:
+                pipeline = self._version_to_pipeline(an.action_id)
+                if not pipeline:
                     # Purge the lone var map
                     warnings.warn("Found a DAT variable map annotation with "
                                   "no associated recipe -- removing")
@@ -224,7 +219,7 @@ class VistrailData(object):
                 else:
                     var_map = self._read_annotation_varmap(an.value)
                     if var_map is not None:
-                        self._pipeline_to_varmap[pipeline] = var_map
+                        pipeline.varmap = var_map
 
     def _get_controller(self):
         return self._controller
@@ -320,32 +315,31 @@ class VistrailData(object):
         return self._variables.iterkeys()
     variables = property(_get_variables)
 
-    def created_pipeline(self, recipe, pipeline, port_map, var_map):
+    def created_pipeline(self, cellInfo, recipe, pipeline):
         """Registers a new pipeline as being the result of a DAT recipe.
 
-        We now know that this pipeline was created from this plot and
-        parameters, so we will display an overlay showing these on every cell
-        created from that pipeline.
+        We now know that this pipeline was created in the given cell from this
+        plot and these parameters.
         """
         try:
-            p = self._recipe_to_pipeline[recipe]
-            if p != pipeline:
-                def print_loc(l):
-                    if hasattr(l, 'name') and l.name:
-                        return l.name
-                    else:
-                        return str(l)
-                warnings.warn(
-                        "A new pipeline with a known recipe was created\n"
-                        "Pipelines:\n"
-                        "    %s version=%s\n"
-                        "    %s version=%s" % (
-                        print_loc(p.locator), p.version,
-                        print_loc(pipeline.locator), pipeline.version))
+            p = self._version_to_pipeline[pipeline.version]
+            if p == pipeline:
+                return # Ok I guess
+            warnings.warn(
+                    "A new pipeline was created with a previously known "
+                    "version!\n"
+                    "  version=%r\n"
+                    "  old recipe=%r\n"
+                    "  new recipe=%r\n"
+                    "replacing..." % (
+                    pipeline.version,
+                    p.recipe,
+                    pipeline.recipe))
         except KeyError:
             pass
-        self._pipeline_to_recipe[pipeline] = recipe
-        self._recipe_to_pipeline[recipe] = pipeline
+        self._cell_to_version[cellInfo] = pipeline.version
+        self._version_to_pipeline[pipeline.version] = pipeline
+        self._cell_to_pipeline[cellInfo] = pipeline
 
         # Add the annotation in the vistrail
         self._controller.vistrail.set_action_annotation(
@@ -356,26 +350,18 @@ class VistrailData(object):
         self._controller.vistrail.set_action_annotation(
                 pipeline.version,
                 self._PORTMAP_KEY,
-                self._build_annotation_portmap(port_map))
-        self._pipeline_to_portmap[pipeline] = port_map
+                self._build_annotation_portmap(pipeline.port_map))
 
         self._controller.vistrail.set_action_annotation(
                 pipeline.version,
                 self._VARMAP_KEY,
-                self._build_annotation_varmap(var_map))
-        self._pipeline_to_varmap[pipeline] = var_map
+                self._build_annotation_varmap(pipeline.var_map))
 
-    def get_recipe(self, pipeline):
-        return self._pipeline_to_recipe.get(pipeline, None)
-
-    def get_pipeline(self, recipe):
-        return self._recipe_to_pipeline.get(recipe, None)
-
-    def get_portmap(self, pipeline):
-        return self._pipeline_to_portmap.get(pipeline, None)
-
-    def get_varmap(self, pipeline):
-        return self._pipeline_to_varmap.get(pipeline, None)
+    def get_pipeline(self, param):
+        if isinstance(param, int):
+            return self._version_to_pipeline.get(param, None)
+        else:
+            return self._cell_to_pipeline.get(param, None)
 
 
 class VistrailManager(object):

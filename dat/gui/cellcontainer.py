@@ -1,13 +1,14 @@
 from PyQt4 import QtCore, QtGui
 
-from dat import MIMETYPE_DAT_VARIABLE, MIMETYPE_DAT_PLOT, \
-    DATRecipe, PipelineInformation
+from dat import MIMETYPE_DAT_VARIABLE, MIMETYPE_DAT_PLOT, DATRecipe
 from dat.gui import get_icon, translate
+from dat.vistrail_data import VistrailManager
 from dat import vistrails_interface
 
 from vistrails.core.application import get_vistrails_application
 from vistrails.packages.spreadsheet.spreadsheet_cell import QCellContainer
-from dat.vistrail_data import VistrailManager
+from vistrails.packages.spreadsheet.spreadsheet_execute import \
+    executePipelineWithProgress
 
 
 class Overlay(object):
@@ -376,6 +377,7 @@ class DATCellContainer(QCellContainer):
 
         self._overlay.setParent(self)
         self._set_overlay(None)
+
     def setCellInfo(self, cellInfo):
         super(DATCellContainer, self).setCellInfo(cellInfo)
 
@@ -427,13 +429,13 @@ class DATCellContainer(QCellContainer):
         pipelineInfo = self.cellInfo.tab.getCellPipelineInfo(
                 self.cellInfo.row, self.cellInfo.column)
         if pipelineInfo is not None:
-            pipeline = PipelineInformation(pipelineInfo[0]['version'])
-            recipe = VistrailManager(self._controller).get_recipe(pipeline)
+            version = pipelineInfo[0]['version']
+            pipeline = VistrailManager(self._controller).get_pipeline(version)
         else:
-            recipe = None
-        if recipe is not None:
-            self._plot = recipe.plot
-            self._variables = dict(recipe.variables)
+            pipeline = None
+        if pipeline is not None:
+            self._plot = pipeline.recipe.plot
+            self._variables = dict(pipeline.recipe.variables)
         else:
             self._plot = None
             self._variables = dict()
@@ -522,7 +524,7 @@ class DATCellContainer(QCellContainer):
         elif mimeData.hasFormat(MIMETYPE_DAT_PLOT):
             event.accept()
             self._plot = mimeData.plot
-            self._variables = {}
+            self._variables = dict()
             self._parameter_hovered = None
             # Deleting a plot must update the pipeline infos in the spreadsheet
             # tab
@@ -543,22 +545,37 @@ class DATCellContainer(QCellContainer):
     def try_update(self):
         """Check if enough ports are set, and execute the workflow
         """
+        # Look this recipe up in the VistrailData
+        mngr = VistrailManager(self._controller)
+        recipe = DATRecipe(self._plot, self._variables)
+
+        # Try to get an existing pipeline for this cell
+        pipeline = mngr.get_pipeline(self.cellInfo)
+
+        # No pipeline: build one
+        if pipeline is None:
+            pipeline = vistrails_interface.create_pipeline(
+                    self._controller,
+                    recipe,
+                    self.cellInfo)
+            mngr.created_pipeline(self.cellInfo, recipe, pipeline)
+
+        # Pipeline with a different content: update it
+        elif pipeline.recipe != recipe:
+            pipeline = vistrails_interface.update_pipeline(
+                    self._controller,
+                    pipeline,
+                    pipeline.recipe,
+                    recipe)
+            mngr.created_pipeline(self.cellInfo, recipe, pipeline)
+
+        # Execute the new pipeline if possible
         if all(
                 port.optional or self._variables.has_key(port.name)
                 for port in self._plot.ports):
-            # Look this recipe up in the VistrailData
-            mngr = VistrailManager(self._controller)
-            recipe = DATRecipe(self._plot, self._variables)
-            pipeline = mngr.get_pipeline(recipe)
-            if pipeline is None:
-                # Build the pipeline
-                pipeline, port_map, var_map = (
-                        vistrails_interface.create_pipeline(
-                                self._controller,
-                                recipe,
-                                self.cellInfo))
-                mngr.created_pipeline(recipe, pipeline, port_map, var_map)
-            vistrails_interface.execute_pipeline_to_cell(
-                    self._controller,
-                    self.cellInfo,
-                    pipeline)
+            self._controller.change_selected_version(pipeline.version)
+            executePipelineWithProgress(
+                    self._controller.current_pipeline,
+                    "DAT recipe execution",
+                    locator=self._controller.locator,
+                    current_version=pipeline.version)

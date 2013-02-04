@@ -72,14 +72,11 @@ class DATRecipe(object):
 class PipelineInformation(object):
     """A simple class holding enough information on a pipeline to locate it.
     """
-    def __init__(self, version):
+    def __init__(self, version, recipe, port_map=None, var_map=None):
         self.version = version
-
-    def __eq__(self, other):
-        return self.version == other.version
-
-    def __hash__(self):
-        return hash(self.version)
+        self.recipe = recipe
+        self.port_map = port_map
+        self.var_map = var_map # {param: [conn_id: int]}
 
 
 class BaseVariableLoader(object):
