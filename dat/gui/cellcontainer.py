@@ -1,3 +1,5 @@
+import warnings
+
 from PyQt4 import QtCore, QtGui
 
 from dat import MIMETYPE_DAT_VARIABLE, MIMETYPE_DAT_PLOT, DATRecipe
@@ -376,7 +378,8 @@ class DATCellContainer(QCellContainer):
         self._hide_button.setVisible(False)
 
         self._overlay.setParent(self)
-        self._set_overlay(None)
+
+        self.contentsUpdated()
 
     def setCellInfo(self, cellInfo):
         super(DATCellContainer, self).setCellInfo(cellInfo)
@@ -426,13 +429,17 @@ class DATCellContainer(QCellContainer):
         self.contentsUpdated()
 
     def contentsUpdated(self):
-        pipelineInfo = self.cellInfo.tab.getCellPipelineInfo(
-                self.cellInfo.row, self.cellInfo.column)
-        if pipelineInfo is not None:
+        if self.widget() is not None:
+            # Get pipeline info from VisTrails
+            pipelineInfo = self.cellInfo.tab.getCellPipelineInfo(
+                    self.cellInfo.row, self.cellInfo.column)
             version = pipelineInfo[0]['version']
             pipeline = VistrailManager(self._controller).get_pipeline(version)
         else:
-            pipeline = None
+            # Get pipeline info from DAT: we might be building somethere here
+            pipeline = VistrailManager(self._controller).get_pipeline(
+                    self.cellInfo)
+
         if pipeline is not None:
             self._plot = pipeline.recipe.plot
             self._variables = dict(pipeline.recipe.variables)
@@ -517,7 +524,7 @@ class DATCellContainer(QCellContainer):
                 varname = str(mimeData.data(MIMETYPE_DAT_VARIABLE))
                 self._variables[port_name] = (VistrailManager(self._controller)
                                               .get_variable(varname))
-                self.try_update()
+                self.update_pipeline()
             else:
                 event.ignore()
 
@@ -526,10 +533,7 @@ class DATCellContainer(QCellContainer):
             self._plot = mimeData.plot
             self._variables = dict()
             self._parameter_hovered = None
-            # Deleting a plot must update the pipeline infos in the spreadsheet
-            # tab
-            # StandardWidgetSheetTabInterface#deleteCell()
-            self.try_update()
+            self.update_pipeline()
 
         else:
             event.ignore()
@@ -539,10 +543,10 @@ class DATCellContainer(QCellContainer):
     def remove_parameter(self, port_name):
         if self._plot is not None:
             del self._variables[port_name]
-            self.try_update()
+            self.update_pipeline()
             self._set_overlay(None)
 
-    def try_update(self):
+    def update_pipeline(self):
         """Check if enough ports are set, and execute the workflow
         """
         # Look this recipe up in the VistrailData
@@ -558,16 +562,23 @@ class DATCellContainer(QCellContainer):
                     self._controller,
                     recipe,
                     self.cellInfo)
-            mngr.created_pipeline(self.cellInfo, recipe, pipeline)
+            mngr.created_pipeline(self.cellInfo, pipeline)
 
         # Pipeline with a different content: update it
         elif pipeline.recipe != recipe:
-            pipeline = vistrails_interface.update_pipeline(
-                    self._controller,
-                    pipeline,
-                    pipeline.recipe,
-                    recipe)
-            mngr.created_pipeline(self.cellInfo, recipe, pipeline)
+            try:
+                pipeline = vistrails_interface.update_pipeline(
+                        self._controller,
+                        pipeline,
+                        recipe)
+            except vistrails_interface.UpdateError, e:
+                warnings.warn("Could not update pipeline, creating new one:\n"
+                              "%s" % e)
+                pipeline = vistrails_interface.create_pipeline(
+                        self._controller,
+                        recipe,
+                        self.cellInfo)
+            mngr.created_pipeline(self.cellInfo, pipeline)
 
         # Execute the new pipeline if possible
         if all(
@@ -579,3 +590,7 @@ class DATCellContainer(QCellContainer):
                     "DAT recipe execution",
                     locator=self._controller.locator,
                     current_version=pipeline.version)
+        elif self.widget() is not None:
+            # Clear the cell
+            self.cellInfo.tab.deleteCell(self.cellInfo.row,
+                                         self.cellInfo.column)

@@ -722,7 +722,7 @@ def create_pipeline(controller, recipe, cell_info):
     return PipelineInformation(pipeline_version, recipe, port_map, var_map)
 
 
-class UpdateError(object):
+class UpdateError(ValueError):
     """Error while updating a pipeline.
 
     This is recoverable by creating a new pipeline from scratch instead. It can
@@ -731,14 +731,15 @@ class UpdateError(object):
     """
 
 
-def update_pipeline(controller, pipelineInfo, old_recipe, new_recipe):
+def update_pipeline(controller, pipelineInfo, new_recipe):
     # Retrieve the pipeline
     controller.change_selected_version(pipelineInfo.version)
     pipeline = controller.current_pipeline
+    old_recipe = pipelineInfo.recipe
 
     # The plots have to be the same
     if old_recipe.plot != new_recipe.plot:
-        raise ValueError("update_pipeline cannot change plot type!")
+        raise UpdateError("update_pipeline cannot change plot type!")
 
     operations = []
 

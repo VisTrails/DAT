@@ -315,7 +315,7 @@ class VistrailData(object):
         return self._variables.iterkeys()
     variables = property(_get_variables)
 
-    def created_pipeline(self, cellInfo, recipe, pipeline):
+    def created_pipeline(self, cellInfo, pipeline):
         """Registers a new pipeline as being the result of a DAT recipe.
 
         We now know that this pipeline was created in the given cell from this
@@ -345,7 +345,7 @@ class VistrailData(object):
         self._controller.vistrail.set_action_annotation(
                 pipeline.version,
                 self._RECIPE_KEY,
-                self._build_annotation_recipe(recipe))
+                self._build_annotation_recipe(pipeline.recipe))
 
         self._controller.vistrail.set_action_annotation(
                 pipeline.version,
