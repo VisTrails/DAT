@@ -116,3 +116,35 @@ class Test_vistrails_interface(unittest.TestCase):
                             modules[5].id, modules[9].id))
         test_delete([3, 6, 7], [2, 4],
                     depth=1)
+
+    def test_find_modules_by_type(self):
+        vistrail = Vistrail()
+        controller = VistrailController(vistrail)
+        controller.change_selected_version(0)
+
+        mod1 = controller.add_module('edu.utah.sci.vistrails.basic', 'String')
+        mod2 = controller.add_module('edu.utah.sci.vistrails.basic', 'Integer')
+        mod3 = controller.add_module('edu.utah.sci.vistrails.basic', 'String')
+        mod4 = controller.add_module('edu.utah.sci.vistrails.http', 'HTTPFile')
+
+        from dat.vistrails_interface import find_modules_by_type
+        from vistrails.core.modules.basic_modules import String, Float
+        from vistrails.packages.HTTP.init import HTTP
+
+        self.assertEqual(
+                set(m.id for m in find_modules_by_type(
+                         controller.current_pipeline,
+                         [String])),
+                set([mod1.id, mod3.id]))
+
+        self.assertEqual(
+                [m.id for m in find_modules_by_type(
+                         controller.current_pipeline,
+                         [HTTP])],
+                [mod4.id])
+
+        self.assertEqual(
+                find_modules_by_type(
+                        controller.current_pipeline,
+                        [Float]),
+                [])

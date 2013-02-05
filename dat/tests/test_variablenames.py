@@ -12,7 +12,10 @@ class Test_variablenames(unittest.TestCase):
 
         class FakeData(object):
             def get_variable(self, varname):
-                return None
+                if varname == 'variable (5)':
+                    return True
+                else:
+                    return None
         vistraildata = FakeData()
 
         self.assertEqual(
@@ -20,7 +23,7 @@ class Test_variablenames(unittest.TestCase):
                 'variable (2)')
         self.assertEqual(
                 unique_varname('variable (4)', vistraildata),
-                'variable (5)')
+                'variable (6)')
 
     def test_validator(self):
         from dat.gui.load_variable_dialog import VariableNameValidator
