@@ -76,3 +76,20 @@ class Test_VistrailData(unittest.TestCase):
                         param1=[(1, 'port1'), (2, 'port2')],
                         param2=[],
                         param3=[(3, 'port3')]))
+
+    def test_build_annotation_varmap(self):
+        self.assertEqual(
+                VistrailData._build_annotation_varmap(odict(
+                        ('param1', [1, 2]),
+                        ('param2', []),
+                        ('param3', [3]))),
+                'param1=1,2;param2=;param3=3')
+
+    def test_read_annotation_varmap(self):
+        self.assertEqual(
+                VistrailData._read_annotation_varmap(
+                        'param1=1,2;param2=;param3=3'),
+                dict(
+                        param1=[1, 2],
+                        param2=[],
+                        param3=[3]))

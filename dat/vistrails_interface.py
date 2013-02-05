@@ -29,7 +29,10 @@ else:
 
 import importlib
 import inspect
+from itertools import izip
+import sys
 import warnings
+
 from PyQt4 import QtGui
 
 from dat import BaseVariableLoader, PipelineInformation, Plot, Port
@@ -40,8 +43,8 @@ from vistrails.core.db.locator import XMLFileLocator
 from vistrails.core.modules.module_registry import get_module_registry
 from vistrails.core.modules.utils import parse_descriptor_string
 from vistrails.core.modules.vistrails_module import Module
-from vistrails.packages.spreadsheet.spreadsheet_execute import \
-    executePipelineWithProgress
+from vistrails.packages.spreadsheet.basic_widgets import CellLocation, \
+    SpreadsheetCell, SheetReference
 
 
 __all__ = ['Plot', 'Port', 'Variable',
@@ -69,8 +72,8 @@ def resolve_descriptor(param, package_identifier=None):
     elif isinstance(param, type) and issubclass(param, Module):
         return reg.get_descriptor(param)
     else:
-        raise TypeError("add_module() argument must be a Module or str "
-                        "object, not '%s'" % type(param))
+        raise TypeError("add_module() argument must be a Module subclass or "
+                        "str object, not '%s'" % type(param))
 
 
 class ModuleWrapper(object):
@@ -90,13 +93,38 @@ class ModuleWrapper(object):
     def add_function(self, inputport_name, vt_type, value):
         """Add a function for a port of this module.
         """
-        # TODO-dat : Check type and port name
+        # Check port name
+        try:
+            port = self._module.module_descriptor.get_port_spec(
+                    inputport_name, 'input')
+        except Exception:
+            raise ValueError("add_function() called for a non-existent input "
+                             "port")
+
+        # Check types
+        if not isinstance(vt_type, (tuple, list)):
+            vt_type = (vt_type,)
+        if not isinstance(value, (tuple, list)):
+            value = [value]
+        if len(vt_type) != len(value):
+            raise ValueError("add_function() received different numbers of "
+                             "types and values")
+        if len(vt_type) != len(port.descriptors()):
+            raise ValueError("add_function() called with a different number "
+                             "of values from the given input port")
+        for t_param, p_descr in izip(vt_type, port.descriptors()):
+            t_descr = resolve_descriptor(t_param,
+                                         self._variable._vt_package_id)
+            if not issubclass(t_descr.module, p_descr.module):
+                raise ValueError("add_function() called with incompatible "
+                                 "types")
+
         controller = self._variable._controller
         self._variable._operations.extend(
                 controller.update_function_ops(
                         self._module,
                         inputport_name,
-                        [value]))
+                        value))
 
     def connect_outputport_to(self, outputport_name, other_module, inputport_name):
         """Create a connection between ports of two modules.
@@ -251,12 +279,26 @@ class Variable(object):
         """
         # Connects the output port with the given name of the given wrapped
         # module to the OutputPort module (added at version 'dat-vars')
-        # TODO-dat : Check that the port is compatible to self.type
         if module._variable is not self:
             raise ValueError("select_output_port() designated a module from a "
                              "different Variable")
         elif self._output_designated:
             raise ValueError("select_output_port() was called more than once")
+
+        # Check that the port is compatible to self.type
+        try:
+            port = module._module.module_descriptor.get_port_spec(
+                    outputport_name, 'output')
+        except Exception:
+            raise ValueError("select_output_port() designated a non-existent "
+                             "port")
+        # The designated output port has to be a subclass of self.type
+        if len(port.descriptors()) != 1:
+            raise ValueError("select_output_port() designated a port with "
+                             "multiple types")
+        if not issubclass(port.descriptors()[0].module, self.type.module):
+            raise ValueError("select_output_port() designated a port with an "
+                             "incompatible type")
 
         controller = self._controller
 
@@ -391,6 +433,74 @@ def get_function(module, function_name):
     return None
 
 
+def delete_linked(controller, modules, operations,
+                  module_filter=lambda m: True,
+                  connection_filter=lambda c: True,
+                  depth=sys.maxint):
+    """Delete all modules and connections linked to the specified modules.
+
+    module_filter is an optional function called during propagation to modules.
+
+    connection_filter is an optional function called during propagation to
+    connections.
+
+    depth_limit is an optional integer limiting the depth of the operation.
+    """
+    # Build a map of the connections in which each module takes part
+    module_connections = dict()
+    for connection in controller.current_pipeline.connection_list:
+        for mod in (connection.source.moduleId,
+                    connection.destination.moduleId):
+            try:
+                conns = module_connections[mod]
+            except KeyError:
+                conns = module_connections[mod] = set()
+            conns.add(connection)
+
+    visited_connections = set()
+
+    if isinstance(modules, (list, tuple)):
+        open_list = modules
+    else:
+        open_list = [modules]
+    to_delete = set(module for module in open_list)
+
+    # At each step
+    while depth >= 0 and open_list:
+        new_open_list = []
+        # For each module considered
+        for module in open_list:
+            # For each connection it takes part in
+            for connection in module_connections.get(module.id, []):
+                # If that connection passes the filter
+                if (connection not in visited_connections and
+                        connection_filter(connection)):
+                    # Get the other module
+                    if connection.source.moduleId == module.id:
+                        other_mod = connection.destination.moduleId
+                    else:
+                        other_mod = connection.source.moduleId
+                    other_mod = controller.current_pipeline.modules[other_mod]
+                    if other_mod in to_delete:
+                        continue
+                    # And if it passes the filter
+                    if module_filter(other_mod):
+                        # Remove it
+                        to_delete.add(other_mod)
+                        # And add it to the list
+                        new_open_list.append(other_mod)
+                visited_connections.add(connection)
+
+        open_list = new_open_list
+        depth -= 1
+
+    conn_to_delete = set()
+    for module in to_delete:
+        conn_to_delete.update(module_connections.get(module.id, []))
+    operations.extend(('delete', conn) for conn in conn_to_delete)
+    operations.extend(('delete', module) for module in to_delete)
+
+
 def copy_module(controller, module, operations):
     module = module.do_copy(True, controller.vistrail.idScope, {})
     operations.append(('add', module))
@@ -407,16 +517,69 @@ def find_modules_by_type(pipeline, moduletypes):
     return result
 
 
+def add_variable_subworkflow(controller, varname, plot_ports, operations):
+    """ add_variable_subworkflow(controller, var_pipeline, operations: list)
+        -> [conn_id: int]
+
+    Copy the variable subworkflow from its own pipeline to the given one, and
+    connects it according to the plot_params map.
+
+    It returns the ids of the connections tying this variable to the plot,
+    which are used to build the pipeline's var_map.
+    """
+    var_pipeline = controller.vistrail.getPipeline(
+            'dat-var-%s' % varname)
+
+    reg = get_module_registry()
+    outputport_desc = reg.get_descriptor_by_name(
+            'edu.utah.sci.vistrails.basic', 'OutputPort')
+
+    # Copy every module but the OutputPort
+    output_id = None
+    var_modules_map = dict() # old_mod_id -> new_module
+    for module in var_pipeline.modules.itervalues():
+        if (module.module_descriptor is outputport_desc and
+                get_function(module, 'name') == 'value'):
+            output_id = module.id
+        else:
+            # We can't just add this module to the new pipeline!
+            # We need to create a new one to avoid id collisions
+            var_modules_map[module.id] = copy_module(
+                    controller, module, operations)
+
+    if output_id is None:
+        raise ValueError("add_variable_subworkflow: variable pipeline has no "
+                         "'OutputPort' module")
+
+    connection_ids = []
+    # Copy every connection except the one to the OutputPort module
+    for connection in var_pipeline.connection_list:
+        if connection.destination.moduleId == output_id:
+            for var_output_mod, var_output_port in plot_ports:
+                new_conn = controller.create_connection(
+                        var_modules_map[connection.source.moduleId],
+                        connection.source.name,
+                        var_output_mod,
+                        var_output_port)
+                operations.append(('add', new_conn))
+                connection_ids.append(new_conn.id)
+        else:
+            new_conn = controller.create_connection(
+                    var_modules_map[connection.source.moduleId],
+                    connection.source.name,
+                    var_modules_map[connection.destination.moduleId],
+                    connection.destination.name)
+            operations.append(('add', new_conn))
+
+    return connection_ids
+
+
 def create_pipeline(controller, recipe, cell_info):
-    """create_pipeline(recipe: DATRecipe, cell_info: CellInformation)
-        -> PipelineInformation, portmap: dict
+    """ create_pipeline(controller, recipe, cell_info: CellInformation)
+        -> PipelineInformation
 
     Create a pipeline in the Vistrail and return its information.
     """
-    # This is only here because of cycles in the spreadsheet dependencies graph
-    from vistrails.packages.spreadsheet.basic_widgets import CellLocation, \
-        SpreadsheetCell, SheetReference
-
     # Build from the root version
     controller.change_selected_version(0)
 
@@ -429,9 +592,8 @@ def create_pipeline(controller, recipe, cell_info):
                 src_mod, src_port,
                 dest_mod, dest_port)
         operations.append(('add', new_conn))
+        return new_conn.id
 
-    outputport_desc = reg.get_descriptor_by_name(
-            'edu.utah.sci.vistrails.basic', 'OutputPort')
     inputport_desc = reg.get_descriptor_by_name(
             'edu.utah.sci.vistrails.basic', 'InputPort')
 
@@ -532,40 +694,19 @@ def create_pipeline(controller, recipe, cell_info):
                     plot_modules_map[connection.destination.moduleId],
                     connection.destination.name)
 
+    # Maps a parameter name to the list of connections tying the variable to
+    # modules of the plot
+    var_map = dict() # param: str -> [conn_id: int]
+
     # Add the Variable subworkflows, but 'inline' them
     for param, variable in recipe.variables.iteritems():
-        pipeline = controller.vistrail.getPipeline(
-                'dat-var-%s' % variable.name)
+        plot_ports = plot_params.get(param, [])
 
-        # Copy every module but the OutputPort
-        var_modules_map = dict()
-        for module in pipeline.modules.itervalues():
-            if (module.module_descriptor is outputport_desc and
-                    get_function(module, 'name') == 'value'):
-                output_id = module.id
-            else:
-                # We can't just add this module to the new pipeline!
-                # We need to create a new one to avoid id collisions
-                var_modules_map[module.id] = copy_module(
-                        controller, module, operations)
-
-        # Copy every connection except the one to the OutputPort module
-        for connection in pipeline.connection_list:
-            if connection.destination.moduleId == output_id:
-                params = plot_params.get(param, [])
-                for var_output_mod, var_output_port in params:
-                    connect_modules(
-                            var_modules_map[connection.source.moduleId],
-                            connection.source.name,
-                            var_output_mod,
-                            var_output_port)
-            else:
-                connect_modules(
-                        var_modules_map[connection.source.moduleId],
-                        connection.source.name,
-                        var_modules_map[connection.destination.moduleId],
-                        connection.destination.name)
-
+        var_map[param] = add_variable_subworkflow(
+                controller,
+                variable.name,
+                plot_ports,
+                operations)
 
     action = create_action(operations)
     controller.add_new_action(action)
@@ -573,59 +714,77 @@ def create_pipeline(controller, recipe, cell_info):
     # FIXME : from_root seems to be necessary here, I don't know why
     controller.change_selected_version(pipeline_version, from_root=True)
 
-    # Convert the modules to module ids in the portmap
-    portmap = dict()
+    # Convert the modules to module ids in the port_map
+    port_map = dict()
     for param, portlist in plot_params.iteritems():
-        portmap[param] = [(module.id, port) for module, port in portlist]
+        port_map[param] = [(module.id, port) for module, port in portlist]
 
-    return PipelineInformation(pipeline_version), portmap
+    return PipelineInformation(pipeline_version, recipe, port_map, var_map)
 
 
-def execute_pipeline_to_cell(controller, cellInfo, pipeline):
-    """ execute_pipeline_to_cell(cellInfo: CellInformation,
-                             pipeline: PipelineInformation) -> None
+class UpdateError(object):
+    """Error while updating a pipeline.
 
-    Execute the referenced pipeline, so that its result gets displayed in the
-    specified spreadsheet cell.
+    This is recoverable by creating a new pipeline from scratch instead. It can
+    be caused by the alteration of the data stored in annotations, or by
+    changes in the VisTrails package's code.
     """
-    # This is only here because of cycles in the spreadsheet dependencies graph
-    from vistrails.packages.spreadsheet.basic_widgets import CellLocation, \
-        SpreadsheetCell
 
+
+def update_pipeline(controller, pipelineInfo, old_recipe, new_recipe):
     # Retrieve the pipeline
-    controller.change_selected_version(pipeline.version)
+    controller.change_selected_version(pipelineInfo.version)
     pipeline = controller.current_pipeline
 
-    # Get the list (hopefully, only one item) of modules inheriting from
-    # SpreadsheetCell
-    cellIds = []
-    for module in pipeline.modules.itervalues():
-        if issubclass(module.module_descriptor.module, SpreadsheetCell):
-            cellIds.append(module.id)
+    # The plots have to be the same
+    if old_recipe.plot != new_recipe.plot:
+        raise ValueError("update_pipeline cannot change plot type!")
 
-    # Update the CellLocation module's functions if needed
-    loc_modules = find_modules_by_type(pipeline, [CellLocation])
-    if loc_modules:
-        ops = []
-        loc_row = get_function(loc_modules[0], 'Row')
-        if str(cellInfo.row) != loc_row:
-            ops.extend(controller.update_function_ops(
-                    loc_modules[0], 'Row', [str(cellInfo.row + 1)]))
-        loc_col = get_function(loc_modules[0], 'Column')
-        if str(cellInfo.column) != str(loc_col):
-            ops.extend(controller.update_function_ops(
-                    loc_modules[0], 'Column', [str(cellInfo.column + 1)]))
-        if ops:
-            action = create_action(ops)
-            controller.add_new_action(action)
-            controller.perform_action(action)
-            pipeline = controller.current_pipeline
-    else:
-        warnings.warn("Pipeline has no cell location modules")
+    operations = []
 
-    # Execute the pipeline with a progress bar
-    executePipelineWithProgress(
-            pipeline,
-            "DAT recipe execution",
-            locator=controller.locator,
-            current_version=controller.current_version)
+    var_map = dict()
+
+    # Check parameters
+    for param in (set(old_recipe.variables.keys()) |
+                  set(new_recipe.variables.keys())):
+        old_var = old_recipe.variables.get(param)
+        new_var = new_recipe.variables.get(param)
+
+        if old_var == new_var:
+            try:
+                var_map[param] = pipelineInfo.var_map[param]
+            except KeyError:
+                pass
+            continue
+
+        # If the parameter existed (but was removed or changed)
+        if old_var:
+            connections = [pipeline.connections[c]
+                           for c in pipelineInfo.var_map.get(param, [])]
+            if not connections:
+                raise UpdateError("Couldn't find the connections for "
+                                  "parameter '%s' in update data" % param)
+
+            # Remove the variable subworkflow
+            modules = [pipeline.modules[c.source.moduleId]
+                       for c in connections]
+            delete_linked(controller, modules, operations,
+                          connection_filter=lambda c: c not in connections)
+
+        # If the parameter exists (but didn't exist or was different)
+        if new_var:
+            plot_ports = [(pipeline.modules[mod_id], port)
+                          for mod_id, port in pipelineInfo.port_map[param]]
+            var_map[param] = add_variable_subworkflow(
+                    controller,
+                    new_var.name,
+                    plot_ports,
+                    operations)
+
+    action = create_action(operations)
+    controller.add_new_action(action)
+    pipeline_version = controller.perform_action(action)
+    controller.change_selected_version(pipeline_version)
+
+    return PipelineInformation(pipeline_version, new_recipe,
+                               pipelineInfo.port_map, var_map)
