@@ -207,7 +207,7 @@ class VistrailData(object):
         # Finally, read the variable maps
         for an in annotations:
             if an.key == self._VARMAP_KEY:
-                pipeline = self._version_to_pipeline(an.action_id)
+                pipeline = self._version_to_pipeline[an.action_id]
                 if not pipeline:
                     # Purge the lone var map
                     warnings.warn("Found a DAT variable map annotation with "
