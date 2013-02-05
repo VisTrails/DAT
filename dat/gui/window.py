@@ -41,7 +41,8 @@ class MainWindow(QtGui.QMainWindow):
 
         # Embed the spreadsheet window as the central widget
         self.spreadsheetWindow = spreadsheetController.findSpreadsheetWindow(
-                show=False)
+                show=False,
+                flags=0)
         self.setCentralWidget(self.spreadsheetWindow)
         self.spreadsheetWindow.setVisible(True)
 
