@@ -6,9 +6,9 @@ from dat.gui import get_icon, translate
 from dat import vistrails_interface
 
 from vistrails.core.application import get_vistrails_application
-from vistrails.gui.ports_pane import PortsList
 from vistrails.packages.spreadsheet.spreadsheet_cell import QCellContainer
 from dat.vistrail_data import VistrailManager
+from dat.gui.plotconfig import DefaultPlotConfigEditor, PlotConfigWindow
 
 
 class Overlay(object):
@@ -182,8 +182,6 @@ class VariableDroppingOverlay(Overlay):
                     for port in self._cell._plot.ports]
 
         self._cell._parameter_hovered = None
-        
-        self.defaultEditor = FunctionEditor()
 
     def draw(self, qp):
         Overlay.draw(self, qp)
@@ -308,13 +306,7 @@ class VariableDroppingOverlay(Overlay):
         height = metrics.height()
         
         if y > self._parameters[-1][0] + self._parameters[-1][1] + height*2:
-            self.dialog = QtGui.QDialog()
-            layout = QtGui.QGridLayout()
-            layout.addWidget(self.defaultEditor,0,0)
-            self.dialog.setLayout(layout)
-            self.defaultEditor.setParent(self.dialog)
-            self._cell.setup_editor(self.defaultEditor)
-            self.dialog.show()
+            self._cell.show_editor()
 
         for i, port in enumerate(self._cell._plot.ports):
             port_y, port_h = self._parameters[i]
@@ -388,6 +380,9 @@ class DATCellContainer(QCellContainer):
 
         self._overlay.setParent(self)
         self._set_overlay(None)
+        
+        self._plot_config_window = PlotConfigWindow()
+        
     def setCellInfo(self, cellInfo):
         super(DATCellContainer, self).setCellInfo(cellInfo)
 
@@ -576,74 +571,10 @@ class DATCellContainer(QCellContainer):
                     self._controller,
                     self.cellInfo,
                     pipeline)
-            
-    def setup_editor(self, editor):
-        pipelineInfo = self.cellInfo.tab.getCellPipelineInfo(
-                self.cellInfo.row, self.cellInfo.column)
-        if pipelineInfo is not None:
-            pipeline = PipelineInformation(pipelineInfo[0]['version'])
-            recipe = VistrailManager(self._controller).get_recipe(pipeline)
-            editor.update_plot(recipe, self._plot, self._controller.current_pipeline)
-
-class FunctionEditor(QtGui.QWidget):
-    """Default widget for editing 'advanced' plot settings. (i.e.
-    module function values).
-    """
-    def __init__(self, parent=None):
-        QtGui.QWidget.__init__(self, parent)
         
-        self.tabWidget = QtGui.QTabWidget()
-        self.portsListList = []
-        
-        btnApply = QtGui.QPushButton("&Apply")
-        btnOk = QtGui.QPushButton("O&k")
-        btnReset = QtGui.QPushButton("&Reset")
-        
-        btnApply.clicked.connect(self.applyClicked)
-        btnOk.clicked.connect(self.okClicked)
-        btnReset.clicked.connect(self.resetClicked)
-        
-        layoutButtons = QtGui.QHBoxLayout()
-        layoutButtons.addWidget(btnReset)
-        layoutButtons.addStretch()
-        layoutButtons.addWidget(btnApply)
-        layoutButtons.addWidget(btnOk)
-        
-        vLayout = QtGui.QVBoxLayout()
-        vLayout.addWidget(self.tabWidget)
-        vLayout.addLayout(layoutButtons)
-        
-        self.setLayout(vLayout)
-        
-        self.portsListList = []
-        self.recipe = None
-        self.plot = None
-        self.pipeline = None
-    
-    def update_plot(self, recipe, plot, pipeline):
-        self.recipe = recipe
-        self.plot = plot
-        self.pipeline = pipeline
-        self.tabWidget.clear() #doesn't delete widgets, we maintain list separately
-        for i, module in enumerate(recipe.get_plot_modules(plot, pipeline)):
-            if len(self.portsListList) <= i:
-                self.portsListList.append(PortsList('input', self))
-            self.portsListList[i].update_module(module)
-            self.tabWidget.addTab(self.portsListList[i], module.name)
-            
-    def applyClicked(self):
-        #TODO: re-execute pipeline based on recipe info
-        pass
-        
-    def okClicked(self):
-        self.applyClicked()
-        self.close()
-        
-    def resetClicked(self):
-        #TODO: if port list auto updates functions, need to reset pipeline to earlier version first
-        self.update_plot(self.recipe, self.plot, self.pipeline)
-        
-    def close(self):
-        QtGui.QWidget.close(self)
-        if self.parent:
-            self.parent.close()
+    def show_editor(self):
+        #TODO see if plot has an advanced editor defined
+        widget = DefaultPlotConfigEditor()
+        widget.setup(self, self._plot)
+        self._plot_config_window.setPlotConfigWidget(widget)
+        self._plot_config_window.show()
