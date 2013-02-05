@@ -7,7 +7,6 @@ from PyQt4 import QtCore, QtGui
 from vistrails.gui.ports_pane import PortsList
 from dat.vistrail_data import VistrailManager
 from dat import PipelineInformation
-from dat.vistrails_interface import execute_pipeline_to_cell
 from vistrails.core.modules.module_registry import get_module_registry,\
     ModuleRegistryException
 
@@ -19,6 +18,8 @@ class PlotConfigWindow(QtGui.QDialog):
         self.setLayout(QtGui.QVBoxLayout())
         
     def setPlotConfigWidget(self, widget):
+        """Replaces current widget if one exists
+        """
         self.layout().takeAt(0)
         self.layout().addWidget(widget)
         
@@ -40,22 +41,27 @@ class DefaultPlotConfigEditor(QtGui.QWidget, PlotConfigEditor):
     def __init__(self, parent=None):
         QtGui.QWidget.__init__(self, parent)
         
+        #create tab widget
         self.tabWidget = QtGui.QTabWidget()
         
+        #create buttons
         btnApply = QtGui.QPushButton("&Apply")
         btnOk = QtGui.QPushButton("O&k")
         btnReset = QtGui.QPushButton("&Reset")
         
+        #connect buttons
         btnApply.clicked.connect(self.applyClicked)
         btnOk.clicked.connect(self.okClicked)
         btnReset.clicked.connect(self.resetClicked)
         
+        #add buttons to layout
         layoutButtons = QtGui.QHBoxLayout()
         layoutButtons.addWidget(btnReset)
         layoutButtons.addStretch()
         layoutButtons.addWidget(btnApply)
         layoutButtons.addWidget(btnOk)
         
+        #add tabwidget above buttons
         vLayout = QtGui.QVBoxLayout()
         vLayout.addWidget(self.tabWidget)
         vLayout.addLayout(layoutButtons)
@@ -68,39 +74,47 @@ class DefaultPlotConfigEditor(QtGui.QWidget, PlotConfigEditor):
     def setup(self, cell, plot):
         self.cell = cell
         self.plot = plot
-        cellInfo = cell.cellInfo
-        pipelineInfo = cellInfo.tab.getCellPipelineInfo(
-                cellInfo.row, cellInfo.column)
-        if pipelineInfo is not None:
-            pipeline = PipelineInformation(pipelineInfo[0]['version'])
-            recipe = VistrailManager(cell._controller).get_recipe(pipeline)
-
-            self.tabWidget.clear()
-            plot_modules = recipe.get_plot_modules(plot, 
-                    cell._controller.current_pipeline)
-            registry = get_module_registry()
-            getter = registry.get_configuration_widget
-            for module in plot_modules:
-                widgetType = None
-                widget = None
-                #modeled after vistrails.gui.module_configuration.updateModule
-                try:
-                    widgetType = \
-                        getter(module.package, module.name, module.namespace)
-                except ModuleRegistryException:
-                    pass
-                if widgetType:
-                    widget = widgetType(module, cell._controller)
-                    self.connect(widget, QtCore.SIGNAL("doneConfigure"),
-                                 self.configureDone)
-                    self.connect(widget, QtCore.SIGNAL("stateChanged"),
-                                 self.stateChanged)
-                else:
-                    widget = PortsList('input', self)
-                    widget.update_module(module)
-                    widget.set_controller(cell._controller)
-                
-                self.tabWidget.addTab(widget, module.name)
+        
+        #get pipeline of the cell
+        mngr = VistrailManager(cell._controller)
+        pipeline = mngr.get_pipeline(cell.cellInfo)
+        
+        #clear old tabs
+        self.tabWidget.clear()
+        
+        #get all of the plot modules in the pipeline
+        plot_modules = pipeline.recipe.get_plot_modules(plot, 
+                cell._controller.current_pipeline)
+        
+        
+        registry = get_module_registry()
+        getter = registry.get_configuration_widget
+        for module in plot_modules:
+            widgetType = None
+            widget = None
+            
+            #try to get custom config widget for the module
+            try:
+                widgetType = \
+                    getter(module.package, module.name, module.namespace)
+            except ModuleRegistryException:
+                pass
+            
+            if widgetType:
+                #use custom widget
+                widget = widgetType(module, cell._controller)
+                self.connect(widget, QtCore.SIGNAL("doneConfigure"),
+                             self.configureDone)
+                self.connect(widget, QtCore.SIGNAL("stateChanged"),
+                             self.stateChanged)
+            else:
+                #use PortsList widget
+                widget = PortsList('input', self)
+                widget.update_module(module)
+                widget.set_controller(cell._controller)
+            
+            #add widget in new tab
+            self.tabWidget.addTab(widget, module.name)
                 
     def stateChanged(self):
         pass
@@ -109,10 +123,10 @@ class DefaultPlotConfigEditor(QtGui.QWidget, PlotConfigEditor):
         pass
             
     def applyClicked(self):
-        #TODO: figure out why overlays no longer works, and make sure current version is
-        # being tracked properly
-        pipeline = PipelineInformation(self.cell._controller.current_version)
-        execute_pipeline_to_cell(self.cell._controller, self.cell.cellInfo, pipeline)
+        mngr = VistrailManager(self.cell._controller)
+        pipeline = mngr.get_pipeline(self.cell.cellInfo)
+        pipeline.version = self.cell._controller.current_version
+        self.cell.try_update()
         
     def okClicked(self):
         self.applyClicked()

@@ -306,9 +306,12 @@ class VariableDroppingOverlay(Overlay):
         metrics = self._cell.fontMetrics()
         height = metrics.height()
         
+        #show advanced plot config
         if y > self._parameters[-1][0] + self._parameters[-1][1] + height*2:
             self._cell.show_editor()
-
+            self._cell._set_overlay(None)
+            return
+            
         for i, port in enumerate(self._cell._plot.ports):
             port_y, port_h = self._parameters[i]
 
