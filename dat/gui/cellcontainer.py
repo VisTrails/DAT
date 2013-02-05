@@ -7,13 +7,9 @@ from dat import vistrails_interface
 
 from vistrails.core.application import get_vistrails_application
 from vistrails.packages.spreadsheet.spreadsheet_cell import QCellContainer
-<<<<<<< HEAD
-from dat.vistrail_data import VistrailManager
 from dat.gui.plotconfig import DefaultPlotConfigEditor, PlotConfigWindow
-=======
 from vistrails.packages.spreadsheet.spreadsheet_execute import \
     executePipelineWithProgress
->>>>>>> master
 
 
 class Overlay(object):
@@ -385,13 +381,9 @@ class DATCellContainer(QCellContainer):
 
         self._overlay.setParent(self)
         self._set_overlay(None)
-<<<<<<< HEAD
         
         self._plot_config_window = PlotConfigWindow()
-        
-=======
 
->>>>>>> master
     def setCellInfo(self, cellInfo):
         super(DATCellContainer, self).setCellInfo(cellInfo)
 
