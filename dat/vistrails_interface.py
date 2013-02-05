@@ -43,6 +43,8 @@ from vistrails.core.db.locator import XMLFileLocator
 from vistrails.core.modules.module_registry import get_module_registry
 from vistrails.core.modules.utils import parse_descriptor_string
 from vistrails.core.modules.vistrails_module import Module
+from vistrails.packages.spreadsheet.basic_widgets import CellLocation, \
+    SpreadsheetCell, SheetReference
 
 
 __all__ = ['Plot', 'Port', 'Variable',
@@ -578,10 +580,6 @@ def create_pipeline(controller, recipe, cell_info):
 
     Create a pipeline in the Vistrail and return its information.
     """
-    # This is only here because of cycles in the spreadsheet dependencies graph
-    from vistrails.packages.spreadsheet.basic_widgets import CellLocation, \
-        SpreadsheetCell, SheetReference
-
     # Build from the root version
     controller.change_selected_version(0)
 
