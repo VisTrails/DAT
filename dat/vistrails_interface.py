@@ -94,10 +94,13 @@ class ModuleWrapper(object):
         """Add a function for a port of this module.
         """
         # Check port name
-        try:
-            port = self._module.module_descriptor.get_port_spec(
-                    inputport_name, 'input')
-        except Exception:
+        port = None
+        for p in self._module.destinationPorts():
+            if p.name == inputport_name:
+                port = p
+                break
+
+        if port is None:
             raise ValueError("add_function() called for a non-existent input "
                              "port")
 
