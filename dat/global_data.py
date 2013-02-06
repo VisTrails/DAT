@@ -1,7 +1,7 @@
 import warnings
 
-from dat import BaseVariableLoader, Plot
-from dat.vistrails_interface import resolve_descriptor
+from dat import BaseVariableLoader
+from dat.vistrails_interface import resolve_descriptor, Plot
 
 from vistrails.core.application import get_vistrails_application
 from vistrails.core.modules.module_registry import get_module_registry
@@ -95,7 +95,14 @@ class GlobalManager(object):
                 for port in plot.ports:
                     port.type = resolve_descriptor(port.type,
                                                    package_identifier)
-                self._add_plot(plot)
+                try:
+                    plot._read_metadata(package_identifier)
+                except Exception, e:
+                    warnings.warn("In package '%s'\n"
+                                  "Couldn't read plot subworkflow for '%s':\n"
+                                  "%s" % (package_identifier, plot.name, e))
+                else:
+                    self._add_plot(plot)
         if hasattr(package.init_module, '_variable_loaders'):
             for loader, name in (package.init_module
                                         ._variable_loaders.iteritems()):

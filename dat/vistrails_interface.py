@@ -30,17 +30,19 @@ else:
 import importlib
 import inspect
 from itertools import izip
+import os
 import sys
 import warnings
 
 from PyQt4 import QtGui
 
-from dat import BaseVariableLoader, PipelineInformation, Plot, Port
+from dat import BaseVariableLoader, PipelineInformation
 
 from vistrails.core import get_vistrails_application
 from vistrails.core.db.action import create_action
 from vistrails.core.db.locator import XMLFileLocator
 from vistrails.core.modules.module_registry import get_module_registry
+from vistrails.core.modules.sub_module import InputPort
 from vistrails.core.modules.utils import parse_descriptor_string
 from vistrails.core.modules.vistrails_module import Module
 from vistrails.packages.spreadsheet.basic_widgets import CellLocation, \
@@ -424,6 +426,118 @@ class FileVariableLoader(QtGui.QWidget, BaseVariableLoader):
         parameters.
         """
         raise NotImplementedError
+
+
+class Port(object):
+    def __init__(self, name, type=None, optional=False):
+        self.name = name
+        self.type = type
+        self.optional = optional
+
+
+class Plot(object):
+    def __init__(self, name, **kwargs):
+        """A plot descriptor.
+
+        Describes a Plot. These objects should be created by a VisTrails
+        package for each Plot it want to registers with DAT, and added to a
+        global '_plots' variable in the 'init' module (for a reloadable
+        package).
+
+        name is mandatory and will be displayed to the user.
+        description is a text that explains what your Plot is about, and can be
+        localized.
+        ports should be a list of Port objects describing the input your Plot
+        expects.
+        subworkflow is the path to the subworkflow that will be used for this
+        Plot. In this string, '{package_dir}' will be replaced with the current
+        package's path.
+        """
+        self.name = name
+        self.description = kwargs.get('description')
+
+        caller = inspect.currentframe().f_back
+        package = os.path.dirname(inspect.getabsfile(caller))
+
+        # Build plot from a subworkflow
+        self.subworkflow = kwargs['subworkflow'].format(package_dir=package)
+        self.ports = kwargs.get('ports', [])
+
+
+    def _read_metadata(self, package_identifier):
+        """Reads a plot's ports from the subworkflow file
+    
+        Finds the InputPort modules and get the parameter names, optional flag
+        and type from its 'name', 'optional' and 'spec' input functions.
+        """
+        locator = XMLFileLocator(self.subworkflow)
+        vistrail = locator.load()
+        version = vistrail.get_latest_version()
+        pipeline = vistrail.getPipeline(version)
+
+        inputports = find_modules_by_type(pipeline, [InputPort])
+        if not inputports:
+            raise ValueError("No InputPort module")
+
+        currentports = {port.name: port for port in self.ports}
+        seenports = set()
+        for port in inputports:
+            name = get_function(port, 'name')
+            if not name:
+                raise ValueError("Subworkflow of plot '%s' has an InputPort "
+                                 "with no name" % self.name)
+            if name in seenports:
+                raise ValueError("Subworkflow of plot '%s' has several "
+                                 "InputPort modules with name '%s'" % (
+                                 self.name, name))
+            spec = get_function(port, 'spec')
+            optional = get_function(port, 'optional')
+            if optional == 'True':
+                optional = True
+            elif optional == 'False':
+                optional = False
+            else:
+                optional = None
+
+            try:
+                currentport = currentports[name]
+            except KeyError:
+                # If the package didn't provide any port, it's ok, we can
+                # discover them. But if some were present and some were
+                # forgotten, emit a warning
+                if currentports:
+                    warnings.warn("Declaration of plot '%s' omitted port "
+                                  "'%s'" % (self.name, name))
+                if not spec:
+                    warnings.warn("Subworkflow of plot '%s' has an InputPort "
+                                  "'%s' with no type -- assuming Module" % (
+                                  self.name, name))
+                    spec = 'edu.utah.sci.vistrails.basic:Module'
+                if not optional:
+                    optional = False
+                type = resolve_descriptor(spec, package_identifier)
+                self.ports.append(Port(
+                        name=name,
+                        type=type,
+                        optional=optional))
+            else:
+                currentspec = (currentport.type.identifier +
+                               ':' +
+                               currentport.type.name)
+                if ((spec and spec != currentspec) or
+                        (optional is not None and
+                         optional != currentport.optional)):
+                    warnings.warn("Declaration of port '%s' from plot '%s' "
+                                  "differs from subworkflow contents" % (
+                                  name, self.name))
+            seenports.add(name)
+
+        # If the package declared ports that we didn't see
+        missingports = list(set(currentports.keys()) - seenports)
+        if currentports and missingports:
+            raise ValueError("Declaration of plot '%s' mentions missing "
+                             "InputPort module '%s'" % (
+                             self.name, missingports[0]))
 
 
 def get_function(module, function_name):
