@@ -714,6 +714,9 @@ def create_pipeline(controller, recipe, cell_info):
     action = create_action(operations)
     controller.add_new_action(action)
     pipeline_version = controller.perform_action(action)
+    controller.vistrail.change_description(
+            "Created DAT plot %s" % recipe.plot.name,
+            pipeline_version)
     # FIXME : from_root seems to be necessary here, I don't know why
     controller.change_selected_version(pipeline_version, from_root=True)
 
@@ -748,6 +751,11 @@ def update_pipeline(controller, pipelineInfo, new_recipe):
 
     var_map = dict()
 
+    # Used to build the description
+    added_params = []
+    removed_params = []
+    updated_params = []
+
     # Check parameters
     for param in (set(old_recipe.variables.keys()) |
                   set(new_recipe.variables.keys())):
@@ -762,7 +770,7 @@ def update_pipeline(controller, pipelineInfo, new_recipe):
             continue
 
         # If the parameter existed (but was removed or changed)
-        if old_var:
+        if old_var is not None:
             connections = [pipeline.connections[c]
                            for c in pipelineInfo.var_map.get(param, [])]
             if not connections:
@@ -776,7 +784,7 @@ def update_pipeline(controller, pipelineInfo, new_recipe):
                           connection_filter=lambda c: c not in connections)
 
         # If the parameter exists (but didn't exist or was different)
-        if new_var:
+        if new_var is not None:
             plot_ports = [(pipeline.modules[mod_id], port)
                           for mod_id, port in pipelineInfo.port_map[param]]
             var_map[param] = add_variable_subworkflow(
@@ -785,9 +793,38 @@ def update_pipeline(controller, pipelineInfo, new_recipe):
                     plot_ports,
                     operations)
 
+        if old_var is not None and new_var is not None:
+            updated_params.append(param)
+        elif old_var is not None:
+            removed_params.append(param)
+        else: # new_var is not None
+            added_params.append(param)
+
     action = create_action(operations)
     controller.add_new_action(action)
     pipeline_version = controller.perform_action(action)
+
+    if added_params and not removed_params and not updated_params:
+        if len(added_params) == 1:
+            description = "Added DAT parameter %s" % added_params[0]
+        else:
+            description = "Added DAT parameters"
+    elif removed_params and not added_params and not updated_params:
+        if len(removed_params) == 1:
+            description = "Removed DAT parameter %s" % removed_params[0]
+        else:
+            description = "Removed DAT parameters"
+    elif updated_params and not added_params and not removed_params:
+        if len(updated_params) == 1:
+            description = "Updated DAT parameter %s" % updated_params[0]
+        else:
+            description = "Updated DAT parameters"
+    else:
+        description = "Changed DAT parameters"
+    controller.vistrail.change_description(
+            description,
+            pipeline_version)
+
     controller.change_selected_version(pipeline_version)
 
     return PipelineInformation(pipeline_version, new_recipe,
