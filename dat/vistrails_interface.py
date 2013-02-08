@@ -30,17 +30,19 @@ else:
 import importlib
 import inspect
 from itertools import izip
+import os
 import sys
 import warnings
 
 from PyQt4 import QtGui
 
-from dat import BaseVariableLoader, PipelineInformation, Plot, Port
+from dat import BaseVariableLoader, PipelineInformation
 
 from vistrails.core import get_vistrails_application
 from vistrails.core.db.action import create_action
 from vistrails.core.db.locator import XMLFileLocator
 from vistrails.core.modules.module_registry import get_module_registry
+from vistrails.core.modules.sub_module import InputPort
 from vistrails.core.modules.utils import parse_descriptor_string
 from vistrails.core.modules.vistrails_module import Module
 from vistrails.packages.spreadsheet.basic_widgets import CellLocation, \
@@ -94,10 +96,13 @@ class ModuleWrapper(object):
         """Add a function for a port of this module.
         """
         # Check port name
-        try:
-            port = self._module.module_descriptor.get_port_spec(
-                    inputport_name, 'input')
-        except Exception:
+        port = None
+        for p in self._module.destinationPorts():
+            if p.name == inputport_name:
+                port = p
+                break
+
+        if port is None:
             raise ValueError("add_function() called for a non-existent input "
                              "port")
 
@@ -423,6 +428,118 @@ class FileVariableLoader(QtGui.QWidget, BaseVariableLoader):
         raise NotImplementedError
 
 
+class Port(object):
+    def __init__(self, name, type=None, optional=False):
+        self.name = name
+        self.type = type
+        self.optional = optional
+
+
+class Plot(object):
+    def __init__(self, name, **kwargs):
+        """A plot descriptor.
+
+        Describes a Plot. These objects should be created by a VisTrails
+        package for each Plot it want to registers with DAT, and added to a
+        global '_plots' variable in the 'init' module (for a reloadable
+        package).
+
+        name is mandatory and will be displayed to the user.
+        description is a text that explains what your Plot is about, and can be
+        localized.
+        ports should be a list of Port objects describing the input your Plot
+        expects.
+        subworkflow is the path to the subworkflow that will be used for this
+        Plot. In this string, '{package_dir}' will be replaced with the current
+        package's path.
+        """
+        self.name = name
+        self.description = kwargs.get('description')
+
+        caller = inspect.currentframe().f_back
+        package = os.path.dirname(inspect.getabsfile(caller))
+
+        # Build plot from a subworkflow
+        self.subworkflow = kwargs['subworkflow'].format(package_dir=package)
+        self.ports = kwargs.get('ports', [])
+
+
+    def _read_metadata(self, package_identifier):
+        """Reads a plot's ports from the subworkflow file
+    
+        Finds the InputPort modules and get the parameter names, optional flag
+        and type from its 'name', 'optional' and 'spec' input functions.
+        """
+        locator = XMLFileLocator(self.subworkflow)
+        vistrail = locator.load()
+        version = vistrail.get_latest_version()
+        pipeline = vistrail.getPipeline(version)
+
+        inputports = find_modules_by_type(pipeline, [InputPort])
+        if not inputports:
+            raise ValueError("No InputPort module")
+
+        currentports = {port.name: port for port in self.ports}
+        seenports = set()
+        for port in inputports:
+            name = get_function(port, 'name')
+            if not name:
+                raise ValueError("Subworkflow of plot '%s' has an InputPort "
+                                 "with no name" % self.name)
+            if name in seenports:
+                raise ValueError("Subworkflow of plot '%s' has several "
+                                 "InputPort modules with name '%s'" % (
+                                 self.name, name))
+            spec = get_function(port, 'spec')
+            optional = get_function(port, 'optional')
+            if optional == 'True':
+                optional = True
+            elif optional == 'False':
+                optional = False
+            else:
+                optional = None
+
+            try:
+                currentport = currentports[name]
+            except KeyError:
+                # If the package didn't provide any port, it's ok, we can
+                # discover them. But if some were present and some were
+                # forgotten, emit a warning
+                if currentports:
+                    warnings.warn("Declaration of plot '%s' omitted port "
+                                  "'%s'" % (self.name, name))
+                if not spec:
+                    warnings.warn("Subworkflow of plot '%s' has an InputPort "
+                                  "'%s' with no type -- assuming Module" % (
+                                  self.name, name))
+                    spec = 'edu.utah.sci.vistrails.basic:Module'
+                if not optional:
+                    optional = False
+                type = resolve_descriptor(spec, package_identifier)
+                self.ports.append(Port(
+                        name=name,
+                        type=type,
+                        optional=optional))
+            else:
+                currentspec = (currentport.type.identifier +
+                               ':' +
+                               currentport.type.name)
+                if ((spec and spec != currentspec) or
+                        (optional is not None and
+                         optional != currentport.optional)):
+                    warnings.warn("Declaration of port '%s' from plot '%s' "
+                                  "differs from subworkflow contents" % (
+                                  name, self.name))
+            seenports.add(name)
+
+        # If the package declared ports that we didn't see
+        missingports = list(set(currentports.keys()) - seenports)
+        if currentports and missingports:
+            raise ValueError("Declaration of plot '%s' mentions missing "
+                             "InputPort module '%s'" % (
+                             self.name, missingports[0]))
+
+
 def get_function(module, function_name):
     """Get the value of a function of a pipeline module.
     """
@@ -711,6 +828,9 @@ def create_pipeline(controller, recipe, cell_info):
     action = create_action(operations)
     controller.add_new_action(action)
     pipeline_version = controller.perform_action(action)
+    controller.vistrail.change_description(
+            "Created DAT plot %s" % recipe.plot.name,
+            pipeline_version)
     # FIXME : from_root seems to be necessary here, I don't know why
     controller.change_selected_version(pipeline_version, from_root=True)
 
@@ -722,7 +842,7 @@ def create_pipeline(controller, recipe, cell_info):
     return PipelineInformation(pipeline_version, recipe, port_map, var_map)
 
 
-class UpdateError(object):
+class UpdateError(ValueError):
     """Error while updating a pipeline.
 
     This is recoverable by creating a new pipeline from scratch instead. It can
@@ -731,18 +851,24 @@ class UpdateError(object):
     """
 
 
-def update_pipeline(controller, pipelineInfo, old_recipe, new_recipe):
+def update_pipeline(controller, pipelineInfo, new_recipe):
     # Retrieve the pipeline
     controller.change_selected_version(pipelineInfo.version)
     pipeline = controller.current_pipeline
+    old_recipe = pipelineInfo.recipe
 
     # The plots have to be the same
     if old_recipe.plot != new_recipe.plot:
-        raise ValueError("update_pipeline cannot change plot type!")
+        raise UpdateError("update_pipeline cannot change plot type!")
 
     operations = []
 
     var_map = dict()
+
+    # Used to build the description
+    added_params = []
+    removed_params = []
+    updated_params = []
 
     # Check parameters
     for param in (set(old_recipe.variables.keys()) |
@@ -758,7 +884,7 @@ def update_pipeline(controller, pipelineInfo, old_recipe, new_recipe):
             continue
 
         # If the parameter existed (but was removed or changed)
-        if old_var:
+        if old_var is not None:
             connections = [pipeline.connections[c]
                            for c in pipelineInfo.var_map.get(param, [])]
             if not connections:
@@ -772,7 +898,7 @@ def update_pipeline(controller, pipelineInfo, old_recipe, new_recipe):
                           connection_filter=lambda c: c not in connections)
 
         # If the parameter exists (but didn't exist or was different)
-        if new_var:
+        if new_var is not None:
             plot_ports = [(pipeline.modules[mod_id], port)
                           for mod_id, port in pipelineInfo.port_map[param]]
             var_map[param] = add_variable_subworkflow(
@@ -781,9 +907,38 @@ def update_pipeline(controller, pipelineInfo, old_recipe, new_recipe):
                     plot_ports,
                     operations)
 
+        if old_var is not None and new_var is not None:
+            updated_params.append(param)
+        elif old_var is not None:
+            removed_params.append(param)
+        else: # new_var is not None
+            added_params.append(param)
+
     action = create_action(operations)
     controller.add_new_action(action)
     pipeline_version = controller.perform_action(action)
+
+    if added_params and not removed_params and not updated_params:
+        if len(added_params) == 1:
+            description = "Added DAT parameter %s" % added_params[0]
+        else:
+            description = "Added DAT parameters"
+    elif removed_params and not added_params and not updated_params:
+        if len(removed_params) == 1:
+            description = "Removed DAT parameter %s" % removed_params[0]
+        else:
+            description = "Removed DAT parameters"
+    elif updated_params and not added_params and not removed_params:
+        if len(updated_params) == 1:
+            description = "Updated DAT parameter %s" % updated_params[0]
+        else:
+            description = "Updated DAT parameters"
+    else:
+        description = "Changed DAT parameters"
+    controller.vistrail.change_description(
+            description,
+            pipeline_version)
+
     controller.change_selected_version(pipeline_version)
 
     return PipelineInformation(pipeline_version, new_recipe,

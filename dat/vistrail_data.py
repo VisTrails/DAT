@@ -241,14 +241,14 @@ class VistrailData(object):
     def _add_variable(self, varname, renamed_from=None):
         if renamed_from is not None:
             # Variable was renamed -- reflect this change on the annotations
-            for recipe, pipeline in self._recipe_to_pipeline.iteritems():
+            for pipeline in self._version_to_pipeline.itervalues():
                 if any(
-                        variable.name == varname
-                        for variable in recipe.variables.itervalues()):
+                        v.name == varname
+                        for v in pipeline.recipe.variables.itervalues()):
                     self._controller.vistrail.set_action_annotation(
                             pipeline.version,
                             self._RECIPE_KEY,
-                            self._build_annotation_recipe(recipe))
+                            self._build_annotation_recipe(pipeline.recipe))
 
         get_vistrails_application().send_notification(
                 'dat_new_variable',
@@ -266,25 +266,34 @@ class VistrailData(object):
         if renamed_to is None:
             # A variable was removed!
             # We'll remove all the mappings that used it
-            to_remove = []
-            for recipe in self._recipe_to_pipeline.iterkeys():
+            to_remove = set([])
+            for pipeline in self._version_to_pipeline.itervalues():
                 if any(
-                        variable.name == varname
-                        for variable in recipe.variables.itervalues()):
-                    to_remove.append(recipe)
+                        v.name == varname
+                        for v in pipeline.recipe.variables.itervalues()):
+                    to_remove.add(pipeline.version)
             if to_remove:
                 warnings.warn(
                         "Variable %r was used in %d pipelines!" % (
                                 varname, len(to_remove)))
-            for recipe in to_remove:
-                pipeline = self._recipe_to_pipeline.pop(recipe)
-                del self._pipeline_to_recipe[pipeline]
+            for version in to_remove:
+                del self._version_to_pipeline[version]
 
-                # Remove the annotation from the current vistrail
-                self._controller.vistrail.set_action_annotation(
-                        pipeline.version,
-                        self._RECIPE_KEY,
-                        None)
+                # Remove the annotations from the vistrail
+                for key in (
+                        self._RECIPE_KEY, self._PORTMAP_KEY, self._VARMAP_KEY):
+                    self._controller.vistrail.set_action_annotation(
+                            version,
+                            key,
+                            None)
+
+            cell_to_remove = []
+            for cellInfo, version in self._cell_to_version.iteritems():
+                if version in to_remove:
+                    cell_to_remove.append(cellInfo)
+            for cellInfo in cell_to_remove:
+                del self._cell_to_version[cellInfo]
+                del self._cell_to_pipeline[cellInfo]
 
     def remove_variable(self, varname):
         """Remove a Variable from DAT.
@@ -315,7 +324,7 @@ class VistrailData(object):
         return self._variables.iterkeys()
     variables = property(_get_variables)
 
-    def created_pipeline(self, cellInfo, recipe, pipeline):
+    def created_pipeline(self, cellInfo, pipeline):
         """Registers a new pipeline as being the result of a DAT recipe.
 
         We now know that this pipeline was created in the given cell from this
@@ -345,7 +354,7 @@ class VistrailData(object):
         self._controller.vistrail.set_action_annotation(
                 pipeline.version,
                 self._RECIPE_KEY,
-                self._build_annotation_recipe(recipe))
+                self._build_annotation_recipe(pipeline.recipe))
 
         self._controller.vistrail.set_action_annotation(
                 pipeline.version,

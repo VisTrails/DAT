@@ -12,42 +12,6 @@ MIMETYPE_DAT_VARIABLE = 'X-Vistrails/DATVariable'
 MIMETYPE_DAT_PLOT = 'X-Vistrails/DATPlot'
 
 
-class Plot(object):
-    def __init__(self, name, **kwargs):
-        """A plot descriptor.
-
-        Describes a Plot. These objects should be created by a VisTrails
-        package for each Plot it want to registers with DAT, and added to a
-        global '_plots' variable in the 'init' module (for a reloadable
-        package).
-
-        name is mandatory and will be displayed to the user.
-        description is a text that explains what your Plot is about, and can be
-        localized.
-        ports should be a list of Port objects describing the input your Plot
-        expects.
-        subworkflow is the path to the subworkflow that will be used for this
-        Plot. In this string, '{package_dir}' will be replaced with the current
-        package's path.
-        """
-        self.name = name
-        self.description = kwargs.get('description')
-
-        caller = inspect.currentframe().f_back
-        package = os.path.dirname(inspect.getabsfile(caller))
-
-        # Build plot from a subworkflow
-        self.subworkflow = kwargs['subworkflow'].format(package_dir=package)
-        self.ports = kwargs['ports']
-
-
-class Port(object):
-    def __init__(self, name, type=None, optional=False):
-        self.name = name
-        self.type = type
-        self.optional = optional
-
-
 class DATRecipe(object):
     """Just a simple class holding a Plot its parameters.
     """
