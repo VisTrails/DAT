@@ -13,11 +13,12 @@ from vistrails.packages.spreadsheet.spreadsheet_execute import \
     executePipelineWithProgress
 
 
-class Overlay(object):
+class Overlay(QtGui.QWidget):
     """Base class for the cell overlays.
     """
 
     def __init__(self, cellcontainer):
+        QtGui.QWidget.__init__(self, cellcontainer)
         self._cell = cellcontainer
 
     # Background of all overlay (translucent, on top of the cell's content)
@@ -39,57 +40,12 @@ class Overlay(object):
                 self._cell.width(), self._cell.height(),
                 Overlay.background)
 
-    def set_mouse_position(self, x, y):
-        pass
-
-    def mouse_clicked(self, x, y):
-        pass
-
-    def resize(self, width, height):
-        pass
-
-
-class OverlayWidget(QtGui.QLabel):
-    """Wrapper class for the cell overlays.
-
-    The Overlay class is not a QWidget because we don't want to change the
-    widget hierarchy in the DATCellContainer while a drag is in progress. This
-    doesn't confuse Qt a whole lot but dragleave/dragenter event happen while
-    dragging.
-
-    However, another component has to display the overlay since a QWidget's
-    children are always displayed on top of it; drawing in DATCellContainer's
-    paintEvent() method would render the overlay *below* the contained widget.
-
-    This simple wrapper simple renders the DATCellContainer's current overlay.
-    """
-    def __init__(self, cellcontainer):
-        self._cellcontainer = cellcontainer
-        self._overlay = None
-        QtGui.QLabel.__init__(self)
-
     def paintEvent(self, event):
-        if self._overlay:
-            self._overlay.draw(QtGui.QPainter(self))
-
-    def resizeEvent(self, event):
-        super(OverlayWidget, self).resizeEvent(event)
-
-        if self._overlay is not None:
-            self._overlay.resize(self.width(), self.height())
+        qp = QtGui.QPainter(self)
+        self.draw(qp)
 
     def set_mouse_position(self, x, y):
-        if self._overlay is not None:
-            self._overlay.set_mouse_position(x, y)
-            self.repaint()
-
-    def mouseReleaseEvent(self, event):
-        super(OverlayWidget, self).mouseReleaseEvent(event)
-        self._overlay.mouse_clicked(event.x(), event.y())
-
-    def setOverlay(self, overlay):
-        self._overlay = overlay
-        self.repaint()
+        pass
 
 
 class VariableDropEmptyCell(Overlay):
@@ -163,8 +119,6 @@ class VariableDroppingOverlay(Overlay):
 
     def __init__(self, cellcontainer, mimeData=None, forced=False):
         Overlay.__init__(self, cellcontainer)
-
-        self.resize(cellcontainer.width(), cellcontainer.height())
 
         self._forced = forced
         if forced:
@@ -246,7 +200,7 @@ class VariableDroppingOverlay(Overlay):
                 self._parameters[-1][0] + self._parameters[-1][1] + ascent,
                 ")")
 
-    def resize(self, width, height):
+    def resizeEvent(self, event):
         metrics = self._cell.fontMetrics()
         height = metrics.height()
 
@@ -301,9 +255,9 @@ class VariableDroppingOverlay(Overlay):
 
         if self._cell._parameter_hovered != targeted:
             self._cell._parameter_hovered = targeted
-            self._cell.repaint()
+            self.repaint()
 
-    def mouse_clicked(self, x, y):
+    def mouseReleaseEvent(self, event):
         metrics = self._cell.fontMetrics()
         height = metrics.height()
 
@@ -314,7 +268,8 @@ class VariableDroppingOverlay(Overlay):
             if variable is not None:
                 btn_x = 30 + self._parameter_max_width
                 btn_y = port_y + height
-                if btn_x <= x < btn_x + 16 and btn_y <= y < btn_y + 16:
+                if (btn_x <= event.x() < btn_x + 16 and
+                        btn_y <= event.y() < btn_y + 16):
                     # Button pressed: remove parameter
                     self._cell.remove_parameter(port.name)
                     break
@@ -357,7 +312,7 @@ class DATCellContainer(QCellContainer):
                 'dat_removed_variable', self._variable_removed)
         self._controller = app.get_controller()
 
-        self._overlay = OverlayWidget(self)
+        self._overlay = None
         self._show_button = QtGui.QPushButton()
         self._show_button.setIcon(get_icon('show_overlay.png'))
         self._hide_button = QtGui.QPushButton()
@@ -377,8 +332,6 @@ class DATCellContainer(QCellContainer):
         self._hide_button.setGeometry(self.width() - 24, 0, 24, 24)
         self._hide_button.setVisible(False)
 
-        self._overlay.setParent(self)
-
         self.contentsUpdated()
 
     def setCellInfo(self, cellInfo):
@@ -390,6 +343,8 @@ class DATCellContainer(QCellContainer):
 
     def _variable_removed(self, controller, varname, renamed_to=None):
         if controller != self._controller:
+            return
+        if self._plot is None:
             return
         if any(
                 variable.name == varname
@@ -415,7 +370,7 @@ class DATCellContainer(QCellContainer):
                         del self._variables[param]
 
                 self._set_overlay(None)
-            else:
+            elif self._overlay is not None:
                 self._overlay.repaint()
 
     def setWidget(self, widget):
@@ -467,20 +422,27 @@ class DATCellContainer(QCellContainer):
             # Default overlay
             if self.widget() is None and self._plot is not None:
                 self._set_overlay(VariableDroppingOverlay)
+                return
             elif self.widget() is None:
                 self._set_overlay(PlotPromptOverlay)
-            else:
-                self._overlay.setOverlay(None)
-                self._show_button.raise_()
-                self._show_button.setVisible(self._plot is not None)
-                self._overlay.lower()
-                self._hide_button.setVisible(False)
+                return
+
+        if self._overlay is not None:
+            self._overlay.setParent(None)
+            self._overlay.deleteLater()
+
+        if overlay_class is None:
+            self._overlay = None
+            self._show_button.raise_()
+            self._show_button.setVisible(self._plot is not None)
+            self._hide_button.setVisible(False)
         else:
-            self._overlay.setOverlay(overlay_class(self, **kwargs))
+            self._overlay = overlay_class(self, **kwargs)
+            self._overlay.show()
             self._overlay.raise_()
+            self._overlay.setGeometry(0, 0, self.width(), self.height())
             self._show_button.setVisible(False)
             self._hide_button.setVisible(False)
-        self._overlay.repaint()
 
     def show_overlay(self):
         """Shows the overlay from the button in the corner.
@@ -499,7 +461,8 @@ class DATCellContainer(QCellContainer):
         """Reacts to a resize by laying out the overlay and buttons.
         """
         super(DATCellContainer, self).resizeEvent(event)
-        self._overlay.setGeometry(0, 0, self.width(), self.height())
+        if self._overlay is not None:
+            self._overlay.setGeometry(0, 0, self.width(), self.height())
         self._show_button.setGeometry(self.width() - 24, 0, 24, 24)
         self._hide_button.setGeometry(self.width() - 24, 0, 24, 24)
 
