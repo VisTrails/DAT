@@ -17,6 +17,8 @@ class Test_vistrails_interface(unittest.TestCase):
             application.init()
 
     def test_resolve_descriptor(self):
+        """Tests the resolve_descriptor() function.
+        """
         from dat.vistrails_interface import resolve_descriptor
         from vistrails.core.modules.basic_modules import String
         from vistrails.packages.HTTP.init import HTTPFile
@@ -54,6 +56,8 @@ class Test_vistrails_interface(unittest.TestCase):
                 desc_String)
 
     def make_pipeline(self):
+        """Creates an example pipeline that is used to conduct tests.
+        """
         vistrail = Vistrail()
         controller = VistrailController(vistrail)
         controller.change_selected_version(0)
@@ -80,6 +84,8 @@ class Test_vistrails_interface(unittest.TestCase):
         return controller, modules
 
     def test_delete_linked(self):
+        """Tests the delete_linked() function.
+        """
         from dat.vistrails_interface import delete_linked
         from vistrails.core.db.action import create_action
 
@@ -118,6 +124,8 @@ class Test_vistrails_interface(unittest.TestCase):
                     depth=1)
 
     def test_find_modules_by_type(self):
+        """Tests the find_modules_by_type() function.
+        """
         vistrail = Vistrail()
         controller = VistrailController(vistrail)
         controller.change_selected_version(0)

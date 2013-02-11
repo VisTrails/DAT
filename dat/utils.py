@@ -1,4 +1,12 @@
 def bisect(count, getter, element, lo=0, comp=lambda x, y: x<y):
+    """Version of bisect.bisect_right that uses lambdas.
+
+    Contrary to bisect.bisect_right which takes a list, this version accepts a
+    'getter' function to retrieve a specific element, and a 'comp' function to
+    compare them.
+
+    It is useful for list views in widgets.
+    """
     if lo < 0:
         raise ValueError("lo must be non-negative")
     hi = count

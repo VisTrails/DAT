@@ -14,7 +14,7 @@ from vistrails.core.application import get_vistrails_application
 _varname_format = re.compile('^(.+) \(([0-9]+)\)$')
 
 def unique_varname(varname, vistraildata):
-    """Make a variable name unique.
+    """Makes a variable name unique.
 
     Adds or increment a number suffix to a variable name to make it unique.
 
@@ -37,21 +37,41 @@ def unique_varname(varname, vistraildata):
 
 
 class VariableNameValidator(object):
+    """Validates variable names according to a given VistrailData.
+
+    The associated VistrailData object will be used to check for collisions.
+    """
     def __init__(self, vistraildata):
         self._vistraildata = vistraildata
 
     def unique(self, name):
+        """Returns True if this name doesn't collide with an existing variable.
+        """
         return self._vistraildata.get_variable(name) is None
 
     @staticmethod
     def format(name):
+        """Returns True if this name has an acceptable format.
+        """
         return name and ';' not in name and '=' not in name
 
     def __call__(self, name):
+        """Returns True if this name can be used for a new variable.
+
+        This checks both the format and the unicity of this name. It allows a
+        VariableNameValidator object to be passed a the 'validate' argument of
+        a AdvancedLineEdit widget.
+        """
         return self.format(name) and self.unique(name)
 
 
 class FileLoaderPanel(QtGui.QWidget):
+    """The first tab of the LoadVariableDialog.
+
+    Allows the user to select a file. It will then display the
+    FileVariableLoader's that can accept this time of file in a combobox, and
+    the parameters for the selected loader underneath.
+    """
     def __init__(self):
         QtGui.QWidget.__init__(self)
 
@@ -102,6 +122,10 @@ class FileLoaderPanel(QtGui.QWidget):
         self.select_file(str(picked))
 
     def select_file(self, filename):
+        """Change the currently selected file.
+
+        The list of available loaders will be updated accordingly.
+        """
         _ = translate(LoadVariableDialog)
 
         # Update self._file_edit
@@ -131,6 +155,8 @@ class FileLoaderPanel(QtGui.QWidget):
         self.update_widget()
 
     def update_widget(self, index=None):
+        """Makes the currently selected loader visible.
+        """
         if index is None:
             index = self._loader_list.currentIndex()
         if index == -1:
@@ -142,17 +168,31 @@ class FileLoaderPanel(QtGui.QWidget):
                 self._loader_stack.widget(index).get_default_variable_name())
 
     def add_file_loader(self, loader):
+        """Adds a FileVariableLoader to this panel.
+
+        Of course, it will only be available if a file that it accepts is
+        selected.
+        """
         if not loader in self._file_loaders:
             self._file_loaders.add(loader)
 
     def remove_file_loader(self, loader):
+        """Removes a FileVariableLoader from this panel.
+        """
         if loader in self._file_loaders:
             self._file_loaders.remove(loader)
 
     def reset(self):
+        """Resets this panel, e.g. doesn't select any file.
+        """
         self.select_file('')
 
     def default_variable_name_changed(self, loader, new_default_name):
+        """Called when the default name for a loader is changed.
+
+        If this loader is the one currently selected, we forward this to the
+        dialog, which in turn might updates the name AdvancedLineEdit.
+        """
         if self._loader_list.currentIndex() == -1:
             return None
         current_loader = self._loader_stack.currentWidget()
@@ -160,6 +200,8 @@ class FileLoaderPanel(QtGui.QWidget):
             self.default_variable_name_observer(self, new_default_name)
 
     def get_default_variable_name(self):
+        """Returns the default name for the current loader.
+        """
         if self._loader_list.currentIndex() == -1:
             return DEFAULT_VARIABLE_NAME
         current_loader = self._loader_stack.currentWidget()
@@ -167,6 +209,8 @@ class FileLoaderPanel(QtGui.QWidget):
         return name
 
     def load(self):
+        """Loads a variable using the current loader.
+        """
         if self._loader_list.currentIndex() == -1:
             return None
         loader = self._loader_stack.currentWidget()
@@ -174,6 +218,10 @@ class FileLoaderPanel(QtGui.QWidget):
 
 
 class LoadVariableDialog(QtGui.QDialog):
+    """The variable loading dialog, displayed when clicking 'load variable'.
+
+    It shows one tab to load a file, and a tab for each CustomVariableLoader.
+    """
     def __init__(self, controller, parent=None):
         QtGui.QDialog.__init__(self, parent, QtCore.Qt.Dialog)
 
@@ -241,6 +289,8 @@ class LoadVariableDialog(QtGui.QDialog):
         self._varname_edit.reset()
 
     def update_varname(self, idx):
+        """Updates the 'name' AdvancedLineEdit when the tab is changed.
+        """
         if idx >= 0:
             loader = self._tabs[idx]
             self.default_variable_name_changed(
@@ -268,6 +318,10 @@ class LoadVariableDialog(QtGui.QDialog):
                 idx += 1
 
     def loader_added(self, loader):
+        """Called when a VariableLoader is added (by loading a package).
+
+        It will either be put in the FileLoaderPanel or in a new tab.
+        """
         if issubclass(loader, FileVariableLoader):
             self._file_loader.add_file_loader(loader)
         elif issubclass(loader, CustomVariableLoader):
@@ -277,12 +331,20 @@ class LoadVariableDialog(QtGui.QDialog):
             self._add_tab(l, loader.loader_tab_name)
 
     def loader_removed(self, loader):
+        """Called when a VariableLoader is removed.
+
+        It will remove it from the FileLoaderPanel (or the tabs).
+        """
         if issubclass(loader, FileVariableLoader):
             self._file_loader.remove_file_loader(loader)
         elif issubclass(loader, CustomVariableLoader):
             self._remove_tabs(lambda tab: isinstance(tab, loader))
 
     def default_variable_name_changed(self, loader, new_default_name):
+        """Called by a loader to notify the default name changed.
+
+        If it came from the current loader, update the 'name' AdvancedLineEdit.
+        """
         idx = self._tab_widget.currentIndex()
         if idx == -1:
             return
@@ -294,19 +356,31 @@ class LoadVariableDialog(QtGui.QDialog):
         self._varname_edit.setDefault(self._default_varname)
 
     def load_variable(self):
+        """Displays the dialog to load a new variable.
+        """
         if not self.isVisible():
             self.setVisible(True)
             for tab in self._tabs:
                 tab.reset()
 
     def cancel(self):
+        """Cancels the loading operation (hides the dialog).
+        """
         self.setVisible(False)
 
     def loadclose_clicked(self):
+        """'Load and close' button.
+
+        Loads, then hide the dialog if successful.
+        """
         if self.load_clicked():
             self.setVisible(False)
 
     def load_clicked(self):
+        """'Load' button.
+
+        Loads a variable using the current loader.
+        """
         varname = self._varname_edit.text()
         varname = str(varname)
         if not self._validator.format(varname):

@@ -4,16 +4,30 @@ from dat.gui import get_icon, translate
 
 
 class DraggableListWidget(QtGui.QListWidget):
+    """A QListWidget whose items can be dragged.
+
+    The mimetype of the items can be passed to the constructor.
+    The actual data of each element can be customized by overriding the
+    buildData() method, that takes the item and returns a QMimeData object.
+
+    By default, the mimetype is 'text/plain' and the data is simply the caption
+    of the item.
+    """
     def __init__(self, parent=None, mimetype='text/plain'):
+        """Constructor.
+
+        mimetype is the mimetype of the elements of the list.
+        """
         QtGui.QListWidget.__init__(self, parent)
         self._mime_type = mimetype
         self.setDragEnabled(True)
         self.setDragDropMode(QtGui.QAbstractItemView.DragOnly)
 
-    def buildData(self, element):
+    def buildData(self, item):
+        """Builds the data for a draggable item.
+        """
         data = QtCore.QMimeData()
-        data.setData(self._mime_type,
-                     element.text().toAscii())
+        data.setData(self._mime_type, item.text().toAscii())
         return data
 
     def startDrag(self, actions):
@@ -46,6 +60,28 @@ class AdvancedLineEdit(QtGui.QLineEdit):
 
     def __init__(self, contents="", parent=None, default=None, validate=None,
             flags=DEFAULTS):
+        """Constructor.
+
+        contents: initial contents of the widget.
+        parent: parent widget or None, passed to QWidget's constructor.
+        default: the default value of this widget or None.
+        validate: a method that will be used to validate this widget's content,
+        or None.
+        flags: a combination of the following bits:
+            COLOR_DISABLE: no coloring for the widget
+            COLOR_VALIDITY: colors the widget differently whether its value is
+            valid or not
+            COLOR_DEFAULTVALUE: colors the widget differently when its value is
+            the default
+            FOLLOW_DEFAULT_UPDATE: if the default value is changed while it is
+            also the current value, changes the current value as well
+
+        If COLOR_VALIDITY and COLOR_DEFAULTVALUE are both set (the default),
+        the widget will use the first relevant color in the order: invalid,
+        default, valid. This means that the fact it is the default will not be
+        shown if it's also invalid, and the fact it's valid will not be shown
+        if the value if the default.
+        """
         QtGui.QLineEdit.__init__(self, contents, parent)
 
         self._flags = flags
@@ -103,12 +139,25 @@ class AdvancedLineEdit(QtGui.QLineEdit):
             return "#FFFFFF" # default
 
     def isDefault(self):
+        """Returns True if the current value is the default.
+
+        Don't call this if no default was set.
+        """
         return self._is_default
 
     def isValid(self):
+        """Returns True if the current value passed validation.
+
+        Don't call this if no validation function was set.
+        """
         return self._prev_validation
 
     def setDefault(self, default):
+        """Change the default value.
+
+        IF FOLLOW_DEFAULTVALUE is set and the current value is the default,
+        this will also change the current value.
+        """
         self._default = default
         if (self._flags & AdvancedLineEdit.FOLLOW_DEFAULT_UPDATE and
                 self._is_default):
@@ -120,6 +169,10 @@ class AdvancedLineEdit(QtGui.QLineEdit):
             self._text_changed(self.text())
 
     def reset(self):
+        """Reset the value to the default.
+
+        Don't call this if no default was set.
+        """
         self.setText(self._default)
 
     def resizeEvent(self, event):
@@ -134,11 +187,15 @@ class AdvancedLineEdit(QtGui.QLineEdit):
 
 def advanced_input_dialog(parent, title, label, init_text,
         default=None, validate=None, flags=AdvancedLineEdit.DEFAULTS):
-    """ advanced_input_dialog(parent: QWidget, title: str, label: str,
-            init_text: str, default: str, validate: function)
-        -> result: str, success: bool
+    """Similar to QInputDialog#getText() but uses an AdvancedLineEdit.
 
-    Function similar to QInputDialog#getText() but uses an AdvancedLineEdit.
+    parent: parent widget or None, passed to QWidget's constructor.
+    title: the string displayed in the title bar of the dialog
+    label: the string displayed inside the dialog.
+    init_text: initial value of the field.
+    default: default value of the field, or None.
+    validate: validation function for the field, or None.
+    flags: flags passed to AdvancedLineEdit.
 
     Returns either (result: str, True) or (None, False).
     """

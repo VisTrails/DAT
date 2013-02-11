@@ -419,6 +419,11 @@ class DATCellContainer(QCellContainer):
                 self._overlay.repaint()
 
     def setWidget(self, widget):
+        """Changes the current widget in the cell.
+
+        This is called by the spreadsheet to put or remove a visualization in
+        this cell.
+        """
         super(DATCellContainer, self).setWidget(widget)
         if widget is None:
             return
@@ -429,6 +434,15 @@ class DATCellContainer(QCellContainer):
         self.contentsUpdated()
 
     def contentsUpdated(self):
+        """Notifies that this cell's pipeline changed.
+
+        This is called directly from the spreadsheet when a new visualization
+        was set, but the cell widget was reused because it had the same type.
+        The pipeline version still changed, so we need to update the overlay
+        anyway.
+
+        It is also called by setWidget() here.
+        """
         if self.widget() is not None:
             # Get pipeline info from VisTrails
             pipelineInfo = self.cellInfo.tab.getCellPipelineInfo(
@@ -469,6 +483,11 @@ class DATCellContainer(QCellContainer):
         self._overlay.repaint()
 
     def show_overlay(self):
+        """Shows the overlay from the button in the corner.
+
+        It will remain shown until something gets dragged or the other button
+        is clicked.
+        """
         if self._plot is None:
             # Shouldn't happen
             return
@@ -477,6 +496,8 @@ class DATCellContainer(QCellContainer):
         self._hide_button.raise_()
 
     def resizeEvent(self, event):
+        """Reacts to a resize by laying out the overlay and buttons.
+        """
         super(DATCellContainer, self).resizeEvent(event)
         self._overlay.setGeometry(0, 0, self.width(), self.height())
         self._show_button.setGeometry(self.width() - 24, 0, 24, 24)
@@ -541,13 +562,17 @@ class DATCellContainer(QCellContainer):
         self._set_overlay(None)
 
     def remove_parameter(self, port_name):
+        """Clear a parameter.
+
+        Called from the overlay when a 'remove' button is clicked.
+        """
         if self._plot is not None:
             del self._variables[port_name]
             self.update_pipeline()
             self._set_overlay(None)
 
     def update_pipeline(self):
-        """Check if enough ports are set, and execute the workflow
+        """Updates the recipe and execute the workflow if enough ports are set.
         """
         # Look this recipe up in the VistrailData
         mngr = VistrailManager(self._controller)

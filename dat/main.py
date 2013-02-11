@@ -1,4 +1,3 @@
-import logging
 import os, os.path
 import sys
 import traceback
@@ -8,7 +7,10 @@ application_path = None
 
 
 def setup_vistrails():
-    """This function is also used to setup tests.
+    """Locates VisTrails and fixes the path.
+
+    This function is also used to setup the tests, that is why it is separate
+    from main().
     """
     root_dir = os.path.abspath(
             os.path.join(os.path.dirname(__file__), '..'))
@@ -47,6 +49,8 @@ def setup_vistrails():
 
 
 def main():
+    """Entry point for DAT.
+    """
     setup_vistrails()
 
     try:

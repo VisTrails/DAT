@@ -8,6 +8,10 @@ from vistrails.core.application import get_vistrails_application
 
 
 class PlotList(DraggableListWidget):
+    """The custom list used for plots.
+
+    Overrides buildData() to build the DAT plot data.
+    """
     def buildData(self, element):
         data = QtCore.QMimeData()
         data.setData(self._mime_type, '')
@@ -16,12 +20,19 @@ class PlotList(DraggableListWidget):
 
 
 class PlotItem(QtGui.QListWidgetItem):
+    """An item in the list of plots.
+
+    Displays the 'name' field of the plot.
+    """
     def __init__(self, plot):
         QtGui.QListWidgetItem.__init__(self, plot.name)
         self.plot = plot
 
 
 class PlotPanel(QtGui.QWidget):
+    """The panel showing all the known plots.
+    """
+    # TODO-dat : should display a plot's description somewhere
     def __init__(self):
         super(PlotPanel, self).__init__()
 

@@ -12,6 +12,11 @@ from vistrails.core.application import get_vistrails_application
 
 
 class VariablePanel(QtGui.QWidget):
+    """The panel showing the DAT variables with some buttons.
+
+    unregister_notifications() must be called if you intend this widget to be
+    deleted, else it will still be referenced from the NotificationDispatcher.
+    """
     def __init__(self, vistraildata):
         super(VariablePanel, self).__init__()
 

@@ -12,6 +12,8 @@ from dat.tests import CallRecorder, FakeObj, odict
 
 class Test_VistrailData(unittest.TestCase):
     def test_build_annotation_recipe(self):
+        """Tests the _build_annotation_recipe() method.
+        """
         recipe1 = FakeObj(
                 plot=FakeObj(name='My Plot'),
                 variables=odict(
@@ -29,6 +31,8 @@ class Test_VistrailData(unittest.TestCase):
                 'My Plot')
 
     def test_read_annotation_recipe(self):
+        """Tests the _read_annotation_recipe() method.
+        """
         from dat.global_data import GlobalManager
 
         class FakeVariable(object):
@@ -61,6 +65,8 @@ class Test_VistrailData(unittest.TestCase):
             GlobalManager.get_plot = old_get_plot
 
     def test_build_annotation_portmap(self):
+        """Tests the _build_annotation_portmap() method.
+        """
         self.assertEqual(
                 VistrailData._build_annotation_portmap(odict(
                         ('param1', [(1, 'port1'), (2, 'port2')]),
@@ -69,6 +75,8 @@ class Test_VistrailData(unittest.TestCase):
                 'param1=1:port1,2:port2;param2=;param3=3:port3')
 
     def test_read_annotation_portmap(self):
+        """Tests the _read_annotation_portmap() method.
+        """
         self.assertEqual(
                 VistrailData._read_annotation_portmap(
                         'param1=1:port1,2:port2;param2=;param3=3:port3'),
@@ -78,6 +86,8 @@ class Test_VistrailData(unittest.TestCase):
                         param3=[(3, 'port3')]))
 
     def test_build_annotation_varmap(self):
+        """Tests the _build_annotation_varmap() method.
+        """
         self.assertEqual(
                 VistrailData._build_annotation_varmap(odict(
                         ('param1', [1, 2]),
@@ -86,6 +96,8 @@ class Test_VistrailData(unittest.TestCase):
                 'param1=1,2;param2=;param3=3')
 
     def test_read_annotation_varmap(self):
+        """Tests the _read_annotation_varmap() method.
+        """
         self.assertEqual(
                 VistrailData._read_annotation_varmap(
                         'param1=1,2;param2=;param3=3'),
