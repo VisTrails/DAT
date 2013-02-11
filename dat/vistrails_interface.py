@@ -74,8 +74,8 @@ def resolve_descriptor(param, package_identifier=None):
     elif isinstance(param, type) and issubclass(param, Module):
         return reg.get_descriptor(param)
     else:
-        raise TypeError("add_module() argument must be a Module subclass or "
-                        "str object, not '%s'" % type(param))
+        raise TypeError("resolve_descriptor() argument must be a Module "
+                        "subclass or str object, not '%s'" % type(param))
 
 
 class ModuleWrapper(object):
