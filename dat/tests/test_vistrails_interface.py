@@ -5,7 +5,8 @@
 
 import unittest
 
-from vistrails.core import application
+import dat.tests
+
 from vistrails.core.modules.module_registry import get_module_registry
 from vistrails.core.vistrail.controller import VistrailController
 from vistrails.core.vistrail.vistrail import Vistrail
@@ -13,8 +14,8 @@ from vistrails.core.vistrail.vistrail import Vistrail
 
 class Test_vistrails_interface(unittest.TestCase):
     def setUp(self):
-        if application.get_vistrails_application() is None:
-            application.init()
+        if dat.tests.setup_application() is None:
+            self.skipTest("No Application is available")
 
     def test_resolve_descriptor(self):
         """Tests the resolve_descriptor() function.
