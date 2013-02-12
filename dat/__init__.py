@@ -28,6 +28,9 @@ class DATRecipe(object):
         if not isinstance(other, DATRecipe):
             raise TypeError
         return (self.plot, self.variables) == (other.plot, other.variables)
+    
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
     def __hash__(self):
         return self._hash

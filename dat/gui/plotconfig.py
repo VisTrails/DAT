@@ -20,7 +20,9 @@ class PlotConfigWindow(QtGui.QDialog):
     def setPlotConfigWidget(self, widget):
         """Replaces current widget if one exists
         """
-        self.layout().takeAt(0)
+        widgetItem = self.layout().takeAt(0)
+        if widgetItem:
+            widgetItem.widget().close()
         self.layout().addWidget(widget)
         
 class PlotConfigEditor(object):
@@ -126,7 +128,7 @@ class DefaultPlotConfigEditor(QtGui.QWidget, PlotConfigEditor):
         mngr = VistrailManager(self.cell._controller)
         pipeline = mngr.get_pipeline(self.cell.cellInfo)
         pipeline.version = self.cell._controller.current_version
-        self.cell.try_update()
+        self.cell.update_pipeline()
         
     def okClicked(self):
         self.applyClicked()
