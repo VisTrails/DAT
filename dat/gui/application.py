@@ -46,6 +46,8 @@ class NotificationDispatcher(object):
         return notifications
 
     def create_notification(self, notification_id, window=None, view=None):
+        """Create a new notification.
+        """
         notifications = self._get_notification_dict(window, view)
 
         if notification_id not in notifications:
@@ -58,6 +60,8 @@ class NotificationDispatcher(object):
 
     def register_notification(self, notification_id, method,
                               window=None, view=None):
+        """Register a function with a notification.
+        """
         notifications = self._get_notification_dict(window, view)
 
         try:
@@ -72,6 +76,8 @@ class NotificationDispatcher(object):
 
     def unregister_notification(self, notification_id, method,
                                 window=None, view=None):
+        """Removes a function from a notification.
+        """
         notifications = self._get_notification_dict(window, view)
 
         try:
@@ -102,6 +108,12 @@ class NotificationDispatcher(object):
                                   "%s" % notification_id)
 
     def send_notification(self, notification_id, *args, **kwargs):
+        """Send a notification.
+
+        All function that registered with it and that were global or associated
+        with the current window or view will be called with the rest of the
+        arguments.
+        """
         try:
             self._broadcast_notification(
                     notification_id, 
@@ -132,6 +144,13 @@ class NotificationDispatcher(object):
 
 
 class Application(NotificationDispatcher, VistrailsApplicationInterface):
+    """Represents the application.
+
+    Replaces VisTrails's application, i.e. gets returned by
+    get_vistrails_application().
+
+    Initializes DAT metadata and VisTrails.
+    """
     def __init__(self):
         NotificationDispatcher.__init__(self)
         # There are lots of issues with how the notifications are used
@@ -194,6 +213,10 @@ class Application(NotificationDispatcher, VistrailsApplicationInterface):
 
 
 def start():
+    """Starts the DAT.
+
+    Creates an application and a window and enters Qt's main loop.
+    """
     app = QtGui.QApplication(sys.argv)
 
     try:

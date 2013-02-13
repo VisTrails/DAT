@@ -74,8 +74,8 @@ def resolve_descriptor(param, package_identifier=None):
     elif isinstance(param, type) and issubclass(param, Module):
         return reg.get_descriptor(param)
     else:
-        raise TypeError("add_module() argument must be a Module subclass or "
-                        "str object, not '%s'" % type(param))
+        raise TypeError("resolve_descriptor() argument must be a Module "
+                        "subclass or str object, not '%s'" % type(param))
 
 
 class ModuleWrapper(object):
@@ -94,6 +94,10 @@ class ModuleWrapper(object):
 
     def add_function(self, inputport_name, vt_type, value):
         """Add a function for a port of this module.
+
+        vt_type is resolvable to a VisTrails module type (or a list of types).
+        value is the value as a string (or a list of strings; the length should
+        be the same as vt_type's).
         """
         # Check port name
         port = None
@@ -240,6 +244,10 @@ class Variable(object):
         return controller, root_version, outmod_id
 
     def __init__(self, type=None):
+        """Create a new variable.
+
+        type should be resolvable to a VisTrails module type.
+        """
         # Create or get the version tagged 'dat-vars'
         self._controller, self._root_version, self._output_module_id = (
                 Variable._get_variables_root())
@@ -270,7 +278,8 @@ class Variable(object):
         self._output_designated = False
 
     def add_module(self, module_type):
-        # Add a new module to the pipeline and return a wrapper
+        """Add a new module to the pipeline and return a wrapper.
+        """
         return ModuleWrapper(self, module_type)
 
     def select_output_port(self, module, outputport_name):
@@ -279,6 +288,9 @@ class Variable(object):
         The given output port of the given module will be chosen as the output
         port of the Variable. It is this output port that will be connected to
         the Plot subworkflow's input port when creating an actual pipeline.
+
+        The selected port should have a type that subclasses the Variable's
+        declared type.
 
         This function should be called exactly once when creating a Variable.
         """
@@ -429,6 +441,11 @@ class FileVariableLoader(QtGui.QWidget, BaseVariableLoader):
 
 
 class Port(object):
+    """A simple bean containing informations about one of a plot's port.
+
+    These are optionally passed to Plot's constructor by a VisTrails package,
+    else they will be built from the InputPort modules found in the pipeline.
+    """
     def __init__(self, name, type=None, optional=False):
         self.name = name
         self.type = type
@@ -462,12 +479,20 @@ class Plot(object):
         # Build plot from a subworkflow
         self.subworkflow = kwargs['subworkflow'].format(package_dir=package)
         self.ports = kwargs.get('ports', [])
-
+        
+        # Set the plot config widget, ensuring correct parent class
+        from dat.gui.overlays import Overlay, PlotConfigOverlay, \
+            DefaultPlotConfigOverlay
+        self.configWidget = kwargs.get('configWidget', DefaultPlotConfigOverlay)
+        if not issubclass(self.configWidget, PlotConfigOverlay): 
+            warnings.warn("Config widget of plot '%s' does not subclass "
+                          "'PlotConfigOverlay'. Using default." % self.name)
+            self.configWidget = DefaultPlotConfigOverlay
 
     def _read_metadata(self, package_identifier):
         """Reads a plot's ports from the subworkflow file
     
-        Finds the InputPort modules and get the parameter names, optional flag
+        Finds each InputPort module and gets the parameter name, optional flag
         and type from its 'name', 'optional' and 'spec' input functions.
         """
         locator = XMLFileLocator(self.subworkflow)
@@ -619,12 +644,22 @@ def delete_linked(controller, modules, operations,
 
 
 def copy_module(controller, module, operations):
+    """Copy a VisTrails module to the given controller.
+
+    controller is a VisTrails controller; it doesn't have to be the one the
+    module is from.
+    operations is a list that will get extended with the 'add' operations.
+
+    Returns the new module (that is not yet created in the vistrail!)
+    """
     module = module.do_copy(True, controller.vistrail.idScope, {})
     operations.append(('add', module))
     return module
 
 
 def find_modules_by_type(pipeline, moduletypes):
+    """Finds all modules that subclass one of the given types in the pipeline.
+    """
     moduletypes = tuple(moduletypes)
     result = []
     for module in pipeline.module_list:
@@ -635,8 +670,7 @@ def find_modules_by_type(pipeline, moduletypes):
 
 
 def add_variable_subworkflow(controller, varname, plot_ports, operations):
-    """ add_variable_subworkflow(controller, var_pipeline, operations: list)
-        -> [conn_id: int]
+    """Add a variable subworkflow to the pipeline.
 
     Copy the variable subworkflow from its own pipeline to the given one, and
     connects it according to the plot_params map.
@@ -692,10 +726,7 @@ def add_variable_subworkflow(controller, varname, plot_ports, operations):
 
 
 def create_pipeline(controller, recipe, cell_info):
-    """ create_pipeline(controller, recipe, cell_info: CellInformation)
-        -> PipelineInformation
-
-    Create a pipeline in the Vistrail and return its information.
+    """Create a pipeline from a recipe and return its information.
     """
     # Build from the root version
     controller.change_selected_version(0)
@@ -852,6 +883,14 @@ class UpdateError(ValueError):
 
 
 def update_pipeline(controller, pipelineInfo, new_recipe):
+    """Update a pipeline to a new recipe.
+
+    This takes a similar pipeline and turns it into the new recipe by adding/
+    removing/replacing the variable subworkflows.
+
+    It will raise UpdateError if it can't be done; in this case
+    create_pipeline() should be considered.
+    """
     # Retrieve the pipeline
     controller.change_selected_version(pipelineInfo.version)
     pipeline = controller.current_pipeline

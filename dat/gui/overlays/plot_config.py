@@ -6,27 +6,27 @@ Created on Feb 5, 2013
 from PyQt4 import QtCore, QtGui
 from vistrails.gui.ports_pane import PortsList
 from dat.vistrail_data import VistrailManager
-from dat import PipelineInformation
 from vistrails.core.modules.module_registry import get_module_registry,\
     ModuleRegistryException
+from dat.gui.overlays import Overlay
 
-class PlotConfigWindow(QtGui.QDialog):
-    """This window houses the plot configuration widgets
-    """
-    def __init__(self, parent = None):
-        QtGui.QDialog.__init__(self, parent)
-        self.setLayout(QtGui.QVBoxLayout())
+#class PlotConfigWindow(QtGui.QDialog):
+#    """This window houses the plot configuration widgets
+#    """
+#    def __init__(self, parent = None):
+#        QtGui.QDialog.__init__(self, parent)
+#        self.setLayout(QtGui.QVBoxLayout())
+#        
+#    def setPlotConfigWidget(self, widget):
+#        """Replaces current widget if one exists
+#        """
+#        widgetItem = self.layout().takeAt(0)
+#        if widgetItem:
+#            widgetItem.widget().close()
+#        self.layout().addWidget(widget)
         
-    def setPlotConfigWidget(self, widget):
-        """Replaces current widget if one exists
-        """
-        widgetItem = self.layout().takeAt(0)
-        if widgetItem:
-            widgetItem.widget().close()
-        self.layout().addWidget(widget)
-        
-class PlotConfigEditor(object):
-    """Base class mixin for high level plot editors
+class PlotConfigOverlay(Overlay):
+    """Base class for high level plot editors
     
     Must implement setup(self, cell, plot), which is called
     when the widget is shown.
@@ -35,7 +35,7 @@ class PlotConfigEditor(object):
     def setup(self, cell, plot):
         raise NotImplementedError
         
-class DefaultPlotConfigEditor(QtGui.QWidget, PlotConfigEditor):
+class DefaultPlotConfigOverlay(PlotConfigOverlay):
     """Default widget for editing 'advanced' plot settings. Shows
     PortList widget for each module in plot. If the module has an
     advanced editor, that is shown instead.
@@ -132,8 +132,7 @@ class DefaultPlotConfigEditor(QtGui.QWidget, PlotConfigEditor):
         
     def okClicked(self):
         self.applyClicked()
-        self.cell._plot_config_window.hide()
+        self.cell._set_overlay(None)
         
     def resetClicked(self):
-        #TODO: if port list auto updates functions, need to reset pipeline to earlier version first
         self.setup(self.cell, self.plot)
