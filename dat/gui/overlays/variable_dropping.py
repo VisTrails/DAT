@@ -160,8 +160,11 @@ class VariableDroppingOverlay(Overlay):
         
         #show advanced plot config
         if event.y() > self._parameters[-1][0] + self._parameters[-1][1] + height*2:
-            self._cell._set_overlay(self._cell.plot.configWidget)
-            self._cell._overlay.setup(self._cell, self._cell.plot)
+            #get pipeline of the cell
+            mngr = VistrailManager(self._cell._controller)
+            pipeline = mngr.get_pipeline(self._cell.cellInfo)
+            self._cell._set_overlay(pipeline.recipe.plot.configWidget)
+            self._cell._overlay.setup(self._cell, pipeline.recipe.plot)
             return
 
         for i, port in enumerate(self._cell._plot.ports):

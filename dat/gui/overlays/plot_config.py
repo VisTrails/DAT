@@ -40,8 +40,8 @@ class DefaultPlotConfigOverlay(PlotConfigOverlay):
     PortList widget for each module in plot. If the module has an
     advanced editor, that is shown instead.
     """
-    def __init__(self, parent=None):
-        QtGui.QWidget.__init__(self, parent)
+    def __init__(self, cellcontainer):
+        Overlay.__init__(self, cellcontainer, False)
         
         #create tab widget
         self.tabWidget = QtGui.QTabWidget()
