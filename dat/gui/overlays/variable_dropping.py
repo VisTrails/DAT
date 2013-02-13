@@ -15,7 +15,7 @@ class VariableDroppingOverlay(Overlay):
     """
 
     def __init__(self, cellcontainer, mimeData=None, forced=False):
-        Overlay.__init__(self, cellcontainer)
+        Overlay.__init__(self, cellcontainer, not forced)
 
         self._forced = forced
         if forced:

@@ -1,12 +1,14 @@
-from PyQt4 import QtGui
+from PyQt4 import QtCore, QtGui
 
 
 class Overlay(QtGui.QWidget):
     """Base class for the cell overlays.
     """
 
-    def __init__(self, cellcontainer):
+    def __init__(self, cellcontainer, overlayed=True):
         QtGui.QWidget.__init__(self, cellcontainer)
+        if overlayed:
+            self.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents)
         self._cell = cellcontainer
 
     # Background of all overlay (translucent, on top of the cell's content)
