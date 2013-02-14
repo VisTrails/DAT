@@ -634,19 +634,7 @@ def delete_linked(controller, modules, operations,
     operations.extend(('delete', conn) for conn in conn_to_delete)
     operations.extend(('delete', module) for module in to_delete)
 
-
-def copy_module(controller, module, operations):
-    """Copy a VisTrails module to the given controller.
-
-    controller is a VisTrails controller; it doesn't have to be the one the
-    module is from.
-    operations is a list that will get extended with the 'add' operations.
-
-    Returns the new module (that is not yet created in the vistrail!)
-    """
-    module = module.do_copy(True, controller.vistrail.idScope, {})
-    operations.append(('add', module))
-    return module
+    return set(mod.id for mod in to_delete)
 
 
 def find_modules_by_type(pipeline, moduletypes):
@@ -661,7 +649,66 @@ def find_modules_by_type(pipeline, moduletypes):
     return result
 
 
-def add_variable_subworkflow(controller, varname, plot_ports, operations):
+class PipelineGenerator(object):
+    """A wrapper for simple operations that keeps a list of all modules.
+
+    This wraps simple operations on the pipeline and keeps the list of
+    VisTrails ops internally. It also keeps a list of all modules needed by
+    VisTrails's layout function.
+    """
+    def __init__(self, controller):
+        self.controller = controller
+        self.operations = []
+        self.all_modules = set(controller.current_pipeline.module_list)
+
+    def copy_module(self, module):
+        """Copy a VisTrails module to this controller.
+
+        Returns the new module (that is not yet created in the vistrail!)
+        """
+        module = module.do_copy(True, self.controller.vistrail.idScope, {})
+        self.operations.append(('add', module))
+        self.all_modules.add(module)
+        return module
+
+    def add_module(self, module):
+        self.operations.append(('add', module))
+        self.all_modules.add(module)
+
+    def connect_modules(self, src_mod, src_port, dest_mod, dest_port):
+        new_conn = self.controller.create_connection(
+                src_mod, src_port,
+                dest_mod, dest_port)
+        self.operations.append(('add', new_conn))
+        return new_conn.id
+
+    def update_function(self, module, portname, values):
+        self.operations.extend(self.controller.update_function_ops(
+                module, portname, values))
+
+    def delete_linked(self, modules, **kwargs):
+        """Wrapper for delete_linked().
+
+        This calls delete_linked with the controller and list of operations,
+        and updates the internal list of all modules to be layout.
+        """
+        deleted_ids = delete_linked(
+                self.controller, modules, self.operations, **kwargs)
+        self.all_modules = set(m
+                               for m in self.all_modules
+                               if m.id not in deleted_ids)
+
+    def perform_action(self):
+        """Layout all the modules and create the action.
+        """
+        # TODO-dat : layout modules
+
+        action = create_action(self.operations)
+        self.controller.add_new_action(action)
+        return self.controller.perform_action(action)
+
+
+def add_variable_subworkflow(generator, varname, plot_ports):
     """Add a variable subworkflow to the pipeline.
 
     Copy the variable subworkflow from its own pipeline to the given one, and
@@ -670,7 +717,7 @@ def add_variable_subworkflow(controller, varname, plot_ports, operations):
     It returns the ids of the connections tying this variable to the plot,
     which are used to build the pipeline's var_map.
     """
-    var_pipeline = controller.vistrail.getPipeline(
+    var_pipeline = generator.controller.vistrail.getPipeline(
             'dat-var-%s' % varname)
 
     reg = get_module_registry()
@@ -687,8 +734,7 @@ def add_variable_subworkflow(controller, varname, plot_ports, operations):
         else:
             # We can't just add this module to the new pipeline!
             # We need to create a new one to avoid id collisions
-            var_modules_map[module.id] = copy_module(
-                    controller, module, operations)
+            var_modules_map[module.id] = generator.copy_module(module)
 
     if output_id is None:
         raise ValueError("add_variable_subworkflow: variable pipeline has no "
@@ -699,20 +745,17 @@ def add_variable_subworkflow(controller, varname, plot_ports, operations):
     for connection in var_pipeline.connection_list:
         if connection.destination.moduleId == output_id:
             for var_output_mod, var_output_port in plot_ports:
-                new_conn = controller.create_connection(
+                connection_ids.append(generator.connect_modules(
                         var_modules_map[connection.source.moduleId],
                         connection.source.name,
                         var_output_mod,
-                        var_output_port)
-                operations.append(('add', new_conn))
-                connection_ids.append(new_conn.id)
+                        var_output_port))
         else:
-            new_conn = controller.create_connection(
+            generator.connect_modules(
                     var_modules_map[connection.source.moduleId],
                     connection.source.name,
                     var_modules_map[connection.destination.moduleId],
                     connection.destination.name)
-            operations.append(('add', new_conn))
 
     return connection_ids
 
@@ -725,14 +768,7 @@ def create_pipeline(controller, recipe, cell_info):
 
     reg = get_module_registry()
 
-    operations = []
-
-    def connect_modules(src_mod, src_port, dest_mod, dest_port):
-        new_conn = controller.create_connection(
-                src_mod, src_port,
-                dest_mod, dest_port)
-        operations.append(('add', new_conn))
-        return new_conn.id
+    generator = PipelineGenerator(controller)
 
     inputport_desc = reg.get_descriptor_by_name(
             'edu.utah.sci.vistrails.basic', 'InputPort')
@@ -747,10 +783,7 @@ def create_pipeline(controller, recipe, cell_info):
     plot_modules_map = dict() # old module id -> new module
     for module in plot_pipeline.modules.itervalues():
         if module.module_descriptor is not inputport_desc:
-            # We can't just add this module to the new pipeline!
-            # We need to create a new one to avoid id collisions
-            plot_modules_map[module.id] = copy_module(
-                    controller, module, operations)
+            plot_modules_map[module.id] = generator.copy_module(module)
 
     def _get_or_create_module(moduleType):
         """Returns or creates a new module of the given type.
@@ -761,7 +794,7 @@ def create_pipeline(controller, recipe, cell_info):
         if not modules:
             desc = reg.get_descriptor_from_module(moduleType)
             module = controller.create_module_from_descriptor(desc)
-            operations.append(('add', module))
+            generator.add_module(module)
             return module, True
         else:
             # Currently we do not support multiple cell locations in one
@@ -783,14 +816,14 @@ def create_pipeline(controller, recipe, cell_info):
 
         if new_sheet or new_location:
             # Connect the SheetReference to the CellLocation
-            connect_modules(
+            generator.connect_modules(
                     sheet_module, 'self',
                     location_module, 'SheetReference')
 
         if new_location:
             # Connect the CellLocation to the SpreadsheetCell
             cell_module = plot_modules_map[cell_modules[0].id]
-            connect_modules(
+            generator.connect_modules(
                     location_module, 'self',
                     cell_module, 'Location')
 
@@ -798,12 +831,12 @@ def create_pipeline(controller, recipe, cell_info):
             tabwidget = cell_info.tab.tabWidget
             sheetName = tabwidget.tabText(tabwidget.indexOf(cell_info.tab))
             row, col = cell_info.row, cell_info.column
-            operations.extend(controller.update_function_ops(
-                    sheet_module, 'SheetName', [sheetName]))
-            operations.extend(controller.update_function_ops(
-                    location_module, 'Row', [row + 1]))
-            operations.extend(controller.update_function_ops(
-                    location_module, 'Column', [col + 1]))
+            generator.update_function(
+                    sheet_module, 'SheetName', [sheetName])
+            generator.update_function(
+                    location_module, 'Row', [row + 1])
+            generator.update_function(
+                    location_module, 'Column', [col + 1])
 
             if len(cell_modules) > 1:
                 warnings.warn("Plot subworkflow '%s' contains more than "
@@ -828,7 +861,7 @@ def create_pipeline(controller, recipe, cell_info):
                     plot_modules_map[connection.destination.moduleId],
                     connection.destination.name))
         else:
-            connect_modules(
+            generator.connect_modules(
                     plot_modules_map[connection.source.moduleId],
                     connection.source.name,
                     plot_modules_map[connection.destination.moduleId],
@@ -843,14 +876,11 @@ def create_pipeline(controller, recipe, cell_info):
         plot_ports = plot_params.get(param, [])
 
         var_map[param] = add_variable_subworkflow(
-                controller,
+                generator,
                 variable.name,
-                plot_ports,
-                operations)
+                plot_ports)
 
-    action = create_action(operations)
-    controller.add_new_action(action)
-    pipeline_version = controller.perform_action(action)
+    pipeline_version = generator.perform_action()
     controller.vistrail.change_description(
             "Created DAT plot %s" % recipe.plot.name,
             pipeline_version)
@@ -892,7 +922,7 @@ def update_pipeline(controller, pipelineInfo, new_recipe):
     if old_recipe.plot != new_recipe.plot:
         raise UpdateError("update_pipeline cannot change plot type!")
 
-    operations = []
+    generator = PipelineGenerator(controller)
 
     var_map = dict()
 
@@ -925,18 +955,18 @@ def update_pipeline(controller, pipelineInfo, new_recipe):
             # Remove the variable subworkflow
             modules = [pipeline.modules[c.source.moduleId]
                        for c in connections]
-            delete_linked(controller, modules, operations,
-                          connection_filter=lambda c: c not in connections)
+            generator.delete_linked(
+                    modules,
+                    connection_filter=lambda c: c not in connections)
 
         # If the parameter exists (but didn't exist or was different)
         if new_var is not None:
             plot_ports = [(pipeline.modules[mod_id], port)
                           for mod_id, port in pipelineInfo.port_map[param]]
             var_map[param] = add_variable_subworkflow(
-                    controller,
+                    generator,
                     new_var.name,
-                    plot_ports,
-                    operations)
+                    plot_ports)
 
         if old_var is not None and new_var is not None:
             updated_params.append(param)
@@ -945,9 +975,7 @@ def update_pipeline(controller, pipelineInfo, new_recipe):
         else: # new_var is not None
             added_params.append(param)
 
-    action = create_action(operations)
-    controller.add_new_action(action)
-    pipeline_version = controller.perform_action(action)
+    pipeline_version = generator.perform_action()
 
     if added_params and not removed_params and not updated_params:
         if len(added_params) == 1:
