@@ -263,12 +263,12 @@ class Variable(object):
         # Get the VisTrails package that's creating this Variable by inspecting
         # the stack
         caller = inspect.currentframe().f_back
-        module = inspect.getmodule(caller).__name__
-        if module.endswith('.__init__'):
-            module = module[:-9]
-        if module.endswith('.init'):
-            module = module[:-5]
         try:
+            module = inspect.getmodule(caller).__name__
+            if module.endswith('.__init__'):
+                module = module[:-9]
+            if module.endswith('.init'):
+                module = module[:-5]
             pkg = importlib.import_module(module)
             self._vt_package_id = pkg.identifier
         except (ImportError, AttributeError):
