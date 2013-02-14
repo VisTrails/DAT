@@ -304,7 +304,7 @@ class Variable(object):
 
         # Check that the port is compatible to self.type
         try:
-            port = module._module.module_descriptor.get_port_spec(
+            port = module._module.get_port_spec(
                     outputport_name, 'output')
         except Exception:
             raise ValueError("select_output_port() designated a non-existent "
