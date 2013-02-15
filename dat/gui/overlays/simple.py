@@ -19,7 +19,7 @@ class PlotPromptOverlay(Overlay):
         qp.setBrush(QtCore.Qt.NoBrush)
         qp.drawText(
                 10, 10,
-                self._cell.width() - 20, self._cell.height() - 20,
+                self.width() - 20, self.height() - 20,
                 QtCore.Qt.AlignCenter | QtCore.Qt.TextWordWrap,
                 _("Drag a plot in this cell"))
 
@@ -43,11 +43,11 @@ class VariableDropEmptyCell(Overlay):
         qp.setBrush(Overlay.no_fill)
         qp.drawRect(
                 10, 10,
-                self._cell.width() - 20, self._cell.height() - 20)
+                self.width() - 20, self.height() - 20)
 
         qp.drawText(
                 10, 10,
-                self._cell.width() - 20, self._cell.height() - 20,
+                self.width() - 20, self.height() - 20,
                 QtCore.Qt.AlignCenter | QtCore.Qt.TextWordWrap,
                 _("You need to drag a plot first"))
 
@@ -77,10 +77,10 @@ class PlotDroppingOverlay(Overlay):
         qp.setBrush(Overlay.ok_fill)
         qp.drawRect(
                 10, 10,
-                self._cell.width() - 20, self._cell.height() - 20)
+                self.width() - 20, self.height() - 20)
 
         qp.drawText(
                 10, 10,
-                self._cell.width() - 20, self._cell.height() - 20,
+                self.width() - 20, self.height() - 20,
                 QtCore.Qt.AlignCenter | QtCore.Qt.TextWordWrap,
                 self._text)

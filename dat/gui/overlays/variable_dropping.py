@@ -36,6 +36,8 @@ class VariableDroppingOverlay(Overlay):
 
         self._cell._parameter_hovered = None
 
+        self.compute_positions()
+
     def draw(self, qp):
         Overlay.draw(self, qp)
 
@@ -97,11 +99,11 @@ class VariableDroppingOverlay(Overlay):
                 self._parameters[-1][0] + self._parameters[-1][1] + ascent,
                 ")")
 
-    def resizeEvent(self, event):
-        metrics = self._cell.fontMetrics()
+    def compute_positions(self):
+        metrics = self.fontMetrics()
         height = metrics.height()
 
-        fontBold = QtGui.QFont(self._cell.font())
+        fontBold = QtGui.QFont(self.font())
         fontBold.setBold(True)
         metricsBold = QtGui.QFontMetrics(fontBold)
         heightBold = metricsBold.height()
@@ -129,6 +131,8 @@ class VariableDroppingOverlay(Overlay):
                 maxwidth = width
         self._parameter_max_width = maxwidth
 
+        self._size = QtCore.QSize(self._parameter_max_width + 50, y + h + 5)
+
     def set_mouse_position(self, x, y):
         # Find the currently targeted port: the compatible port closer to the
         # mouse
@@ -152,10 +156,10 @@ class VariableDroppingOverlay(Overlay):
 
         if self._cell._parameter_hovered != targeted:
             self._cell._parameter_hovered = targeted
-            self.repaint()
+            self.update()
 
     def mouseReleaseEvent(self, event):
-        metrics = self._cell.fontMetrics()
+        metrics = self.fontMetrics()
         height = metrics.height()
 
         for i, port in enumerate(self._cell._plot.ports):
@@ -170,3 +174,6 @@ class VariableDroppingOverlay(Overlay):
                     # Button pressed: remove parameter
                     self._cell.remove_parameter(port.name)
                     break
+
+    def sizeHint(self):
+        return self._size
