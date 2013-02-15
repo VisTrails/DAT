@@ -6,6 +6,7 @@
 import unittest
 import warnings
 
+import dat.tests
 from dat.tests import CallRecorder
 
 
@@ -55,8 +56,11 @@ class Test_gui(unittest.TestCase):
         """
         from dat.gui.application import NotificationDispatcher
         nd = NotificationDispatcher()
+
         class C(object): pass
+
         with warnings.catch_warnings(record=True) as w:
+            warnings.resetwarnings()
             notif1 = CallRecorder()
             nd.register_notification('notif_A', notif1)
             # registered to non-existing notification
@@ -130,8 +134,10 @@ class Test_gui(unittest.TestCase):
 
 class Test_advancedlineedit(unittest.TestCase):
     def setUp(self):
-        from PyQt4 import QtGui
-        self._app = QtGui.QApplication([])
+        if dat.tests.setup_application() is None:
+            self.skipTest("No Application is available")
+        else:
+            self._app = dat.tests._qapplication
 
     def tearDown(self):
         self._app.quit()

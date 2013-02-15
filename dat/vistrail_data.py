@@ -454,7 +454,7 @@ class VistrailManager(object):
             warnings.warn("Unknown controller requested from "
                           "VistrailManager:\n  %r" % controller)
             vistraildata = VistrailData(controller)
-            self._vistrail[controller] = vistraildata
+            self._vistrails[controller] = vistraildata
             return vistraildata
 
 VistrailManager = VistrailManager()

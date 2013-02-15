@@ -9,6 +9,8 @@ class Overlay(QtGui.QWidget):
         QtGui.QWidget.__init__(self, cellcontainer)
         if overlayed:
             self.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents)
+        self.setSizePolicy(QtGui.QSizePolicy.MinimumExpanding,
+                           QtGui.QSizePolicy.MinimumExpanding)
         self._cell = cellcontainer
 
     # Background of all overlay (translucent, on top of the cell's content)
@@ -27,7 +29,7 @@ class Overlay(QtGui.QWidget):
     def draw(self, qp):
         qp.fillRect(
                 0, 0,
-                self._cell.width(), self._cell.height(),
+                self.width(), self.height(),
                 Overlay.background)
 
     def paintEvent(self, event):

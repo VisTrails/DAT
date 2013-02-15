@@ -168,6 +168,7 @@ class Application(NotificationDispatcher, VistrailsApplicationInterface):
         from vistrails.gui.vistrails_window import QVistrailsWindow
         self.builderWindow = QVistrailsWindow()
         self.builderWindow.closeEvent = lambda e: None
+        self.vistrailsStartup.set_needed_packages(['spreadsheet'])
         self.vistrailsStartup.init()
         self.builderWindow.link_registry()
         self.builderWindow.create_first_vistrail()
