@@ -7,6 +7,65 @@ from dat.gui import get_icon
 from dat.vistrail_data import VistrailManager
 
 
+stylesheet = """
+Parameter {
+    background-color: #DDD;
+    padding: 3px;
+}
+
+Parameter[assigned="yes"] {
+    border: 2px solid black;
+}
+
+Parameter[assigned="yes"]:hover {
+    background-color: #BBB;
+}
+
+Parameter[assigned="no"] {
+    border: 1px dotted black;
+    font-style: oblique;
+}
+
+Parameter[targeted="yes"] {
+    background-color: rgb(187, 204, 255);
+    border: 2px solid rgb(102, 153, 255);
+    padding: 2px;
+}
+
+Parameter[targeted="no"][compatible="yes"] {
+    background-color: rgb(187, 204, 255);
+}
+
+Parameter[targeted="no"][compatible="no"] {
+    background-color: rgb(255, 170, 170);
+}
+
+"""
+
+
+class Parameter(QtGui.QPushButton):
+    def __init__(self, overlay, port_name, variable):
+        QtGui.QPushButton.__init__(self)
+
+        self.setSizePolicy(QtGui.QSizePolicy.Minimum,
+                           QtGui.QSizePolicy.Fixed)
+        self.setProperty('assigned', variable is not None and 'yes' or 'no')
+
+        self._variable = variable
+        if variable is not None:
+            self.setText(variable.name)
+
+            self.connect(
+                    self,
+                    QtCore.SIGNAL('clicked()'),
+                    lambda: overlay.remove_parameter(port_name))
+
+    def update(self):
+        if self._variable is not None:
+            self.setText(self._variable.name)
+        super(Parameter, self).update()
+
+
 class VariableDroppingOverlay(Overlay):
     """The main overlay.
 
@@ -14,15 +73,18 @@ class VariableDroppingOverlay(Overlay):
     type-checks them.
     """
 
-    def __init__(self, cellcontainer, mimeData=None, forced=False):
-        Overlay.__init__(self, cellcontainer, not forced)
+    def __init__(self, cellcontainer, **kwargs):
+        self._overlayed = kwargs.get('overlayed', True)
+        Overlay.__init__(self, cellcontainer, **kwargs)
 
-        self._forced = forced
-        if forced:
+        self.setStyleSheet(stylesheet)
+
+        if not self._overlayed:
             self._remove_icon = get_icon('remove_parameter.png')
 
         # Type-checking, so we can show which parameters are suitable to
         # receive the drop
+        mimeData = kwargs.get('mimeData')
         if not mimeData or not mimeData.hasFormat(MIMETYPE_DAT_VARIABLE):
             self._compatible_ports = None
         else:
@@ -36,102 +98,59 @@ class VariableDroppingOverlay(Overlay):
 
         self._cell._parameter_hovered = None
 
-        self.compute_positions()
+        self.setupUi()
 
-    def draw(self, qp):
-        Overlay.draw(self, qp)
+    def setupUi(self):
+        main_layout = QtGui.QVBoxLayout()
 
-        qp.setPen(Overlay.text)
-        qp.setBrush(QtCore.Qt.NoBrush)
-        metrics = qp.fontMetrics()
-        ascent = metrics.ascent()
-        height = metrics.height()
-        normalFont = qp.font()
-        requiredFont = QtGui.QFont(qp.font())
-        requiredFont.setBold(True)
+        name_label = QtGui.QLabel(self._cell._plot.name + " (")
+        name_label.setObjectName('plot_name')
+        main_layout.addWidget(name_label)
 
-        # Plot name
-        qp.drawText(5, 5 + ascent, self._cell._plot.name + " (")
+        spacing_layout = QtGui.QHBoxLayout()
+        spacing_layout.addSpacing(20)
+        ports_layout = QtGui.QFormLayout()
 
+        self._parameters = []
         for i, port in enumerate(self._cell._plot.ports):
-            y, h = self._parameters[i]
-
-            # Draw boxes according to the compatibility of the port with the
+            # Style changes according to the compatibility of the port with the
             # variable being dragged
             if self._compatible_ports:
                 if self._compatible_ports[i]:
-                    qp.setPen(Overlay.ok_pen)
-                    qp.setBrush(Overlay.ok_fill)
+                    compatible = 'yes'
                 else:
-                    qp.setPen(Overlay.no_pen)
-                    qp.setBrush(Overlay.no_fill)
-                qp.drawRect(20, y, self._parameter_max_width, h)
-
-            qp.setBrush(QtCore.Qt.NoBrush)
-            if i == self._cell._parameter_hovered:
-                qp.setPen(Overlay.targeted)
+                    compatible = 'no'
             else:
-                qp.setPen(Overlay.text)
-
-            # The parameter is either set, required or optional
+                compatible = ''
             variable = self._cell._variables.get(port.name)
-            if variable is not None:
-                qp.setFont(normalFont)
-                qp.drawText(40, y + height + ascent, " = %s" % variable.name)
-
-                # Display a button to remove this parameter
-                if self._forced:
-                    self._remove_icon.paint(
-                            qp,
-                            30 + self._parameter_max_width,
-                            y + height,
-                            16, 16)
-            elif port.optional:
-                qp.setFont(normalFont)
-            else:
-                qp.setFont(requiredFont)
-            qp.drawText(20, y + ascent, port.name)
+            targeted = self._cell._parameter_hovered == i and 'yes' or 'no'
+            param = Parameter(self, port.name, variable)
+            param.setProperty('compatible', compatible)
+            param.setProperty('optional', port.optional)
+            param.setProperty('targeted', targeted)
+            label = QtGui.QLabel(port.name)
+            label.setObjectName('port_name')
+            label.setProperty('compatible', compatible)
+            label.setProperty('optional', port.optional)
+            label.setProperty('targeted', targeted)
+            label.setBuddy(param)
+            self._parameters.append(param)
+            ports_layout.addRow(label, param)
 
         # Closing parenthesis
-        qp.setPen(Overlay.text)
-        qp.drawText(
-                5,
-                self._parameters[-1][0] + self._parameters[-1][1] + ascent,
-                ")")
+        paren_label = QtGui.QLabel(")")
+        paren_label.setObjectName('closing_paren')
+        ports_layout.addRow(paren_label)
+        spacing_layout.addLayout(ports_layout)
 
-    def compute_positions(self):
-        metrics = self.fontMetrics()
-        height = metrics.height()
+        main_layout.addLayout(spacing_layout)
+        main_layout.addStretch(0)
+        self.setLayout(main_layout)
 
-        fontBold = QtGui.QFont(self.font())
-        fontBold.setBold(True)
-        metricsBold = QtGui.QFontMetrics(fontBold)
-        heightBold = metricsBold.height()
-
-        y = 5 # Top margin
-        y += height # Plot name
-
-        # Position the parameters
-        self._parameters = []
-        maxwidth = 0
-        for port in self._cell._plot.ports:
-            variable = self._cell._variables.get(port.name)
-            if variable is not None:
-                width = 20 + metrics.width(" = %s" % variable.name)
-                h = height * 2
-            elif port.optional:
-                width = metrics.width(port.name)
-                h = height
-            else:
-                width = metricsBold.width(port.name)
-                h = heightBold
-            self._parameters.append((y, h))
-            y += h
-            if width > maxwidth:
-                maxwidth = width
-        self._parameter_max_width = maxwidth
-
-        self._size = QtCore.QSize(self._parameter_max_width + 50, y + h + 5)
+    def update(self):
+        for child in self._parameters:
+            child.update()
+        super(VariableDroppingOverlay, self).update()
 
     def set_mouse_position(self, x, y):
         # Find the currently targeted port: the compatible port closer to the
@@ -143,10 +162,12 @@ class VariableDroppingOverlay(Overlay):
         targeted, mindist = None, None
         for i, param in enumerate(self._parameters):
             if self._compatible_ports[i]:
-                if y < param[0]:
-                    dist = param[0] - y
-                elif y > param[0] + param[1]:
-                    dist = y - (param[0] + param[1])
+                wy = param.pos().y()
+                wh = param.height()
+                if y < wy:
+                    dist = wy - y
+                elif y > wy + wh:
+                    dist = y - (wy + wh)
                 else:
                     targeted = i
                     break
@@ -155,25 +176,20 @@ class VariableDroppingOverlay(Overlay):
                     targeted = i
 
         if self._cell._parameter_hovered != targeted:
+            def refresh(widget):
+                style = self.style()
+                style.unpolish(widget)
+                style.polish(widget)
+            if self._cell._parameter_hovered is not None:
+                old = self._parameters[self._cell._parameter_hovered]
+                old.setProperty('targeted', 'no')
+                refresh(old)
+
+            new = self._parameters[targeted]
+            new.setProperty('targeted', 'yes')
+            refresh(new)
+
             self._cell._parameter_hovered = targeted
-            self.update()
 
-    def mouseReleaseEvent(self, event):
-        metrics = self.fontMetrics()
-        height = metrics.height()
-
-        for i, port in enumerate(self._cell._plot.ports):
-            port_y, port_h = self._parameters[i]
-
-            variable = self._cell._variables.get(port.name)
-            if variable is not None:
-                btn_x = 30 + self._parameter_max_width
-                btn_y = port_y + height
-                if (btn_x <= event.x() < btn_x + 16 and
-                        btn_y <= event.y() < btn_y + 16):
-                    # Button pressed: remove parameter
-                    self._cell.remove_parameter(port.name)
-                    break
-
-    def sizeHint(self):
-        return self._size
+    def remove_parameter(self, port_name):
+        self._cell.remove_parameter(port_name)
