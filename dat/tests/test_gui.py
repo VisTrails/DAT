@@ -6,11 +6,16 @@
 import unittest
 import warnings
 
+import dat.tests
 from dat.tests import CallRecorder
 
 
 class Test_gui(unittest.TestCase):
     def test_translate(self):
+        """Tests the translate() mechanism.
+
+        Doesn't actually checks that anything gets translated.
+        """
         from PyQt4 import QtCore
         old_translate = QtCore.QCoreApplication.translate
         try:
@@ -47,10 +52,15 @@ class Test_gui(unittest.TestCase):
             QtCore.QCoreApplication.translate = old_translate
 
     def test_notifications(self):
+        """Tests the NotificationDispatcher class.
+        """
         from dat.gui.application import NotificationDispatcher
         nd = NotificationDispatcher()
+
         class C(object): pass
+
         with warnings.catch_warnings(record=True) as w:
+            warnings.resetwarnings()
             notif1 = CallRecorder()
             nd.register_notification('notif_A', notif1)
             # registered to non-existing notification
@@ -124,14 +134,18 @@ class Test_gui(unittest.TestCase):
 
 class Test_advancedlineedit(unittest.TestCase):
     def setUp(self):
-        from PyQt4 import QtGui
-        self._app = QtGui.QApplication([])
+        if dat.tests.setup_application() is None:
+            self.skipTest("No Application is available")
+        else:
+            self._app = dat.tests._qapplication
 
     def tearDown(self):
         self._app.quit()
         self._app = None
 
     def test_validation(self):
+        """Tests the validation logic.
+        """
         from dat.gui.generic import AdvancedLineEdit
         le = AdvancedLineEdit("test",
                               validate=lambda t: t=="a")
@@ -146,6 +160,8 @@ class Test_advancedlineedit(unittest.TestCase):
         self.assertEqual(le._choose_color(), "#AADDAA")
 
     def test_default(self):
+        """Tests the default value logic.
+        """
         from dat.gui.generic import AdvancedLineEdit
         le = AdvancedLineEdit("test",
                               default="a")
@@ -161,6 +177,8 @@ class Test_advancedlineedit(unittest.TestCase):
         self.assertEqual(le._choose_color(), "#AAAADD")
 
     def test_basic(self):
+        """Tests the widget without validation or default value.
+        """
         from dat.gui.generic import AdvancedLineEdit
         le = AdvancedLineEdit("test")
         self._app.processEvents()
@@ -172,6 +190,8 @@ class Test_advancedlineedit(unittest.TestCase):
         self.assertEqual(le._choose_color(), "#FFFFFF")
 
     def test_both_diff(self):
+        """Tests the widget with both validation and default value.
+        """
         from dat.gui.generic import AdvancedLineEdit
         le = AdvancedLineEdit("test",
                               default="b",
@@ -196,6 +216,8 @@ class Test_advancedlineedit(unittest.TestCase):
         self.assertEqual(le._choose_color(), "#AADDAA")
 
     def test_both_diff_flag_default(self):
+        """Tests that the correct logic gets used with COLOR_DEFAULTVALUE.
+        """
         from dat.gui.generic import AdvancedLineEdit
         le = AdvancedLineEdit("test",
                                default="b",
@@ -214,6 +236,8 @@ class Test_advancedlineedit(unittest.TestCase):
         self.assertEqual(le._choose_color(), "#AAAADD")
 
     def test_both_diff_flag_valid(self):
+        """Tests that the correct logic gets used with COLOR_VALIDITY.
+        """
         from dat.gui.generic import AdvancedLineEdit
         le = AdvancedLineEdit("test",
                                default="b",
@@ -232,6 +256,8 @@ class Test_advancedlineedit(unittest.TestCase):
         self.assertEqual(le._choose_color(), "#AADDAA")
 
     def test_both_same(self):
+        """Tests the logic when the value is valid and the default.
+        """
         from dat.gui.generic import AdvancedLineEdit
         le = AdvancedLineEdit("test",
                               default="a",
@@ -249,6 +275,8 @@ class Test_advancedlineedit(unittest.TestCase):
         self.assertEqual(le._choose_color(), "#AAAADD")
 
     def test_follow(self):
+        """Tests changing the default value when FOLLOW_DEFAULT_UPDATE is set.
+        """
         from dat.gui.generic import AdvancedLineEdit
         le = AdvancedLineEdit("test",
                               default="a",

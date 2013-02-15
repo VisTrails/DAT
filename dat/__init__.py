@@ -13,11 +13,9 @@ MIMETYPE_DAT_PLOT = 'X-Vistrails/DATPlot'
 
 
 class DATRecipe(object):
-    """Just a simple class holding a Plot its parameters.
+    """Just a simple class holding a Plot and its parameters.
     """
     def __init__(self, plot, variables):
-        """__init__(plot: Plot, variables: dict of Variables)
-        """
         self.plot = plot
         self.variables = dict(variables)
         self._hash = hash((
@@ -40,7 +38,10 @@ class DATRecipe(object):
         return pipeline.module_list
 
 class PipelineInformation(object):
-    """A simple class holding enough information on a pipeline to locate it.
+    """All the information DAT has on a plot.
+
+    This is stored in VistrailsData. If an object doesn't exist for a version/
+    cell, it is assumed not to be a DAT visualization.
     """
     def __init__(self, version, recipe, port_map=None, var_map=None):
         self.version = version

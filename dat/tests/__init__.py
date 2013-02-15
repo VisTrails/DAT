@@ -1,4 +1,6 @@
 class CallRecorder(object):
+    """Simple function-like object recording its calls.
+    """
     def __init__(self, func=None):
         self.calls = []
         self._func = func
@@ -10,12 +12,26 @@ class CallRecorder(object):
 
 
 class FakeObj(object):
+    """A simple object used in place of something else.
+
+    Its attributes can be passed as keyword parameters.
+    """
     def __init__(self, **kwargs):
         self.__dict__.update(kwargs)
 
 
 class odict(dict):
+    """Simple overload of dict with a predictable iteration order.
+
+    Allows the used of assertEqual in tests.
+    """
     def __init__(self, *args):
+        """Create the dictionary from a list of tuples.
+
+        >>> d = odict([(1, 2), ('key', 'value')])
+        >>> d.items()
+        [(1, 2), ('key', 'value')]
+        """
         kwargs = {k: v for k, v in args}
         dict.__init__(self, **kwargs)
         self._ordered_keys = [k for k, v in args]
@@ -37,3 +53,21 @@ class odict(dict):
 
     def items(self):
         return list(self.iteritems())
+
+
+_qapplication = None
+_application = None
+
+def setup_application(setup=True):
+    global _application
+    global _qapplication
+    if _application is None and setup:
+        try:
+            if _qapplication is None:
+                from PyQt4 import QtGui
+                _qapplication = QtGui.QApplication([])
+            from dat.gui.application import Application
+            _application = Application()
+        except Exception:
+            pass
+    return _application

@@ -24,6 +24,8 @@ class Test_startup(unittest.TestCase):
         self.assertIsNotNone(String)
 
     def test_odict(self):
+        """Tests the odict class, that is only used in tests.
+        """
         from dat.tests import odict
 
         l1 = [(1, 2), (3, 4)]

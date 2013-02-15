@@ -8,6 +8,8 @@ import unittest
 
 class Test_variablenames(unittest.TestCase):
     def test_unique_varname(self):
+        """Tests the unique_varname() function.
+        """
         from dat.gui.load_variable_dialog import unique_varname
 
         class FakeData(object):
@@ -26,6 +28,8 @@ class Test_variablenames(unittest.TestCase):
                 'variable (6)')
 
     def test_validator(self):
+        """Tests the VariableNameValidator class.
+        """
         from dat.gui.load_variable_dialog import VariableNameValidator
 
         class FakeData(object):

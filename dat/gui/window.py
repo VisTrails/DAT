@@ -10,6 +10,10 @@ from vistrails.packages.spreadsheet.spreadsheet_controller import spreadsheetCon
 
 
 class MainWindow(QtGui.QMainWindow):
+    """The main window of the DAT application.
+
+    Embeds the VisTrails spreadsheet.
+    """
     def __init__(self):
         super(MainWindow, self).__init__()
 

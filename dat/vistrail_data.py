@@ -55,6 +55,8 @@ class VistrailData(object):
 
     @staticmethod
     def _build_annotation_recipe(recipe):
+        """Builds the annotation value representation of a recipe.
+        """
         value = recipe.plot.name
         for param, variable in recipe.variables.iteritems():
             value += ';%s=%s' % (param, variable.name)
@@ -62,6 +64,8 @@ class VistrailData(object):
 
     @staticmethod
     def _read_annotation_recipe(vistraildata, value):
+        """Reads a recipe from its annotation value representation.
+        """
         value = value.split(';')
         try:
             plot = GlobalManager.get_plot(value[0]) # Might raise KeyError
@@ -75,6 +79,8 @@ class VistrailData(object):
 
     @staticmethod
     def _build_annotation_portmap(port_map):
+        """Builds the annotation value representation of a port_map.
+        """
         value = []
         for param, portlist in port_map.iteritems():
             value.append(
@@ -86,6 +92,8 @@ class VistrailData(object):
 
     @staticmethod
     def _read_annotation_portmap(value):
+        """Reads a port_map from its annotation value representation.
+        """
         try:
             port_map = dict()
             dv = value.split(';')
@@ -109,6 +117,8 @@ class VistrailData(object):
 
     @staticmethod
     def _build_annotation_varmap(var_map):
+        """Builds the annotation value representation of a var_map.
+        """
         value = []
         for param, conn_list in var_map.iteritems():
             value.append(
@@ -120,6 +130,8 @@ class VistrailData(object):
 
     @staticmethod
     def _read_annotation_varmap(value):
+        """Reads a var_map from its annotation value representation.
+        """
         try:
             var_map = dict()
             dv = value.split(';')
@@ -227,6 +239,8 @@ class VistrailData(object):
 
     def new_variable(self, varname, variable):
         """Register a new Variable with DAT.
+
+        This will materialize it in the pipeline and signal its creation.
         """
         if varname in self._variables:
             raise ValueError("A variable named %s already exists!")
@@ -297,6 +311,9 @@ class VistrailData(object):
 
     def remove_variable(self, varname):
         """Remove a Variable from DAT.
+
+        This will remove the associated version in the vistrail and signal its
+        destruction.
         """
         self._remove_variable(varname)
 
@@ -305,6 +322,8 @@ class VistrailData(object):
 
     def rename_variable(self, old_varname, new_varname):
         """Rename a Variable.
+
+        This will update the tag on the associated version.
 
         Observers will get notified that a Variable was deleted and another
         added.
@@ -329,6 +348,9 @@ class VistrailData(object):
 
         We now know that this pipeline was created in the given cell from this
         plot and these parameters.
+
+        The version will get annotated with the DAT metadata, allowing it to be
+        updated later.
         """
         try:
             p = self._version_to_pipeline[pipeline.version]
@@ -367,6 +389,10 @@ class VistrailData(object):
                 self._build_annotation_varmap(pipeline.var_map))
 
     def get_pipeline(self, param):
+        """Get the pipeline information for a given cell or version.
+
+        Returns None if nothing is found.
+        """
         if isinstance(param, int):
             return self._version_to_pipeline.get(param, None)
         else:
@@ -384,6 +410,11 @@ class VistrailManager(object):
         self._current_controller = None
 
     def init(self):
+        """Initialization function, called when the application is created.
+
+        This is not done at module-import time to avoid complex import-order
+        issues.
+        """
         get_vistrails_application().register_notification(
                 'controller_changed',
                 self.set_controller)
@@ -391,6 +422,11 @@ class VistrailManager(object):
         self.set_controller(bw.get_current_controller())
 
     def set_controller(self, controller):
+        """Called through the notification mechanism.
+
+        Changes the 'current' controller, building a VistrailData for it if
+        necessary.
+        """
         if controller == self._current_controller:
             # VisTrails lets this happen
             return
@@ -406,6 +442,10 @@ class VistrailManager(object):
                 controller)
 
     def __call__(self, controller=None):
+        """Accesses a VistrailData for a specific controller.
+
+        If the controller is not specified, assume the current one.
+        """
         if controller is None:
             controller = self._current_controller
         try:
@@ -414,7 +454,7 @@ class VistrailManager(object):
             warnings.warn("Unknown controller requested from "
                           "VistrailManager:\n  %r" % controller)
             vistraildata = VistrailData(controller)
-            self._vistrail[controller] = vistraildata
+            self._vistrails[controller] = vistraildata
             return vistraildata
 
 VistrailManager = VistrailManager()

@@ -9,6 +9,8 @@ from dat.utils import bisect
 
 
 class Test_bisect(unittest.TestCase):
+    """Covers the bisect() function.
+    """
     def test_simple(self):
         l = [1, 2, 3, 3, 7, 7, 9, 10]
         def getter(i):
