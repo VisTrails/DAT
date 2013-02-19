@@ -161,10 +161,10 @@ class DATCellContainer(QCellContainer):
         if overlay_class is None:
             # Default overlay
             if self.widget() is None and self._plot is not None:
-                self._set_overlay(VariableDroppingOverlay)
+                self._set_overlay(VariableDroppingOverlay, overlayed=False)
                 return
             elif self.widget() is None:
-                self._set_overlay(PlotPromptOverlay)
+                self._set_overlay(PlotPromptOverlay, overlayed=False)
                 return
 
         if self._overlay is not None:
