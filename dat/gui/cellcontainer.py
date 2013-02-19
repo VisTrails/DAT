@@ -30,6 +30,8 @@ class DATCellContainer(QCellContainer):
         app = get_vistrails_application()
         app.register_notification(
                 'dat_removed_variable', self._variable_removed)
+        app.register_notification(
+                'dragging_to_overlays', self._set_dragging)
         self._controller = app.get_controller()
 
         self._overlay = None
@@ -62,8 +64,22 @@ class DATCellContainer(QCellContainer):
         super(DATCellContainer, self).setCellInfo(cellInfo)
 
         if cellInfo is None: # We were removed from the spreadsheet
-            get_vistrails_application().unregister_notification(
+            app = get_vistrails_application()
+            app.unregister_notification(
                     'dat_removed_variable', self._variable_removed)
+            app.unregister_notification(
+                    'dragging_to_overlays', self._set_dragging)
+
+    def _set_dragging(self, dragging):
+        """This is a hack to avoid an issue with Qt's mouse event propagation.
+
+        If we don't set TransparentForMouseEvents on the overlay, when the drag
+        enters, the overlay will receive the mouse event and propagate it to
+        us. Thus it is on the call stack and we can't replace it with another
+        overlay... It would cause a segmentation fault on Mac OS.
+        """
+        self._overlay_scrollarea.setAttribute(
+                QtCore.Qt.WA_TransparentForMouseEvents, dragging)
 
     def _variable_removed(self, controller, varname, renamed_to=None):
         if controller != self._controller:
