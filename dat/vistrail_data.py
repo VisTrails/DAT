@@ -398,6 +398,10 @@ class VistrailData(object):
         else:
             return self._cell_to_pipeline.get(param, None)
 
+    def _get_all_pipelines(self):
+        return self._version_to_pipeline.itervalues()
+    all_pipelines = property(_get_all_pipelines)
+
 
 class VistrailManager(object):
     """Keeps a list of VistrailData objects.
@@ -434,12 +438,15 @@ class VistrailManager(object):
         self._current_controller = controller
         try:
             self._vistrails[controller]
+            new = False
         except KeyError:
             self._vistrails[controller] = VistrailData(controller)
+            new = True
 
         get_vistrails_application().send_notification(
                 'dat_controller_changed',
-                controller)
+                controller,
+                new=new)
 
     def __call__(self, controller=None):
         """Accesses a VistrailData for a specific controller.

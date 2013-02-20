@@ -655,6 +655,18 @@ def find_modules_by_type(pipeline, moduletypes):
     return result
 
 
+def get_pipeline_location(controller, pipelineInfo):
+    pipeline = controller.vistrail.getPipeline(pipelineInfo.version)
+
+    location_modules = find_modules_by_type(pipeline, [CellLocation])
+    if len(location_modules) == 1:
+        loc = location_modules[0]
+        row = int(get_function(loc, 'Row')) - 1
+        col = int(get_function(loc, 'Column')) - 1
+        return row, col
+    raise ValueError
+
+
 class PipelineGenerator(object):
     """A wrapper for simple operations that keeps a list of all modules.
 

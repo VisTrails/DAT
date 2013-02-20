@@ -70,7 +70,7 @@ class MainWindow(QtGui.QMainWindow):
                 'dat_controller_changed',
                 self._controller_changed)
 
-    def _controller_changed(self, controller):
+    def _controller_changed(self, controller, new=False):
         self._variables.unregister_notifications()
         self._variables = VariablePanel(VistrailManager(controller))
         self._variables_dock.setWidget(self._variables)
