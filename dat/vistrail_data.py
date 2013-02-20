@@ -5,6 +5,10 @@ from dat.global_data import GlobalManager
 from dat.vistrails_interface import Variable
 
 from vistrails.core.application import get_vistrails_application
+from vistrails.packages.spreadsheet.spreadsheet_controller import \
+    spreadsheetController
+from vistrails.packages.spreadsheet.spreadsheet_tab import \
+    StandardWidgetSheetTab
 
 
 class VistrailData(object):
@@ -157,6 +161,7 @@ class VistrailData(object):
         notifications for packages loaded in the future.
         """
         self._controller = controller
+        self._spreadsheet_tab = None
 
         self._variables = dict()
 
@@ -236,6 +241,20 @@ class VistrailData(object):
     def _get_controller(self):
         return self._controller
     controller = property(_get_controller)
+
+    def _get_spreadsheet_tab(self):
+        if self._spreadsheet_tab is None:
+            sh_window = spreadsheetController.findSpreadsheetWindow(
+                    create=False)
+            if sh_window is not None:
+                tab_controller = sh_window.tabController
+                tab = tab_controller.addTabWidget(
+                        StandardWidgetSheetTab(tab_controller),
+                        'Sheet for ctrl %d' % id(self))
+                tab_controller.setCurrentIndex(tab)
+                self._spreadsheet_tab = tab
+        return self._spreadsheet_tab
+    spreadsheet_tab = property(_get_spreadsheet_tab)
 
     def new_variable(self, varname, variable):
         """Register a new Variable with DAT.

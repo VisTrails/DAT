@@ -188,6 +188,13 @@ class Application(NotificationDispatcher, VistrailsApplicationInterface):
         # notification
         VistrailManager.init()
 
+        # Create the main window
+        mw = MainWindow()
+        mw.setVisible(True)
+
+        # Create the spreadsheet for the first project
+        VistrailManager().spreadsheet_tab
+
         self.register_notification(
                 'dat_controller_changed',
                 self._controller_changed)
@@ -195,6 +202,11 @@ class Application(NotificationDispatcher, VistrailsApplicationInterface):
     def _controller_changed(self, controller, new=False):
         if new:
             vistraildata = VistrailManager(controller)
+
+            # Create the spreadsheet for this project
+            vistraildata.spreadsheet_tab
+
+            # Find the existing visualization pipelines in this vistrail
             cells = dict()
             for pipeline in vistraildata.all_pipelines:
                 try:
@@ -211,6 +223,8 @@ class Application(NotificationDispatcher, VistrailsApplicationInterface):
                     if pipeline.version > p.version:
                         # Select the latest version for a given cell
                         cells[(row, col)] = pipeline
+
+            # TODO-dat : resize spreadsheet
 
             # Execute these pipelines
             for pipeline in cells.itervalues():
@@ -261,9 +275,4 @@ def start():
         return 1
 
     Application()
-
-    # Create the main window
-    mw = MainWindow()
-    mw.setVisible(True)
-
     return app.exec_()
