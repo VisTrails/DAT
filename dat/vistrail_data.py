@@ -5,6 +5,7 @@ from dat.global_data import GlobalManager
 from dat.vistrails_interface import Variable
 
 from vistrails.core.application import get_vistrails_application
+from vistrails.core.system import vistrails_default_file_type
 from vistrails.packages.spreadsheet.spreadsheet_controller import \
     spreadsheetController
 from vistrails.packages.spreadsheet.spreadsheet_tab import \
@@ -248,11 +249,15 @@ class VistrailData(object):
                     create=False)
             if sh_window is not None:
                 tab_controller = sh_window.tabController
-                tab = tab_controller.addTabWidget(
-                        StandardWidgetSheetTab(tab_controller),
-                        'Sheet for ctrl %d' % id(self))
-                tab_controller.setCurrentIndex(tab)
+                tab = StandardWidgetSheetTab(tab_controller)
+                title = self._controller.name
+                if not title:
+                    title = "Untitled{ext}".format(
+                            ext=vistrails_default_file_type())
+                tabidx = tab_controller.addTabWidget( tab, title)
                 self._spreadsheet_tab = tab
+                VistrailManager._tabs[tab] = self
+                tab_controller.setCurrentIndex(tabidx)
         return self._spreadsheet_tab
     spreadsheet_tab = property(_get_spreadsheet_tab)
 
@@ -430,6 +435,7 @@ class VistrailManager(object):
     """
     def __init__(self):
         self._vistrails = dict() # Controller -> VistrailData
+        self._tabs = dict() # SpreadsheetTab -> VistrailData
         self._current_controller = None
 
     def init(self):
@@ -482,5 +488,8 @@ class VistrailManager(object):
             vistraildata = VistrailData(controller)
             self._vistrails[controller] = vistraildata
             return vistraildata
+
+    def from_spreadsheet_tab(self, tab):
+        return self._tabs.get(tab)
 
 VistrailManager = VistrailManager()

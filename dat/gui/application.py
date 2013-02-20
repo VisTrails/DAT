@@ -195,9 +195,13 @@ class Application(NotificationDispatcher, VistrailsApplicationInterface):
         # Create the spreadsheet for the first project
         VistrailManager().spreadsheet_tab
 
+        # Register notifications
         self.register_notification(
                 'dat_controller_changed',
                 self._controller_changed)
+        self.register_notification(
+                'spreadsheet_sheet_changed',
+                self._sheet_changed)
 
     def _controller_changed(self, controller, new=False):
         if new:
@@ -229,6 +233,11 @@ class Application(NotificationDispatcher, VistrailsApplicationInterface):
             # Execute these pipelines
             for pipeline in cells.itervalues():
                 vistrails_interface.try_execute(controller, pipeline)
+
+    def _sheet_changed(self, tab):
+        vistraildata = VistrailManager.from_spreadsheet_tab(tab)
+        if vistraildata is not None:
+            pass # TODO-dat : select this view
 
     def try_quit(self):
         return self.builderWindow.quit()
