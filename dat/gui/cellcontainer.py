@@ -11,8 +11,6 @@ from dat.gui.overlays import PlotPromptOverlay, VariableDropEmptyCell, \
 
 from vistrails.core.application import get_vistrails_application
 from vistrails.packages.spreadsheet.spreadsheet_cell import QCellContainer
-from vistrails.packages.spreadsheet.spreadsheet_execute import \
-    executePipelineWithProgress
 
 
 class DATCellContainer(QCellContainer):
@@ -311,16 +309,10 @@ class DATCellContainer(QCellContainer):
             mngr.created_pipeline(self.cellInfo, pipeline)
 
         # Execute the new pipeline if possible
-        if all(
-                port.optional or self._variables.has_key(port.name)
-                for port in self._plot.ports):
-            self._controller.change_selected_version(pipeline.version)
-            executePipelineWithProgress(
-                    self._controller.current_pipeline,
-                    "DAT recipe execution",
-                    locator=self._controller.locator,
-                    current_version=pipeline.version)
-        elif self.widget() is not None:
+        if not vistrails_interface.try_execute(
+                self._controller,
+                pipeline,
+                recipe) and self.widget() is not None:
             # Clear the cell
             self.cellInfo.tab.deleteCell(self.cellInfo.row,
                                          self.cellInfo.column)
