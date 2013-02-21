@@ -51,6 +51,8 @@ from vistrails.core.vistrail.location import Location
 from vistrails.gui.theme import CurrentTheme
 from vistrails.packages.spreadsheet.basic_widgets import CellLocation, \
     SpreadsheetCell, SheetReference
+from vistrails.packages.spreadsheet.spreadsheet_execute import \
+    executePipelineWithProgress
 
 
 __all__ = ['Plot', 'Port', 'Variable',
@@ -661,6 +663,18 @@ def find_modules_by_type(pipeline, moduletypes):
     return result
 
 
+def get_pipeline_location(controller, pipelineInfo):
+    pipeline = controller.vistrail.getPipeline(pipelineInfo.version)
+
+    location_modules = find_modules_by_type(pipeline, [CellLocation])
+    if len(location_modules) == 1:
+        loc = location_modules[0]
+        row = int(get_function(loc, 'Row')) - 1
+        col = int(get_function(loc, 'Column')) - 1
+        return row, col
+    raise ValueError
+
+
 class PipelineGenerator(object):
     """A wrapper for simple operations that keeps a list of all modules.
 
@@ -1112,3 +1126,21 @@ def update_pipeline(controller, pipelineInfo, new_recipe):
 
     return PipelineInformation(pipeline_version, new_recipe,
                                pipelineInfo.port_map, var_map)
+
+
+def try_execute(controller, pipelineInfo, recipe=None):
+    if recipe is None:
+        recipe = pipelineInfo.recipe
+
+    if all(
+            port.optional or recipe.variables.has_key(port.name)
+            for port in recipe.plot.ports):
+        controller.change_selected_version(pipelineInfo.version)
+        executePipelineWithProgress(
+                controller.current_pipeline,
+                "DAT recipe execution",
+                locator=controller.locator,
+                current_version=pipelineInfo.version)
+        return True
+    else:
+        return False

@@ -6,6 +6,7 @@ from PyQt4 import QtGui
 from dat.gui.window import MainWindow
 from dat.global_data import GlobalManager
 from dat.vistrail_data import VistrailManager
+from dat import vistrails_interface
 
 from vistrails.core.application import (set_vistrails_application,
         VistrailsApplicationInterface)
@@ -186,6 +187,34 @@ class Application(NotificationDispatcher, VistrailsApplicationInterface):
         # Register the VistrailManager with the 'controller_changed'
         # notification
         VistrailManager.init()
+
+        self.register_notification(
+                'dat_controller_changed',
+                self._controller_changed)
+
+    def _controller_changed(self, controller, new=False):
+        if new:
+            vistraildata = VistrailManager(controller)
+            cells = dict()
+            for pipeline in vistraildata.all_pipelines:
+                try:
+                    row, col = vistrails_interface.get_pipeline_location(
+                            controller,
+                            pipeline)
+                except ValueError:
+                    continue
+                try:
+                    p = cells[(row, col)]
+                except KeyError:
+                    cells[(row, col)] = pipeline
+                else:
+                    if pipeline.version > p.version:
+                        # Select the latest version for a given cell
+                        cells[(row, col)] = pipeline
+
+            # Execute these pipelines
+            for pipeline in cells.itervalues():
+                vistrails_interface.try_execute(controller, pipeline)
 
     def try_quit(self):
         return self.builderWindow.quit()

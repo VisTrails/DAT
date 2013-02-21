@@ -31,8 +31,8 @@ class VariableDropEmptyCell(Overlay):
     known.
     """
 
-    def __init__(self, cellcontainer, mimeData):
-        Overlay.__init__(self, cellcontainer)
+    def __init__(self, cellcontainer, **kwargs):
+        Overlay.__init__(self, cellcontainer, **kwargs)
 
     def draw(self, qp):
         _ = translate(VariableDropEmptyCell)
@@ -58,17 +58,17 @@ class PlotDroppingOverlay(Overlay):
     Just provides feedback for the user.
     """
 
-    def __init__(self, cellcontainer, mimeData):
+    def __init__(self, cellcontainer, **kwargs):
         _ = translate(PlotDroppingOverlay)
 
-        Overlay.__init__(self, cellcontainer)
+        Overlay.__init__(self, cellcontainer, **kwargs)
 
         if cellcontainer._plot is None:
             text = _("Drop here to add a {plotname} to this cell")
         else:
             text = _("Drop here to replace this plot with a new {plotname}")
         self._text = text.format(
-                plotname=mimeData.plot.name)
+                plotname=kwargs['mimeData'].plot.name)
 
     def draw(self, qp):
         Overlay.draw(self, qp)

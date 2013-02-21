@@ -5,7 +5,7 @@ class Overlay(QtGui.QWidget):
     """Base class for the cell overlays.
     """
 
-    def __init__(self, cellcontainer, overlayed=True):
+    def __init__(self, cellcontainer, overlayed=True, **kwargs):
         QtGui.QWidget.__init__(self, cellcontainer)
         if overlayed:
             self.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents)

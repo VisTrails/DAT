@@ -1,6 +1,6 @@
 from PyQt4 import QtCore, QtGui
 
-from dat.gui import get_icon, translate
+from dat.gui import dragging_to_overlays, get_icon, translate
 
 
 class DraggableListWidget(QtGui.QListWidget):
@@ -37,7 +37,8 @@ class DraggableListWidget(QtGui.QListWidget):
 
             drag = QtGui.QDrag(self)
             drag.setMimeData(data)
-            drag.start(QtCore.Qt.CopyAction)
+            with dragging_to_overlays():
+                drag.start(QtCore.Qt.CopyAction)
 
 
 class AdvancedLineEdit(QtGui.QLineEdit):

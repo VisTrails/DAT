@@ -11,8 +11,6 @@ from dat.gui.overlays import PlotPromptOverlay, VariableDropEmptyCell, \
 
 from vistrails.core.application import get_vistrails_application
 from vistrails.packages.spreadsheet.spreadsheet_cell import QCellContainer
-from vistrails.packages.spreadsheet.spreadsheet_execute import \
-    executePipelineWithProgress
 
 class DATCellContainer(QCellContainer):
     """Cell container used in the spreadsheet.
@@ -29,6 +27,8 @@ class DATCellContainer(QCellContainer):
         app = get_vistrails_application()
         app.register_notification(
                 'dat_removed_variable', self._variable_removed)
+        app.register_notification(
+                'dragging_to_overlays', self._set_dragging)
         self._controller = app.get_controller()
 
         self._overlay = None
@@ -61,8 +61,22 @@ class DATCellContainer(QCellContainer):
         super(DATCellContainer, self).setCellInfo(cellInfo)
 
         if cellInfo is None: # We were removed from the spreadsheet
-            get_vistrails_application().unregister_notification(
+            app = get_vistrails_application()
+            app.unregister_notification(
                     'dat_removed_variable', self._variable_removed)
+            app.unregister_notification(
+                    'dragging_to_overlays', self._set_dragging)
+
+    def _set_dragging(self, dragging):
+        """This is a hack to avoid an issue with Qt's mouse event propagation.
+
+        If we don't set TransparentForMouseEvents on the overlay, when the drag
+        enters, the overlay will receive the mouse event and propagate it to
+        us. Thus it is on the call stack and we can't replace it with another
+        overlay... It would cause a segmentation fault on Mac OS.
+        """
+        self._overlay_scrollarea.setAttribute(
+                QtCore.Qt.WA_TransparentForMouseEvents, dragging)
 
     def _variable_removed(self, controller, varname, renamed_to=None):
         if controller != self._controller:
@@ -144,10 +158,10 @@ class DATCellContainer(QCellContainer):
         if overlay_class is None:
             # Default overlay
             if self.widget() is None and self._plot is not None:
-                self._set_overlay(VariableDroppingOverlay)
+                self._set_overlay(VariableDroppingOverlay, overlayed=False)
                 return
             elif self.widget() is None:
-                self._set_overlay(PlotPromptOverlay)
+                self._set_overlay(PlotPromptOverlay, overlayed=False)
                 return
 
         if self._overlay is not None:
@@ -179,7 +193,7 @@ class DATCellContainer(QCellContainer):
         if self._plot is None:
             # Shouldn't happen
             return
-        self._set_overlay(VariableDroppingOverlay, forced=True)
+        self._set_overlay(VariableDroppingOverlay, overlayed=False)
         self._hide_button.setVisible(True)
         self._hide_button.raise_()
 
@@ -294,16 +308,10 @@ class DATCellContainer(QCellContainer):
             mngr.created_pipeline(self.cellInfo, pipeline)
 
         # Execute the new pipeline if possible
-        if all(
-                port.optional or self._variables.has_key(port.name)
-                for port in self._plot.ports):
-            self._controller.change_selected_version(pipeline.version)
-            executePipelineWithProgress(
-                    self._controller.current_pipeline,
-                    "DAT recipe execution",
-                    locator=self._controller.locator,
-                    current_version=pipeline.version)
-        elif self.widget() is not None:
+        if not vistrails_interface.try_execute(
+                self._controller,
+                pipeline,
+                recipe) and self.widget() is not None:
             # Clear the cell
             self.cellInfo.tab.deleteCell(self.cellInfo.row,
                                          self.cellInfo.column)
