@@ -239,8 +239,6 @@ class Application(NotificationDispatcher, VistrailsApplicationInterface):
             for pipeline in cells.itervalues():
                 vistrails_interface.try_execute(controller, pipeline, sheetname)
 
-        # TODO-dat : remove a sheet when the controller is closed
-
     def _sheet_changed(self, tab):
         vistraildata = VistrailManager.from_spreadsheet_tab(tab)
         if vistraildata is not None:
