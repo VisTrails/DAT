@@ -433,7 +433,7 @@ class VistrailData(object):
 
         Returns None if nothing is found.
         """
-        if isinstance(param, int):
+        if isinstance(param, (int, long)):
             return self._version_to_pipeline.get(param, None)
         else:
             return self._cell_to_pipeline.get(param, None)

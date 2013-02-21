@@ -1118,7 +1118,8 @@ def try_execute(controller, pipelineInfo, sheetname, recipe=None):
             port.optional or recipe.variables.has_key(port.name)
             for port in recipe.plot.ports):
         # Create a copy of that pipeline so we can change it
-        pipeline = controller.vistrail.getPipeline(pipelineInfo.version)
+        controller.change_selected_version(pipelineInfo.version)
+        pipeline = controller.current_pipeline
         pipeline = copy.copy(pipeline)
 
         # Add the SheetReference to the pipeline
