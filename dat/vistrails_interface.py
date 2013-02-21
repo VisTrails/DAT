@@ -27,6 +27,7 @@ else:
     ]
 """
 
+import copy
 import importlib
 import inspect
 from itertools import izip
@@ -47,6 +48,7 @@ from vistrails.core.modules.module_registry import get_module_registry
 from vistrails.core.modules.sub_module import InputPort
 from vistrails.core.modules.utils import parse_descriptor_string
 from vistrails.core.modules.vistrails_module import Module
+from vistrails.core.vistrail.controller import VistrailController
 from vistrails.core.vistrail.location import Location
 from vistrails.gui.theme import CurrentTheme
 from vistrails.packages.spreadsheet.basic_widgets import CellLocation, \
@@ -925,16 +927,8 @@ def create_pipeline(controller, recipe, cell_info):
     cell_modules = find_modules_by_type(plot_pipeline,
                                         [SpreadsheetCell])
     if cell_modules:
-        # Add SheetReference and CellLocation modules if the plot
-        # subworkflow didn't contain them
-        sheet_module, new_sheet = _get_or_create_module(SheetReference)
+        # Add a CellLocation module if the plot subworkflow didn't contain one
         location_module, new_location = _get_or_create_module(CellLocation)
-
-        if new_sheet or new_location:
-            # Connect the SheetReference to the CellLocation
-            generator.connect_modules(
-                    sheet_module, 'self',
-                    location_module, 'SheetReference')
 
         if new_location:
             # Connect the CellLocation to the SpreadsheetCell
@@ -944,11 +938,7 @@ def create_pipeline(controller, recipe, cell_info):
                     cell_module, 'Location')
 
         if location_module:
-            tabwidget = cell_info.tab.tabWidget
-            sheetName = tabwidget.tabText(tabwidget.indexOf(cell_info.tab))
             row, col = cell_info.row, cell_info.column
-            generator.update_function(
-                    sheet_module, 'SheetName', [sheetName])
             generator.update_function(
                     location_module, 'Row', [row + 1])
             generator.update_function(
@@ -1120,16 +1110,62 @@ def update_pipeline(controller, pipelineInfo, new_recipe):
                                pipelineInfo.port_map, var_map)
 
 
-def try_execute(controller, pipelineInfo, recipe=None):
+def try_execute(controller, pipelineInfo, sheetname, recipe=None):
     if recipe is None:
         recipe = pipelineInfo.recipe
 
     if all(
             port.optional or recipe.variables.has_key(port.name)
             for port in recipe.plot.ports):
-        controller.change_selected_version(pipelineInfo.version)
+        # Create a copy of that pipeline so we can change it
+        pipeline = controller.vistrail.getPipeline(pipelineInfo.version)
+        pipeline = copy.copy(pipeline)
+
+        # Add the SheetReference to the pipeline
+        modules = find_modules_by_type(pipeline, [CellLocation])
+
+        # Hack copied from spreadsheet_execute
+        create_module = VistrailController.create_module_static
+        create_function = VistrailController.create_function_static
+        create_connection = VistrailController.create_connection_static
+        id_scope = pipeline.tmp_id
+        orig_getNewId = pipeline.tmp_id.__class__.getNewId
+        def getNewId(self, objType):
+            return -orig_getNewId(self, objType)
+        pipeline.tmp_id.__class__.getNewId = getNewId
+        try:
+            for module in modules:
+                # Remove all SheetReference connected to this CellLocation
+                conns_to_delete = []
+                for conn_id, conn in pipeline.connections.iteritems():
+                    if (conn.destinationId == module.id and
+                            pipeline.modules[conn.sourceId] is SheetReference):
+                        conns_to_delete.append(conn_id)
+                for conn_id in conns_to_delete:
+                    pipeline.delete_connection(conn_id)
+
+                # Add the SheetReference module
+                sheet_module = create_module(
+                        id_scope,
+                        'edu.utah.sci.vistrails.spreadsheet',
+                        'SheetReference')
+                sheet_name = create_function(id_scope, sheet_module,
+                                             'SheetName', [str(sheetname)])
+                sheet_module.add_function(sheet_name)
+
+                # Connect with the CellLocation
+                conn = create_connection(id_scope,
+                                         sheet_module, 'self',
+                                         module, 'SheetReference')
+
+                pipeline.add_module(sheet_module)
+                pipeline.add_connection(conn)
+        finally:
+            pipeline.tmp_id.__class__.getNewId = orig_getNewId
+
+        # Execute the new pipeline
         executePipelineWithProgress(
-                controller.current_pipeline,
+                pipeline,
                 "DAT recipe execution",
                 locator=controller.locator,
                 current_version=pipelineInfo.version)

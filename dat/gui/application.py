@@ -208,7 +208,7 @@ class Application(NotificationDispatcher, VistrailsApplicationInterface):
             vistraildata = VistrailManager(controller)
 
             # Create the spreadsheet for this project
-            vistraildata.spreadsheet_tab
+            spreadsheet_tab = vistraildata.spreadsheet_tab
 
             # Find the existing visualization pipelines in this vistrail
             cells = dict()
@@ -231,8 +231,12 @@ class Application(NotificationDispatcher, VistrailsApplicationInterface):
             # TODO-dat : resize spreadsheet
 
             # Execute these pipelines
+            tabWidget = spreadsheet_tab.tabWidget
+            sheetname = tabWidget.tabText(tabWidget.indexOf(spreadsheet_tab))
             for pipeline in cells.itervalues():
-                vistrails_interface.try_execute(controller, pipeline)
+                vistrails_interface.try_execute(controller, pipeline, sheetname)
+
+        # TODO-dat : remove a sheet when the controller is closed
 
     def _sheet_changed(self, tab):
         vistraildata = VistrailManager.from_spreadsheet_tab(tab)

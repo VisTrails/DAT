@@ -278,11 +278,11 @@ class DATCellContainer(QCellContainer):
         """Updates the recipe and execute the workflow if enough ports are set.
         """
         # Look this recipe up in the VistrailData
-        mngr = VistrailManager(self._controller)
+        vistraildata = VistrailManager(self._controller)
         recipe = DATRecipe(self._plot, self._variables)
 
         # Try to get an existing pipeline for this cell
-        pipeline = mngr.get_pipeline(self.cellInfo)
+        pipeline = vistraildata.get_pipeline(self.cellInfo)
 
         # No pipeline: build one
         if pipeline is None:
@@ -290,7 +290,7 @@ class DATCellContainer(QCellContainer):
                     self._controller,
                     recipe,
                     self.cellInfo)
-            mngr.created_pipeline(self.cellInfo, pipeline)
+            vistraildata.created_pipeline(self.cellInfo, pipeline)
 
         # Pipeline with a different content: update it
         elif pipeline.recipe != recipe:
@@ -306,12 +306,16 @@ class DATCellContainer(QCellContainer):
                         self._controller,
                         recipe,
                         self.cellInfo)
-            mngr.created_pipeline(self.cellInfo, pipeline)
+            vistraildata.created_pipeline(self.cellInfo, pipeline)
 
         # Execute the new pipeline if possible
+        spreadsheet_tab = vistraildata.spreadsheet_tab
+        tabWidget = spreadsheet_tab.tabWidget
+        sheetname = tabWidget.tabText(tabWidget.indexOf(spreadsheet_tab))
         if not vistrails_interface.try_execute(
                 self._controller,
                 pipeline,
+                sheetname,
                 recipe) and self.widget() is not None:
             # Clear the cell
             self.cellInfo.tab.deleteCell(self.cellInfo.row,
