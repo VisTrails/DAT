@@ -446,9 +446,13 @@ class VistrailManager(object):
         This is not done at module-import time to avoid complex import-order
         issues.
         """
-        get_vistrails_application().register_notification(
+        app = get_vistrails_application()
+        app.register_notification(
                 'controller_changed',
                 self.set_controller)
+        app.register_notification(
+                'controller_closed',
+                self.forget_controller)
         bw = get_vistrails_application().builderWindow
         self.set_controller(bw.get_current_controller())
 
@@ -493,5 +497,25 @@ class VistrailManager(object):
 
     def from_spreadsheet_tab(self, tab):
         return self._tabs.get(tab)
+
+    def forget_controller(self, controller):
+        """Removes the data for a specific controller.
+
+        Called when a controller is closed.
+        """
+        title = controller.name
+        if not title:
+            title = "Untitled{ext}".format(
+                    ext=vistrails_default_file_type())
+        try:
+            vistraildata = self._vistrails[controller]
+        except KeyError:
+            return
+        else:
+            # Remove the spreadsheet
+            spreadsheet_tab = vistraildata.spreadsheet_tab
+            spreadsheet_tab.tabWidget.deleteSheet(spreadsheet_tab)
+
+            del self._vistrails[controller]
 
 VistrailManager = VistrailManager()
