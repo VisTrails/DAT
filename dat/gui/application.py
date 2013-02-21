@@ -202,6 +202,9 @@ class Application(NotificationDispatcher, VistrailsApplicationInterface):
         self.register_notification(
                 'spreadsheet_sheet_changed',
                 self._sheet_changed)
+        self.register_notification(
+                'vistrail_saved',
+                self._vistrail_saved)
 
     def _controller_changed(self, controller, new=False):
         if new:
@@ -242,6 +245,12 @@ class Application(NotificationDispatcher, VistrailsApplicationInterface):
         vistraildata = VistrailManager.from_spreadsheet_tab(tab)
         if vistraildata is not None:
             pass # TODO-dat : select this view
+
+    def _vistrail_saved(self):
+        # The saved controller is not passed in the notification
+        # It should be the current one
+        controller = self.builderWindow.get_current_controller()
+        VistrailManager(controller).update_spreadsheet_tab()
 
     def try_quit(self):
         return self.builderWindow.quit()

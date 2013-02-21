@@ -256,12 +256,26 @@ class VistrailData(object):
                 if not title:
                     title = "Untitled{ext}".format(
                             ext=vistrails_default_file_type())
-                tabidx = tab_controller.addTabWidget( tab, title)
+                tabidx = tab_controller.addTabWidget(tab, title)
                 self._spreadsheet_tab = tab
                 VistrailManager._tabs[tab] = self
                 tab_controller.setCurrentIndex(tabidx)
         return self._spreadsheet_tab
     spreadsheet_tab = property(_get_spreadsheet_tab)
+
+    def update_spreadsheet_tab(self):
+        """Updates the title of the spreadsheet tab.
+
+        Called when a controller changes name.
+        """
+        tab = self.spreadsheet_tab
+        if tab is not None:
+            title = self._controller.name
+            if not title:
+                title = "Untitled{ext}".format(
+                        ext=vistrails_default_file_type())
+            tabWidget = tab.tabWidget
+            tabWidget.setTabText(tabWidget.indexOf(tab), title)
 
     def new_variable(self, varname, variable):
         """Register a new Variable with DAT.
