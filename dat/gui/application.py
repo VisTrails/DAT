@@ -231,7 +231,14 @@ class Application(NotificationDispatcher, VistrailsApplicationInterface):
                         # Select the latest version for a given cell
                         cells[(row, col)] = pipeline
 
-            # TODO-dat : resize spreadsheet
+            # Resize the spreadsheet
+            width, height = 2, 2
+            for row, col in cells.iterkeys():
+                if row >= height:
+                    height = row + 1
+                if col >= width:
+                    width = col + 1
+            spreadsheet_tab.setDimension(height, width)
 
             # Execute these pipelines
             tabWidget = spreadsheet_tab.tabWidget
