@@ -4,7 +4,7 @@ Created on Feb 5, 2013
 @author: benbu
 '''
 from PyQt4 import QtCore, QtGui
-from vistrails.gui.ports_pane import PortsList
+from vistrails.gui.ports_pane import PortsList, PortItem
 from dat.vistrail_data import VistrailManager
 from vistrails.core.modules.module_registry import get_module_registry,\
     ModuleRegistryException
@@ -110,13 +110,17 @@ class DefaultPlotConfigOverlay(PlotConfigOverlay):
                 self.connect(widget, QtCore.SIGNAL("stateChanged"),
                              self.stateChanged)
             else:
-                #use PortsList widget
-                widget = PortsList('input', self)
+                #use PortsList widget, only if module has ports
+                widget = DATPortsList(self)
                 widget.update_module(module)
-                widget.set_controller(cell._controller)
+                if len(widget.port_spec_items) > 0:
+                    widget.set_controller(cell._controller)
+                else:
+                    widget = None
             
             #add widget in new tab
-            self.tabWidget.addTab(widget, module.name)
+            if widget:
+                self.tabWidget.addTab(widget, module.name)
                 
     def stateChanged(self):
         pass
@@ -136,3 +140,35 @@ class DefaultPlotConfigOverlay(PlotConfigOverlay):
         
     def resetClicked(self):
         self.setup(self.cell, self.plot)
+        
+class DATPortItem(PortItem):
+
+    def build_item(self, port_spec, is_connected, is_optional, is_visible):
+        PortItem.build_item(self, port_spec, is_connected, is_optional, is_visible)
+        self.setIcon(0, PortItem.null_icon)
+        self.setIcon(1, PortItem.null_icon)    
+        
+class DATPortsList(PortsList):
+    """ Only input ports of constant type that aren't connected show up.
+    Visibility and linked columns are removed
+    """
+    def __init__(self, parent=None):
+        PortsList.__init__(self, "input", parent)
+        #self.setColumnCount(1)
+        
+    def include_port(self, port_spec):
+        """Determines whether or not a port should show up in this list.
+        """
+        connected = port_spec.name in self.module.connected_input_ports
+        constant = get_module_registry().is_method(port_spec) 
+        return not connected and constant
+    
+    def create_port_item(self, port_spec, is_connected, is_optional, 
+                 is_visible, parent=None):
+        """Creates the port item
+        """
+        return PortItem(port_spec, is_connected, is_optional, is_visible, parent)
+    
+    #overide visible_clicked to prevent changing this
+    def visible_clicked(self, item):
+        pass
