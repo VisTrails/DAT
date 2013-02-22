@@ -251,7 +251,7 @@ class Variable(object):
         outmod_id = outmod_id[0]
         return controller, root_version, outmod_id
 
-    def __init__(self, type=None):
+    def __init__(self, type):
         """Create a new variable.
 
         type should be resolvable to a VisTrails module type.

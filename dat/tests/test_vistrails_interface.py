@@ -28,6 +28,9 @@ class Test_vistrails_interface(unittest.TestCase):
         desc_String = reg.get_descriptor(String)
         desc_HTTPFile = reg.get_descriptor(HTTPFile)
 
+        self.assertRaises(
+                TypeError,
+                lambda: resolve_descriptor(42))
         self.assertEqual(
                 resolve_descriptor('edu.utah.sci.vistrails.http:HTTPFile'),
                 desc_HTTPFile)

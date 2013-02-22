@@ -12,10 +12,15 @@ from dat.vistrail_data import VistrailManager
 from dat import vistrails_interface
 
 from vistrails.core import get_vistrails_application
+from vistrails.core.db.locator import XMLFileLocator
 from vistrails.core.interpreter.default import get_default_interpreter
+import vistrails.core.modules.basic_modules as basic
 from vistrails.core.modules.sub_module import OutputPort
 from vistrails.core.packagemanager import get_package_manager, PackageManager
 from vistrails.core.utils import DummyView
+from dat.vistrails_interface import Variable
+import os
+import sys
 
 
 class Test_generation(unittest.TestCase):
@@ -136,3 +141,68 @@ class Test_generation(unittest.TestCase):
 
         call = (['Hello, world'], dict())
         self.assertEqual(result.calls, [call])
+
+
+class Test_variable_creation(unittest.TestCase):
+    def test_var_type(self):
+        a_var = Variable(type=basic.Float)
+        a_mod = a_var.add_module('edu.utah.sci.vistrails.basic:String')
+        with self.assertRaises(ValueError):
+            a_var.select_output_port(a_mod, 'value')
+
+        b_var = Variable(type=basic.String)
+        b_mod = b_var.add_module('edu.utah.sci.vistrails.basic:String')
+        with self.assertRaises(ValueError):
+            b_var.select_output_port(b_mod, 'nonexistent')
+        b_mod2 = b_var.add_module('edu.utah.sci.vistrails.basic:Integer')
+        with self.assertRaises(ValueError):
+            b_var.select_output_port(a_mod, 'value_as_string')
+        b_var.select_output_port(b_mod, 'value')
+        with self.assertRaises(ValueError):
+            b_var.select_output_port(b_mod2, 'value_as_string')
+
+    def test_mod_addfunction(self):
+        var = Variable(type=basic.Float)
+        mod = var.add_module('edu.utah.sci.vistrails.basic:Float')
+        mod.add_function('value', basic.Float, 42.0)
+        mod.add_function('value', [basic.Float], [16.8])
+        with self.assertRaises(ValueError) as cm:
+            mod.add_function('value', [basic.Integer], [42.0])
+        self.assertTrue("incompatible types" in cm.exception.args[0])
+        with self.assertRaises(ValueError) as cm:
+            mod.add_function('value', [basic.Float], [])
+        self.assertTrue("different number" in cm.exception.args[0])
+        with self.assertRaises(ValueError) as cm:
+            mod.add_function('value', [basic.Float, basic.Float], [13.8, 28.2])
+        self.assertTrue("different number" in cm.exception.args[0])
+        with self.assertRaises(ValueError) as cm:
+            mod.add_function('nonexistent', [basic.Float], [18.0])
+        self.assertTrue("non-existent input port" in cm.exception.args[0])
+
+    def test_connect_outputport(self):
+        from vistrails.core.modules.module_registry import PortsIncompatible
+        var = Variable(type=basic.String)
+        mod1 = var.add_module('edu.utah.sci.vistrails.basic:Float')
+        mod2 = var.add_module('edu.utah.sci.vistrails.basic:String')
+        with self.assertRaises(PortsIncompatible):
+            mod1.connect_outputport_to('value', mod2, 'value')
+        var2 = Variable(type=basic.String)
+        mod3 = var2.add_module('edu.utah.sci.vistrails.basic:Float')
+        with self.assertRaises(ValueError) as cm:
+            mod1.connect_outputport_to('value', mod3, 'value')
+        self.assertTrue("same Variable" in cm.exception.args[0])
+
+    def test_get_var_type(self):
+        locator = XMLFileLocator(os.path.join(
+                os.path.dirname(__file__),
+                'variables.xml'))
+        vistrail = locator.load()
+
+        desc_var1 = Variable.read_type(vistrail.getPipeline('dat-var-var1'))
+        self.assertEqual(
+                desc_var1.module,
+                basic.Float)
+        desc_var2 = Variable.read_type(vistrail.getPipeline('dat-var-var2'))
+        self.assertEqual(
+                desc_var2.module,
+                basic.String)
