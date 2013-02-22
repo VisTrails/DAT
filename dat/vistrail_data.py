@@ -256,10 +256,9 @@ class VistrailData(object):
                 if not title:
                     title = "Untitled{ext}".format(
                             ext=vistrails_default_file_type())
-                tabidx = tab_controller.addTabWidget(tab, title)
+                tab_controller.addTabWidget(tab, title)
                 self._spreadsheet_tab = tab
                 VistrailManager._tabs[tab] = self
-                tab_controller.setCurrentIndex(tabidx)
         return self._spreadsheet_tab
     spreadsheet_tab = property(_get_spreadsheet_tab)
 
