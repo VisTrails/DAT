@@ -15,17 +15,20 @@ MIMETYPE_DAT_PLOT = 'X-Vistrails/DATPlot'
 class DATRecipe(object):
     """Just a simple class holding a Plot and its parameters.
     """
-    def __init__(self, plot, variables):
+    def __init__(self, plot, variables, constants):
         self.plot = plot
         self.variables = dict(variables)
+        self.constants = constants
         self._hash = hash((
                 self.plot,
-                tuple((k, v.name) for k, v in self.variables.iteritems())))
+                frozenset(self.variables.iteritems()),
+                frozenset(self.constants.iteritems())))
 
     def __eq__(self, other):
         if not isinstance(other, DATRecipe):
             raise TypeError
-        return (self.plot, self.variables) == (other.plot, other.variables)
+        return (self.plot, self.variables, self.constants) == (
+                other.plot, other.variables, other.constants)
     
     def __ne__(self, other):
         return not self.__eq__(other)

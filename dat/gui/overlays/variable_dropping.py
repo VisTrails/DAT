@@ -5,45 +5,48 @@ from dat.gui.overlays import Overlay
 from dat import MIMETYPE_DAT_VARIABLE
 from dat.gui import get_icon
 from dat.vistrail_data import VistrailManager
+from dat.vistrails_interface import DataPort
+
+from vistrails.gui.ports_pane import Parameter as GuiParameter
 
 
 stylesheet = """
-Parameter {
+DataParameter {
     background-color: #DDD;
     padding: 3px;
 }
 
-Parameter[assigned="yes"] {
+DataParameter[assigned="yes"] {
     border: 2px solid black;
 }
 
-Parameter[assigned="yes"]:hover {
+DataParameter[assigned="yes"]:hover {
     background-color: #BBB;
 }
 
-Parameter[assigned="no"] {
+DataParameter[assigned="no"] {
     border: 1px dotted black;
     font-style: oblique;
 }
 
-Parameter[targeted="yes"] {
+DataParameter[targeted="yes"] {
     background-color: rgb(187, 204, 255);
     border: 2px solid rgb(102, 153, 255);
     padding: 2px;
 }
 
-Parameter[targeted="no"][compatible="yes"] {
+DataParameter[targeted="no"][compatible="yes"] {
     background-color: rgb(187, 204, 255);
 }
 
-Parameter[targeted="no"][compatible="no"] {
+DataParameter[targeted="no"][compatible="no"] {
     background-color: rgb(255, 170, 170);
 }
 
 """
 
 
-class Parameter(QtGui.QPushButton):
+class DataParameter(QtGui.QPushButton):
     def __init__(self, overlay, port_name, variable):
         QtGui.QPushButton.__init__(self)
 
@@ -63,7 +66,7 @@ class Parameter(QtGui.QPushButton):
     def update(self):
         if self._variable is not None:
             self.setText(self._variable.name)
-        super(Parameter, self).update()
+        super(DataParameter, self).update()
 
 
 class VariableDroppingOverlay(Overlay):
@@ -113,21 +116,25 @@ class VariableDroppingOverlay(Overlay):
 
         self._parameters = []
         for i, port in enumerate(self._cell._plot.ports):
-            # Style changes according to the compatibility of the port with the
-            # variable being dragged
-            if self._compatible_ports:
-                if self._compatible_ports[i]:
-                    compatible = 'yes'
+            if isinstance(port, DataPort):
+                # Style changes according to the compatibility of the port with
+                # the variable being dragged
+                if self._compatible_ports:
+                    if self._compatible_ports[i]:
+                        compatible = 'yes'
+                    else:
+                        compatible = 'no'
                 else:
-                    compatible = 'no'
-            else:
-                compatible = ''
-            variable = self._cell._variables.get(port.name)
-            targeted = self._cell._parameter_hovered == i and 'yes' or 'no'
-            param = Parameter(self, port.name, variable)
-            param.setProperty('compatible', compatible)
-            param.setProperty('optional', port.optional)
-            param.setProperty('targeted', targeted)
+                    compatible = ''
+                variable = self._cell._variables.get(port.name)
+                targeted = self._cell._parameter_hovered == i and 'yes' or 'no'
+                param = DataParameter(self, port.name, variable)
+                param.setProperty('compatible', compatible)
+                param.setProperty('optional', port.optional)
+                param.setProperty('targeted', targeted)
+            else: # isinstance(port, InputPort):
+                value = self._cell._constants.get(port.name)
+                param = port.widget_class(GuiParameter(port.type))
             label = QtGui.QLabel(port.name)
             label.setObjectName('port_name')
             label.setProperty('compatible', compatible)

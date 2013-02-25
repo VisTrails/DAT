@@ -28,6 +28,7 @@ from vistrails.core.modules.vistrails_module import Module
 from vistrails.core.vistrail.controller import VistrailController
 from vistrails.core.vistrail.location import Location
 from vistrails.gui.theme import CurrentTheme
+from vistrails.gui.modules import get_widget_class
 from vistrails.packages.spreadsheet.basic_widgets import CellLocation, \
     SpreadsheetCell, SheetReference
 from vistrails.packages.spreadsheet.spreadsheet_execute import \
@@ -577,6 +578,11 @@ class Plot(object):
             raise ValueError("Declaration of plot '%s' mentions missing "
                              "InputPort module '%s'" % (
                              self.name, missingports[0]))
+
+        for port in self.ports:
+            if isinstance(port, ConstantPort):
+                module = port.type.module
+                port.widget_class = get_widget_class(module)
 
 
 def get_function(module, function_name):

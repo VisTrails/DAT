@@ -22,6 +22,7 @@ class DATCellContainer(QCellContainer):
     """
     def __init__(self, cellInfo=None, widget=None, parent=None):
         self._variables = dict() # param name -> Variable
+        self._constants = dict() # param name -> value: str
         self._plot = None # dat.vistrails_interface:Plot
 
         app = get_vistrails_application()
@@ -95,6 +96,7 @@ class DATCellContainer(QCellContainer):
                     # exist anymore
                     self._plot = None
                     self._variables = dict()
+                    self._constants = dict()
                 else:
                     # If this cell didn't already contain a result, we just
                     # remove the associated parameters
@@ -149,9 +151,11 @@ class DATCellContainer(QCellContainer):
         if pipeline is not None:
             self._plot = pipeline.recipe.plot
             self._variables = dict(pipeline.recipe.variables)
+            self._constants = dict(pipeline.recipe.constants)
         else:
             self._plot = None
             self._variables = dict()
+            self._constants = dict()
         self._set_overlay(None)
 
     def _set_overlay(self, overlay_class, **kwargs):
@@ -278,7 +282,7 @@ class DATCellContainer(QCellContainer):
         """
         # Look this recipe up in the VistrailData
         vistraildata = VistrailManager(self._controller)
-        recipe = DATRecipe(self._plot, self._variables)
+        recipe = DATRecipe(self._plot, self._variables, self._constants)
 
         # Try to get an existing pipeline for this cell
         pipeline = vistraildata.get_pipeline(self.cellInfo)

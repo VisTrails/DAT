@@ -78,7 +78,7 @@ class VistrailData(object):
             for assignment in value[1:]:
                 param, varname = assignment.split('=') # Might raise ValueError
                 variables[param] = vistraildata.get_variable(varname)
-            return DATRecipe(plot, variables)
+            return DATRecipe(plot, variables) # TODO-dat : read constants
         except (KeyError, ValueError):
             return None
 
