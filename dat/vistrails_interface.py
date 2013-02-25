@@ -20,6 +20,7 @@ from vistrails.core.db.action import create_action
 from vistrails.core.db.locator import XMLFileLocator
 from vistrails.core.layout.workflow_layout import Pipeline as LayoutPipeline, \
     WorkflowLayout
+from vistrails.core.modules.basic_modules import Constant
 from vistrails.core.modules.module_registry import get_module_registry
 from vistrails.core.modules.sub_module import InputPort
 from vistrails.core.modules.utils import parse_descriptor_string
@@ -497,6 +498,10 @@ class Plot(object):
     
         Finds each InputPort module and gets the parameter name, optional flag
         and type from its 'name', 'optional' and 'spec' input functions.
+
+        If the module type is a subclass of Constant, we will assume the port
+        is to be set via direct input (ConstantPort), else by dragging a
+        variable (DataPort).
         """
         locator = XMLFileLocator(self.subworkflow)
         vistrail = locator.load()
@@ -544,10 +549,16 @@ class Plot(object):
                 if not optional:
                     optional = False
                 type = resolve_descriptor(spec, package_identifier)
-                self.ports.append(Port(
-                        name=name,
-                        type=type,
-                        optional=optional))
+                if issubclass(type.module, Constant):
+                    self.ports.append(InputPort(
+                            name=name,
+                            type=type,
+                            optional=optional))
+                else:
+                    self.ports.append(DataPort(
+                            name=name,
+                            type=type,
+                            optional=optional))
             else:
                 currentspec = (currentport.type.identifier +
                                ':' +
