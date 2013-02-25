@@ -33,10 +33,10 @@ else:
 
 from dat.gui import translate
 
-from dat.vistrails_interface import Plot, Port, Variable, \
+from dat.vistrails_interface import Plot, DataPort, ConstantPort, Variable, \
     CustomVariableLoader, FileVariableLoader
 
 
-__all__ = ['Plot', 'Port', 'Variable',
+__all__ = ['Plot', 'DataPort', 'ConstantPort', 'Variable',
            'CustomVariableLoader', 'FileVariableLoader',
            'translate']

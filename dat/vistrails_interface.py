@@ -429,11 +429,30 @@ class Port(object):
 
     These are optionally passed to Plot's constructor by a VisTrails package,
     else they will be built from the InputPort modules found in the pipeline.
+
+    'accepts' can be either DATA, which means the port should receive a
+    variable through drag and drop, or INPUT, which means the port will be
+    settable through VisTrails's constant widgets. In the later case, the
+    module type should be a constant.
     """
-    def __init__(self, name, type=None, optional=False):
+    DATA = 1
+    INPUT = 2
+
+    def __init__(self, name, type=None, optional=False, accepts=DATA):
         self.name = name
         self.type = type
         self.optional = optional
+        self.accepts = accepts
+
+
+class DataPort(Port):
+    def __init__(self, *args, **kwargs):
+        Port.__init__(self, *args, accepts=Port.DATA, **kwargs)
+
+
+class ConstantPort(Port):
+    def __init__(self, *args, **kwargs):
+        Port.__init__(self, *args, accepts=Port.INPUT, **kwargs)
 
 
 class Plot(object):
