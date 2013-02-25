@@ -1,30 +1,6 @@
-"""Interface with VisTrails packages.
+"""Interface with VisTrails.
 
-This is the only module that VisTrails packages need to import. It provides
-the classes and methods necessary to define plot types and variable loaders.
-
-You might want to maintain compatibility with VisTrails, like so:
-try:
-    import dat.vistrails_interface
-    from dat.gui import translate # Optional; you might want to use it if you
-        # want to internationalize your strings
-except ImportError:
-    pass # This happens if the package was imported from VisTrails, not from
-        # DAT
-        # In that case, don't define plots or variable loaders.
-else:
-    _ = translate('packages.MyPackage') # Create a translator (optional)
-
-    _plots = [
-        Plot(...),
-    ]
-
-    class MyLoader(dat.vistrails_interface.CustomVariableLoader):
-        ...
-
-    _variable_loaders = [
-        MyLoader: _("My new loader"),
-    ]
+This module contains most of the code that deals with VisTrails pipelines.
 """
 
 import copy
@@ -487,9 +463,9 @@ class Plot(object):
         # Build plot from a subworkflow
         self.subworkflow = kwargs['subworkflow'].format(package_dir=package)
         self.ports = kwargs.get('ports', [])
-        
+
         # Set the plot config widget, ensuring correct parent class
-        from dat.gui.overlays import Overlay, PlotConfigOverlay, \
+        from dat.gui.overlays import PlotConfigOverlay, \
             DefaultPlotConfigOverlay
         self.configWidget = kwargs.get('configWidget', DefaultPlotConfigOverlay)
         if not issubclass(self.configWidget, PlotConfigOverlay): 
