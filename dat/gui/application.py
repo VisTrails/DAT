@@ -145,7 +145,7 @@ class NotificationDispatcher(object):
                 pass
 
 
-class Application(NotificationDispatcher, VistrailsApplicationInterface):
+class Application(QtGui.QApplication, NotificationDispatcher, VistrailsApplicationInterface):
     """Represents the application.
 
     Replaces VisTrails's application, i.e. gets returned by
@@ -153,7 +153,8 @@ class Application(NotificationDispatcher, VistrailsApplicationInterface):
 
     Initializes DAT metadata and VisTrails.
     """
-    def __init__(self):
+    def __init__(self, args):
+        QtGui.QApplication.__init__(self, args)
         NotificationDispatcher.__init__(self)
         # There are lots of issues with how the notifications are used
         # Although create_notification() exists, it doesn't seem to be used in
@@ -326,8 +327,6 @@ def start():
 
     Creates an application and a window and enters Qt's main loop.
     """
-    app = QtGui.QApplication(sys.argv)
-
     try:
         vistrails.core.requirements.check_all_vistrails_requirements()
     except vistrails.core.requirements.MissingRequirement, e:
@@ -339,5 +338,5 @@ def start():
                         .format(required=e.requirement))
         return 1
 
-    Application()
+    app = Application(sys.argv)
     return app.exec_()
