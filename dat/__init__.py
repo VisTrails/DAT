@@ -49,8 +49,10 @@ class PipelineInformation(object):
     def __init__(self, version, recipe, port_map=None, var_map=None):
         self.version = version
         self.recipe = recipe
-        self.port_map = dict(port_map)
-        self.var_map = dict(var_map) # {param: [conn_id: int]}
+        # {param: [(mod_id, port_name)]}
+        self.port_map = dict(port_map) if port_map is not None else None
+        # {param: [conn_id: int]}
+        self.var_map = dict(var_map) if var_map is not None else None
 
 
 class BaseVariableLoader(object):
