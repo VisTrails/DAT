@@ -121,7 +121,8 @@ class Test_generation(unittest.TestCase):
                 dict(
                         param1=vistraildata.get_variable('var1'),
                         param2=vistraildata.get_variable('var2')),
-                dict()) # TODO-dat : test constants
+                dict(
+                        param3="!"))
 
         pipelineInfo = vistrails_interface.create_pipeline(
                 controller,
@@ -140,7 +141,7 @@ class Test_generation(unittest.TestCase):
                 locator=controller.locator,
                 current_version=pipelineInfo.version)
 
-        call = (['Hello, world'], dict())
+        call = (['Hello, world!'], dict())
         self.assertEqual(result.calls, [call])
 
 

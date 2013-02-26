@@ -1025,9 +1025,10 @@ def create_pipeline(controller, recipe, cell_info):
                 plot_ports)
 
     # Add the constants
+    name_to_port = {port.name: port for port in recipe.plot.ports}
     for param, constant in recipe.constants.iteritems():
         plot_ports = plot_params.get(param, [])
-        desc = recipe.plot.ports[param].type
+        desc = name_to_port[param].type
         var_map[param] = add_constant_module(
                 generator,
                 desc,
