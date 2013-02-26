@@ -120,7 +120,8 @@ class Test_generation(unittest.TestCase):
                 pkg_test_plots.concat_plot,
                 dict(
                         param1=vistraildata.get_variable('var1'),
-                        param2=vistraildata.get_variable('var2')))
+                        param2=vistraildata.get_variable('var2')),
+                dict()) # TODO-dat : test constants
 
         pipelineInfo = vistrails_interface.create_pipeline(
                 controller,

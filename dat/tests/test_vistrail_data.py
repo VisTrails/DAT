@@ -18,14 +18,25 @@ class Test_VistrailData(unittest.TestCase):
                 plot=FakeObj(name='My Plot'),
                 variables=odict(
                         ('param1', FakeObj(name='var1')),
-                        ('param2', FakeObj(name='var2'))))
+                        ('param3', FakeObj(name='var2'))),
+                constants=odict(
+                        ('param2', 'test\'"'),
+                        ('param4', 'a;b=c,d'),
+                        ('param5', 'r\xC3\xA9mi'),
+                        ))
         self.assertEqual(
                 VistrailData._build_annotation_recipe(recipe1),
-                'My Plot;param1=var1;param2=var2')
+                'My Plot;'
+                'param1=v:var1;'
+                'param3=v:var2;'
+                'param2=c:test%27%22;'
+                'param4=c:a%3Bb%3Dc%2Cd;'
+                'param5=c:r%C3%A9mi')
 
         recipe2 = FakeObj(
                 plot=FakeObj(name='My Plot'),
-                variables=dict())
+                variables=dict(),
+                constants=dict())
         self.assertEqual(
                 VistrailData._build_annotation_recipe(recipe2),
                 'My Plot')
@@ -52,14 +63,25 @@ class Test_VistrailData(unittest.TestCase):
         try:
             recipe = VistrailData._read_annotation_recipe(
                     vistraildata,
-                    'My Plot;param1=var1;param2=var2')
+                    'My Plot;'
+                    'param1=v:var1;'
+                    'param3=v:var2;'
+                    'param2=c:test%27%22;'
+                    'param4=c:a%3Bb%3Dc%2Cd;'
+                    'param5=c:r%C3%A9mi')
             self.assertIs(recipe.plot, plot)
             self.assertEqual(
                     recipe.variables,
-                    dict(param1=FakeVariable(1), param2=FakeVariable(2)))
+                    dict(param1=FakeVariable(1), param3=FakeVariable(2)))
             self.assertEqual(
                     get_variable.calls,
                     [(['var1'], dict()), (['var2'], dict())])
+            self.assertEqual(
+                    recipe.constants,
+                    dict(
+                            param2='test\'"',
+                            param4='a;b=c,d',
+                            param5='r\xC3\xA9mi'))
         finally:
             # Restore GlobalManager
             GlobalManager.get_plot = old_get_plot
