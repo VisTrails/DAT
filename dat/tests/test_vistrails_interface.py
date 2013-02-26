@@ -125,7 +125,7 @@ class Test_vistrails_interface(unittest.TestCase):
                     connection_filter=lambda c: c.source.moduleId not in (
                             modules[5].id, modules[9].id))
         test_delete([3, 6, 7], [2, 4],
-                    depth=1)
+                    depth=2)
 
     def test_find_modules_by_type(self):
         """Tests the find_modules_by_type() function.
