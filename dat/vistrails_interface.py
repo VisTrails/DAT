@@ -621,14 +621,14 @@ def delete_linked(controller, modules, operations,
 
     visited_connections = set()
 
-    if isinstance(modules, (list, tuple)):
+    if isinstance(modules, (list, tuple, set)):
         open_list = modules
     else:
         open_list = [modules]
     to_delete = set(module for module in open_list)
 
     # At each step
-    while depth >= 0 and open_list:
+    while depth > 0 and open_list:
         new_open_list = []
         # For each module considered
         for module in open_list:
@@ -745,6 +745,9 @@ class PipelineGenerator(object):
                 for c in self.all_connections
                 if (c.source.moduleId not in deleted_ids and
                         c.destination.moduleId not in deleted_ids))
+
+    def delete_modules(self, modules):
+        self.delete_linked(modules, depth=0)
 
     def perform_action(self):
         """Layout all the modules and create the action.
