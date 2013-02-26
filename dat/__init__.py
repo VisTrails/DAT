@@ -18,7 +18,7 @@ class DATRecipe(object):
     def __init__(self, plot, variables, constants):
         self.plot = plot
         self.variables = dict(variables)
-        self.constants = constants
+        self.constants = dict(constants)
         self._hash = hash((
                 self.plot,
                 frozenset(self.variables.iteritems()),
@@ -49,8 +49,8 @@ class PipelineInformation(object):
     def __init__(self, version, recipe, port_map=None, var_map=None):
         self.version = version
         self.recipe = recipe
-        self.port_map = port_map
-        self.var_map = var_map # {param: [conn_id: int]}
+        self.port_map = dict(port_map)
+        self.var_map = dict(var_map) # {param: [conn_id: int]}
 
 
 class BaseVariableLoader(object):

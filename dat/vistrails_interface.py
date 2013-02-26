@@ -901,6 +901,22 @@ def add_variable_subworkflow(generator, varname, plot_ports):
     return connection_ids
 
 
+def add_constant_module(generator, descriptor, constant, plot_ports):
+    module = generator.controller.create_module_from_descriptor(descriptor)
+    generator.add_module(module)
+    generator.update_function(module, 'value', [constant])
+
+    connection_ids = []
+    for output_mod, output_port in plot_ports:
+        connection_ids.append(generator.connect_modules(
+                module,
+                'value',
+                output_mod,
+                output_port))
+
+    return connection_ids
+
+
 def create_pipeline(controller, recipe, cell_info):
     """Create a pipeline from a recipe and return its information.
     """
@@ -1003,10 +1019,19 @@ def create_pipeline(controller, recipe, cell_info):
     # Add the Variable subworkflows, but 'inline' them
     for param, variable in recipe.variables.iteritems():
         plot_ports = plot_params.get(param, [])
-
         var_map[param] = add_variable_subworkflow(
                 generator,
                 variable.name,
+                plot_ports)
+
+    # Add the constants
+    for param, constant in recipe.constants.iteritems():
+        plot_ports = plot_params.get(param, [])
+        desc = recipe.plot.ports[param].type
+        var_map[param] = add_constant_module(
+                generator,
+                desc,
+                constant,
                 plot_ports)
 
     pipeline_version = generator.perform_action()
@@ -1060,7 +1085,7 @@ def update_pipeline(controller, pipelineInfo, new_recipe):
     removed_params = []
     updated_params = []
 
-    # Check parameters
+    # Check variables
     for param in (set(old_recipe.variables.keys()) |
                   set(new_recipe.variables.keys())):
         old_var = old_recipe.variables.get(param)
@@ -1079,11 +1104,11 @@ def update_pipeline(controller, pipelineInfo, new_recipe):
                            for c in pipelineInfo.var_map.get(param, [])]
             if not connections:
                 raise UpdateError("Couldn't find the connections for "
-                                  "parameter '%s' in update data" % param)
+                                  "variable param '%s' in update data" % param)
 
             # Remove the variable subworkflow
-            modules = [pipeline.modules[c.source.moduleId]
-                       for c in connections]
+            modules = set(pipeline.modules[c.source.moduleId]
+                          for c in connections)
             generator.delete_linked(
                     modules,
                     connection_filter=lambda c: c not in connections)
@@ -1102,6 +1127,56 @@ def update_pipeline(controller, pipelineInfo, new_recipe):
         elif old_var is not None:
             removed_params.append(param)
         else: # new_var is not None
+            added_params.append(param)
+
+    name_to_port = {port.name: port for port in new_recipe.plot.ports}
+
+    # Check constants
+    for param in (set(old_recipe.constants.keys()) |
+                  set(new_recipe.constants.keys())):
+        old_constant = old_recipe.constants.get(param)
+        new_constant = new_recipe.constants.get(param)
+
+        if old_constant == new_constant:
+            try:
+                var_map[param] = pipelineInfo.var_map[param]
+            except KeyError:
+                pass
+            continue
+
+        # If the constant existed (but was removed or changed)
+        if old_constant is not None:
+            connections = [pipeline.connections[c]
+                           for c in pipelineInfo.var_map.get(param, [])]
+            if not connections:
+                raise UpdateError("Couldn't find the connections for "
+                                  "constant param '%s' in update data" % param)
+
+            # Remove the constant module
+            modules = set(pipeline.modules[c.source.moduleId]
+                          for c in connections)
+            if len(modules) != 1:
+                raise UpdateError("%d modules were found for the "
+                                  "constant param '%s'" % (
+                                  len(modules), param))
+            generator.delete_modules(modules)
+
+        # If the constant exists (but didn't exist or was different)
+        if new_constant is not None:
+            plot_ports = [(pipeline.modules[mod_id], port)
+                          for mod_id, port in pipelineInfo.port_map[param]]
+            desc = name_to_port[param].type
+            var_map[param] = add_constant_module(
+                    generator,
+                    desc,
+                    new_constant,
+                    plot_ports)
+
+        if old_constant is not None and new_constant is not None:
+            updated_params.append(param)
+        elif old_constant is not None:
+            removed_params.append(param)
+        else: # new_constant is not None
             added_params.append(param)
 
     pipeline_version = generator.perform_action()
@@ -1138,7 +1213,11 @@ def try_execute(controller, pipelineInfo, sheetname, recipe=None):
         recipe = pipelineInfo.recipe
 
     if all(
-            port.optional or recipe.variables.has_key(port.name)
+            port.optional or (
+                    port.accepts == Port.DATA and
+                    recipe.variables.has_key(port.name)) or (
+                    port.accepts == Port.INPUT and
+                    recipe.constants.has_key(port.name))
             for port in recipe.plot.ports):
         # Create a copy of that pipeline so we can change it
         controller.change_selected_version(pipelineInfo.version)
