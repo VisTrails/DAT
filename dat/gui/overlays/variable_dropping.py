@@ -115,6 +115,7 @@ class VariableDroppingOverlay(Overlay):
         ports_layout = QtGui.QFormLayout()
 
         self._parameters = []
+        self._constant_widgets = dict() # widget -> port
         for i, port in enumerate(self._cell._plot.ports):
             if isinstance(port, DataPort):
                 # Style changes according to the compatibility of the port with
@@ -133,8 +134,15 @@ class VariableDroppingOverlay(Overlay):
                 param.setProperty('optional', port.optional)
                 param.setProperty('targeted', targeted)
             else: # isinstance(port, InputPort):
-                value = self._cell._constants.get(port.name)
-                param = port.widget_class(GuiParameter(port.type))
+                gp = GuiParameter(port.type)
+                try:
+                    gp.strValue = self._cell._constants[port.name]
+                except KeyError:
+                    pass
+                param = port.widget_class(gp)
+                self._constant_widgets[param] = port.name
+                self.connect(param, QtCore.SIGNAL('contentsChanged'),
+                             self.constant_changed)
             label = QtGui.QLabel(port.name)
             label.setObjectName('port_name')
             label.setProperty('compatible', compatible)
@@ -200,7 +208,11 @@ class VariableDroppingOverlay(Overlay):
 
     def remove_parameter(self, port_name):
         self._cell.remove_parameter(port_name)
-        
+
+    def constant_changed(self, args):
+        widget, contents = args # params are packed as a tuple for some reason
+        self._cell.change_constant(self._constant_widgets[widget], contents)
+
     def mouseReleaseEvent(self, event):
         metrics = self.fontMetrics()
         height = metrics.height()

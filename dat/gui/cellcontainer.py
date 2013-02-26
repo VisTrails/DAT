@@ -277,6 +277,15 @@ class DATCellContainer(QCellContainer):
             self.update_pipeline()
             self._set_overlay(None)
 
+    def change_constant(self, port_name, value):
+        if self._constants.get(port_name) == value:
+            return
+        if value is None:
+            del self._constants[port_name]
+        else:
+            self._constants[port_name] = value
+        self.update_pipeline()
+
     def update_pipeline(self):
         """Updates the recipe and execute the workflow if enough ports are set.
         """
