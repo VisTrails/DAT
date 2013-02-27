@@ -20,6 +20,7 @@ from vistrails.core.db.action import create_action
 from vistrails.core.db.locator import XMLFileLocator
 from vistrails.core.layout.workflow_layout import Pipeline as LayoutPipeline, \
     WorkflowLayout
+from vistrails.core.modules.basic_modules import Constant
 from vistrails.core.modules.module_registry import get_module_registry
 from vistrails.core.modules.sub_module import InputPort
 from vistrails.core.modules.utils import parse_descriptor_string
@@ -27,6 +28,7 @@ from vistrails.core.modules.vistrails_module import Module
 from vistrails.core.vistrail.controller import VistrailController
 from vistrails.core.vistrail.location import Location
 from vistrails.gui.theme import CurrentTheme
+from vistrails.gui.modules import get_widget_class
 from vistrails.packages.spreadsheet.basic_widgets import CellLocation, \
     SpreadsheetCell, SheetReference
 from vistrails.packages.spreadsheet.spreadsheet_execute import \
@@ -429,11 +431,30 @@ class Port(object):
 
     These are optionally passed to Plot's constructor by a VisTrails package,
     else they will be built from the InputPort modules found in the pipeline.
+
+    'accepts' can be either DATA, which means the port should receive a
+    variable through drag and drop, or INPUT, which means the port will be
+    settable through VisTrails's constant widgets. In the later case, the
+    module type should be a constant.
     """
-    def __init__(self, name, type=None, optional=False):
+    DATA = 1
+    INPUT = 2
+
+    def __init__(self, name, type=None, optional=False, accepts=DATA):
         self.name = name
         self.type = type
         self.optional = optional
+        self.accepts = accepts
+
+
+class DataPort(Port):
+    def __init__(self, *args, **kwargs):
+        Port.__init__(self, *args, accepts=Port.DATA, **kwargs)
+
+
+class ConstantPort(Port):
+    def __init__(self, *args, **kwargs):
+        Port.__init__(self, *args, accepts=Port.INPUT, **kwargs)
 
 
 class Plot(object):
@@ -478,6 +499,10 @@ class Plot(object):
     
         Finds each InputPort module and gets the parameter name, optional flag
         and type from its 'name', 'optional' and 'spec' input functions.
+
+        If the module type is a subclass of Constant, we will assume the port
+        is to be set via direct input (ConstantPort), else by dragging a
+        variable (DataPort).
         """
         locator = XMLFileLocator(self.subworkflow)
         vistrail = locator.load()
@@ -525,10 +550,16 @@ class Plot(object):
                 if not optional:
                     optional = False
                 type = resolve_descriptor(spec, package_identifier)
-                self.ports.append(Port(
-                        name=name,
-                        type=type,
-                        optional=optional))
+                if issubclass(type.module, Constant):
+                    self.ports.append(InputPort(
+                            name=name,
+                            type=type,
+                            optional=optional))
+                else:
+                    self.ports.append(DataPort(
+                            name=name,
+                            type=type,
+                            optional=optional))
             else:
                 currentspec = (currentport.type.identifier +
                                ':' +
@@ -547,6 +578,11 @@ class Plot(object):
             raise ValueError("Declaration of plot '%s' mentions missing "
                              "InputPort module '%s'" % (
                              self.name, missingports[0]))
+
+        for port in self.ports:
+            if isinstance(port, ConstantPort):
+                module = port.type.module
+                port.widget_class = get_widget_class(module)
 
 
 def get_function(module, function_name):
@@ -865,6 +901,22 @@ def add_variable_subworkflow(generator, varname, plot_ports):
     return connection_ids
 
 
+def add_constant_module(generator, descriptor, constant, plot_ports):
+    module = generator.controller.create_module_from_descriptor(descriptor)
+    generator.add_module(module)
+    generator.update_function(module, 'value', [constant])
+
+    connection_ids = []
+    for output_mod, output_port in plot_ports:
+        connection_ids.append(generator.connect_modules(
+                module,
+                'value',
+                output_mod,
+                output_port))
+
+    return connection_ids
+
+
 def create_pipeline(controller, recipe, cell_info):
     """Create a pipeline from a recipe and return its information.
     """
@@ -967,10 +1019,20 @@ def create_pipeline(controller, recipe, cell_info):
     # Add the Variable subworkflows, but 'inline' them
     for param, variable in recipe.variables.iteritems():
         plot_ports = plot_params.get(param, [])
-
         var_map[param] = add_variable_subworkflow(
                 generator,
                 variable.name,
+                plot_ports)
+
+    # Add the constants
+    name_to_port = {port.name: port for port in recipe.plot.ports}
+    for param, constant in recipe.constants.iteritems():
+        plot_ports = plot_params.get(param, [])
+        desc = name_to_port[param].type
+        var_map[param] = add_constant_module(
+                generator,
+                desc,
+                constant,
                 plot_ports)
 
     pipeline_version = generator.perform_action()
@@ -1024,7 +1086,7 @@ def update_pipeline(controller, pipelineInfo, new_recipe):
     removed_params = []
     updated_params = []
 
-    # Check parameters
+    # Check variables
     for param in (set(old_recipe.variables.keys()) |
                   set(new_recipe.variables.keys())):
         old_var = old_recipe.variables.get(param)
@@ -1043,11 +1105,11 @@ def update_pipeline(controller, pipelineInfo, new_recipe):
                            for c in pipelineInfo.var_map.get(param, [])]
             if not connections:
                 raise UpdateError("Couldn't find the connections for "
-                                  "parameter '%s' in update data" % param)
+                                  "variable param '%s' in update data" % param)
 
             # Remove the variable subworkflow
-            modules = [pipeline.modules[c.source.moduleId]
-                       for c in connections]
+            modules = set(pipeline.modules[c.source.moduleId]
+                          for c in connections)
             generator.delete_linked(
                     modules,
                     connection_filter=lambda c: c not in connections)
@@ -1066,6 +1128,56 @@ def update_pipeline(controller, pipelineInfo, new_recipe):
         elif old_var is not None:
             removed_params.append(param)
         else: # new_var is not None
+            added_params.append(param)
+
+    name_to_port = {port.name: port for port in new_recipe.plot.ports}
+
+    # Check constants
+    for param in (set(old_recipe.constants.keys()) |
+                  set(new_recipe.constants.keys())):
+        old_constant = old_recipe.constants.get(param)
+        new_constant = new_recipe.constants.get(param)
+
+        if old_constant == new_constant:
+            try:
+                var_map[param] = pipelineInfo.var_map[param]
+            except KeyError:
+                pass
+            continue
+
+        # If the constant existed (but was removed or changed)
+        if old_constant is not None:
+            connections = [pipeline.connections[c]
+                           for c in pipelineInfo.var_map.get(param, [])]
+            if not connections:
+                raise UpdateError("Couldn't find the connections for "
+                                  "constant param '%s' in update data" % param)
+
+            # Remove the constant module
+            modules = set(pipeline.modules[c.source.moduleId]
+                          for c in connections)
+            if len(modules) != 1:
+                raise UpdateError("%d modules were found for the "
+                                  "constant param '%s'" % (
+                                  len(modules), param))
+            generator.delete_modules(modules)
+
+        # If the constant exists (but didn't exist or was different)
+        if new_constant is not None:
+            plot_ports = [(pipeline.modules[mod_id], port)
+                          for mod_id, port in pipelineInfo.port_map[param]]
+            desc = name_to_port[param].type
+            var_map[param] = add_constant_module(
+                    generator,
+                    desc,
+                    new_constant,
+                    plot_ports)
+
+        if old_constant is not None and new_constant is not None:
+            updated_params.append(param)
+        elif old_constant is not None:
+            removed_params.append(param)
+        else: # new_constant is not None
             added_params.append(param)
 
     pipeline_version = generator.perform_action()
@@ -1102,7 +1214,11 @@ def try_execute(controller, pipelineInfo, sheetname, recipe=None):
         recipe = pipelineInfo.recipe
 
     if all(
-            port.optional or recipe.variables.has_key(port.name)
+            port.optional or (
+                    port.accepts == Port.DATA and
+                    recipe.variables.has_key(port.name)) or (
+                    port.accepts == Port.INPUT and
+                    recipe.constants.has_key(port.name))
             for port in recipe.plot.ports):
         # Create a copy of that pipeline so we can change it
         controller.change_selected_version(pipelineInfo.version)

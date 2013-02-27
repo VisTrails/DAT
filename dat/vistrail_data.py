@@ -1,3 +1,4 @@
+import urllib2
 import warnings
 
 from dat import DATRecipe, PipelineInformation
@@ -30,7 +31,7 @@ class VistrailData(object):
     #   <actionAnnotation
     #           actionId="PIPELINEVERSION"
     #           key="dat-recipe"
-    #           value="PlotName;param1=varname1;param3=varname2" />
+    #           value="PlotName;param1=v:varname1;param3=c:value2" />
     #   <actionAnnotation
     #           actionId="PIPELINEVERSION"
     #           key="dat-ports"
@@ -48,6 +49,7 @@ class VistrailData(object):
     #     input port for the associated parameter
     #   * CONN<M> with the ids of the connections tying the plot input port to
     #     the variable set to this port
+    #   * value<N> is the string representation of a constant
     #
     # This assumes that:
     #   * Plot names don't change (and are not localized)
@@ -64,7 +66,10 @@ class VistrailData(object):
         """
         value = recipe.plot.name
         for param, variable in recipe.variables.iteritems():
-            value += ';%s=%s' % (param, variable.name)
+            value += ';%s=v:%s' % (param, variable.name)
+        for param, constant in recipe.constants.iteritems():
+            encoded = urllib2.quote(constant, safe='')
+            value += ';%s=c:%s' % (param, encoded)
         return value
 
     @staticmethod
@@ -75,10 +80,16 @@ class VistrailData(object):
         try:
             plot = GlobalManager.get_plot(value[0]) # Might raise KeyError
             variables = dict()
+            constants = dict()
             for assignment in value[1:]:
-                param, varname = assignment.split('=') # Might raise ValueError
-                variables[param] = vistraildata.get_variable(varname)
-            return DATRecipe(plot, variables)
+                param, data = assignment.split('=') # Might raise ValueError
+                if data.startswith('v:'):
+                    variables[param] = vistraildata.get_variable(data[2:])
+                elif data.startswith('c:'):
+                    constants[param] = urllib2.unquote(data[2:])
+                else:
+                    raise ValueError
+            return DATRecipe(plot, variables, constants)
         except (KeyError, ValueError):
             return None
 

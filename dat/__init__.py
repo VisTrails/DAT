@@ -15,17 +15,20 @@ MIMETYPE_DAT_PLOT = 'X-Vistrails/DATPlot'
 class DATRecipe(object):
     """Just a simple class holding a Plot and its parameters.
     """
-    def __init__(self, plot, variables):
+    def __init__(self, plot, variables, constants):
         self.plot = plot
         self.variables = dict(variables)
+        self.constants = dict(constants)
         self._hash = hash((
                 self.plot,
-                tuple((k, v.name) for k, v in self.variables.iteritems())))
+                frozenset(self.variables.iteritems()),
+                frozenset(self.constants.iteritems())))
 
     def __eq__(self, other):
         if not isinstance(other, DATRecipe):
             raise TypeError
-        return (self.plot, self.variables) == (other.plot, other.variables)
+        return (self.plot, self.variables, self.constants) == (
+                other.plot, other.variables, other.constants)
     
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -46,8 +49,10 @@ class PipelineInformation(object):
     def __init__(self, version, recipe, port_map=None, var_map=None):
         self.version = version
         self.recipe = recipe
-        self.port_map = port_map
-        self.var_map = var_map # {param: [conn_id: int]}
+        # {param: [(mod_id, port_name)]}
+        self.port_map = dict(port_map) if port_map is not None else None
+        # {param: [conn_id: int]}
+        self.var_map = dict(var_map) if var_map is not None else None
 
 
 class BaseVariableLoader(object):
