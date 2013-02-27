@@ -34,6 +34,14 @@ class DATCellContainer(QCellContainer):
 
         self._overlay = None
         self._overlay_scrollarea = QtGui.QScrollArea()
+        self._overlay_scrollarea.setObjectName('overlay_scrollarea')
+        self._overlay_scrollarea.setStyleSheet(
+                'QScrollArea#overlay_scrollarea {'
+                '    background-color: transparent;'
+                '}'
+                'Overlay {'
+                '    background-color: transparent;'
+                '}')
         self._overlay_scrollarea.setWidgetResizable(True)
         self._show_button = QtGui.QPushButton()
         self._show_button.setIcon(get_icon('show_overlay.png'))
