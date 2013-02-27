@@ -55,19 +55,14 @@ class odict(dict):
         return list(self.iteritems())
 
 
-_qapplication = None
 _application = None
 
 def setup_application(setup=True):
     global _application
-    global _qapplication
     if _application is None and setup:
         try:
-            if _qapplication is None:
-                from PyQt4 import QtGui
-                _qapplication = QtGui.QApplication([])
             from dat.gui.application import Application
-            _application = Application()
+            _application = Application([])
         except Exception:
             pass
     return _application
