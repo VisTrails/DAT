@@ -28,6 +28,9 @@ class Test_vistrails_interface(unittest.TestCase):
         desc_String = reg.get_descriptor(String)
         desc_HTTPFile = reg.get_descriptor(HTTPFile)
 
+        self.assertRaises(
+                TypeError,
+                lambda: resolve_descriptor(42))
         self.assertEqual(
                 resolve_descriptor('edu.utah.sci.vistrails.http:HTTPFile'),
                 desc_HTTPFile)
@@ -122,7 +125,7 @@ class Test_vistrails_interface(unittest.TestCase):
                     connection_filter=lambda c: c.source.moduleId not in (
                             modules[5].id, modules[9].id))
         test_delete([3, 6, 7], [2, 4],
-                    depth=1)
+                    depth=2)
 
     def test_find_modules_by_type(self):
         """Tests the find_modules_by_type() function.

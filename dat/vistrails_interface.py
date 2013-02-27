@@ -1,32 +1,9 @@
-"""Interface with VisTrails packages.
+"""Interface with VisTrails.
 
-This is the only module that VisTrails packages need to import. It provides
-the classes and methods necessary to define plot types and variable loaders.
-
-You might want to maintain compatibility with VisTrails, like so:
-try:
-    import dat.vistrails_interface
-    from dat.gui import translate # Optional; you might want to use it if you
-        # want to internationalize your strings
-except ImportError:
-    pass # This happens if the package was imported from VisTrails, not from
-        # DAT
-        # In that case, don't define plots or variable loaders.
-else:
-    _ = translate('packages.MyPackage') # Create a translator (optional)
-
-    _plots = [
-        Plot(...),
-    ]
-
-    class MyLoader(dat.vistrails_interface.CustomVariableLoader):
-        ...
-
-    _variable_loaders = [
-        MyLoader: _("My new loader"),
-    ]
+This module contains most of the code that deals with VisTrails pipelines.
 """
 
+import copy
 import importlib
 import inspect
 from itertools import izip
@@ -47,6 +24,7 @@ from vistrails.core.modules.module_registry import get_module_registry
 from vistrails.core.modules.sub_module import InputPort
 from vistrails.core.modules.utils import parse_descriptor_string
 from vistrails.core.modules.vistrails_module import Module
+from vistrails.core.vistrail.controller import VistrailController
 from vistrails.core.vistrail.location import Location
 from vistrails.gui.theme import CurrentTheme
 from vistrails.packages.spreadsheet.basic_widgets import CellLocation, \
@@ -249,7 +227,7 @@ class Variable(object):
         outmod_id = outmod_id[0]
         return controller, root_version, outmod_id
 
-    def __init__(self, type=None):
+    def __init__(self, type):
         """Create a new variable.
 
         type should be resolvable to a VisTrails module type.
@@ -485,9 +463,9 @@ class Plot(object):
         # Build plot from a subworkflow
         self.subworkflow = kwargs['subworkflow'].format(package_dir=package)
         self.ports = kwargs.get('ports', [])
-        
+
         # Set the plot config widget, ensuring correct parent class
-        from dat.gui.overlays import Overlay, PlotConfigOverlay, \
+        from dat.gui.overlays import PlotConfigOverlay, \
             DefaultPlotConfigOverlay
         self.configWidget = kwargs.get('configWidget', DefaultPlotConfigOverlay)
         if not issubclass(self.configWidget, PlotConfigOverlay): 
@@ -607,14 +585,14 @@ def delete_linked(controller, modules, operations,
 
     visited_connections = set()
 
-    if isinstance(modules, (list, tuple)):
+    if isinstance(modules, (list, tuple, set)):
         open_list = modules
     else:
         open_list = [modules]
     to_delete = set(module for module in open_list)
 
     # At each step
-    while depth >= 0 and open_list:
+    while depth > 0 and open_list:
         new_open_list = []
         # For each module considered
         for module in open_list:
@@ -731,6 +709,9 @@ class PipelineGenerator(object):
                 for c in self.all_connections
                 if (c.source.moduleId not in deleted_ids and
                         c.destination.moduleId not in deleted_ids))
+
+    def delete_modules(self, modules):
+        self.delete_linked(modules, depth=0)
 
     def perform_action(self):
         """Layout all the modules and create the action.
@@ -933,16 +914,8 @@ def create_pipeline(controller, recipe, cell_info):
     cell_modules = find_modules_by_type(plot_pipeline,
                                         [SpreadsheetCell])
     if cell_modules:
-        # Add SheetReference and CellLocation modules if the plot
-        # subworkflow didn't contain them
-        sheet_module, new_sheet = _get_or_create_module(SheetReference)
+        # Add a CellLocation module if the plot subworkflow didn't contain one
         location_module, new_location = _get_or_create_module(CellLocation)
-
-        if new_sheet or new_location:
-            # Connect the SheetReference to the CellLocation
-            generator.connect_modules(
-                    sheet_module, 'self',
-                    location_module, 'SheetReference')
 
         if new_location:
             # Connect the CellLocation to the SpreadsheetCell
@@ -952,11 +925,7 @@ def create_pipeline(controller, recipe, cell_info):
                     cell_module, 'Location')
 
         if location_module:
-            tabwidget = cell_info.tab.tabWidget
-            sheetName = tabwidget.tabText(tabwidget.indexOf(cell_info.tab))
             row, col = cell_info.row, cell_info.column
-            generator.update_function(
-                    sheet_module, 'SheetName', [sheetName])
             generator.update_function(
                     location_module, 'Row', [row + 1])
             generator.update_function(
@@ -1128,16 +1097,63 @@ def update_pipeline(controller, pipelineInfo, new_recipe):
                                pipelineInfo.port_map, var_map)
 
 
-def try_execute(controller, pipelineInfo, recipe=None):
+def try_execute(controller, pipelineInfo, sheetname, recipe=None):
     if recipe is None:
         recipe = pipelineInfo.recipe
 
     if all(
             port.optional or recipe.variables.has_key(port.name)
             for port in recipe.plot.ports):
+        # Create a copy of that pipeline so we can change it
         controller.change_selected_version(pipelineInfo.version)
+        pipeline = controller.current_pipeline
+        pipeline = copy.copy(pipeline)
+
+        # Add the SheetReference to the pipeline
+        modules = find_modules_by_type(pipeline, [CellLocation])
+
+        # Hack copied from spreadsheet_execute
+        create_module = VistrailController.create_module_static
+        create_function = VistrailController.create_function_static
+        create_connection = VistrailController.create_connection_static
+        id_scope = pipeline.tmp_id
+        orig_getNewId = pipeline.tmp_id.__class__.getNewId
+        def getNewId(self, objType):
+            return -orig_getNewId(self, objType)
+        pipeline.tmp_id.__class__.getNewId = getNewId
+        try:
+            for module in modules:
+                # Remove all SheetReference connected to this CellLocation
+                conns_to_delete = []
+                for conn_id, conn in pipeline.connections.iteritems():
+                    if (conn.destinationId == module.id and
+                            pipeline.modules[conn.sourceId] is SheetReference):
+                        conns_to_delete.append(conn_id)
+                for conn_id in conns_to_delete:
+                    pipeline.delete_connection(conn_id)
+
+                # Add the SheetReference module
+                sheet_module = create_module(
+                        id_scope,
+                        'edu.utah.sci.vistrails.spreadsheet',
+                        'SheetReference')
+                sheet_name = create_function(id_scope, sheet_module,
+                                             'SheetName', [str(sheetname)])
+                sheet_module.add_function(sheet_name)
+
+                # Connect with the CellLocation
+                conn = create_connection(id_scope,
+                                         sheet_module, 'self',
+                                         module, 'SheetReference')
+
+                pipeline.add_module(sheet_module)
+                pipeline.add_connection(conn)
+        finally:
+            pipeline.tmp_id.__class__.getNewId = orig_getNewId
+
+        # Execute the new pipeline
         executePipelineWithProgress(
-                controller.current_pipeline,
+                pipeline,
                 "DAT recipe execution",
                 locator=controller.locator,
                 current_version=pipelineInfo.version)
