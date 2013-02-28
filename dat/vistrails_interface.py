@@ -11,9 +11,10 @@ import os
 import sys
 import warnings
 
-from PyQt4 import QtGui
+from PyQt4 import QtCore, QtGui
 
 from dat import BaseVariableLoader, PipelineInformation
+from dat.gui import translate
 
 from vistrails.core import get_vistrails_application
 from vistrails.core.db.action import create_action
@@ -25,14 +26,13 @@ from vistrails.core.modules.module_registry import get_module_registry
 from vistrails.core.modules.sub_module import InputPort
 from vistrails.core.modules.utils import parse_descriptor_string
 from vistrails.core.modules.vistrails_module import Module
+from vistrails.core.utils import DummyView
 from vistrails.core.vistrail.controller import VistrailController
 from vistrails.core.vistrail.location import Location
 from vistrails.gui.theme import CurrentTheme
 from vistrails.gui.modules import get_widget_class
 from vistrails.packages.spreadsheet.basic_widgets import CellLocation, \
     SpreadsheetCell, SheetReference
-from vistrails.packages.spreadsheet.spreadsheet_execute import \
-    executePipelineWithProgress
 
 
 __all__ = ['Plot', 'Port', 'Variable',
@@ -1209,6 +1209,47 @@ def update_pipeline(controller, pipelineInfo, new_recipe):
                                pipelineInfo.port_map, var_map)
 
 
+# We don't use vistrails.packages.spreadsheet.spreadsheet_execute:
+# executePipelineWithProgress() because it doesn't update provenance
+# We need to use the controller's execute_workflow_list() instead of calling
+# the interpreter directly
+def executePipeline(controller, pipeline,
+        reason, locator, version,
+        **kwargs):
+    """Execute the pipeline while showing a progress dialog.
+    """
+    _ = translate('executePipeline')
+
+    totalProgress = len(pipeline.modules)
+    progress = QtGui.QProgressDialog(_("Executing..."),
+                                     QtCore.QString(),
+                                     0, totalProgress)
+    progress.setWindowTitle(_("Pipeline Execution"))
+    progress.setWindowModality(QtCore.Qt.WindowModal)
+    progress.show()
+    def moduleExecuted(objId):
+        progress.setValue(progress.value()+1)
+        QtCore.QCoreApplication.processEvents()
+    if kwargs.has_key('module_executed_hook'):
+        kwargs['module_executed_hook'].append(moduleExecuted)
+    else:
+        kwargs['module_executed_hook'] = [moduleExecuted]
+
+    controller.execute_workflow_list([(
+            locator,        # locator
+            version,        # version
+            pipeline,       # pipeline
+            DummyView(),    # view
+            None,           # custom_aliases
+            None,           # custom_params
+            reason,         # reason
+            kwargs)])       # extra_info
+    get_vistrails_application().send_notification('execution_updated')
+    progress.setValue(totalProgress)
+    progress.hide()
+    progress.deleteLater()
+
+
 def try_execute(controller, pipelineInfo, sheetname, recipe=None):
     if recipe is None:
         recipe = pipelineInfo.recipe
@@ -1268,11 +1309,12 @@ def try_execute(controller, pipelineInfo, sheetname, recipe=None):
             pipeline.tmp_id.__class__.getNewId = orig_getNewId
 
         # Execute the new pipeline
-        executePipelineWithProgress(
+        executePipeline(
+                controller,
                 pipeline,
-                "DAT recipe execution",
+                reason="DAT recipe execution",
                 locator=controller.locator,
-                current_version=pipelineInfo.version)
+                version=pipelineInfo.version)
         return True
     else:
         return False
