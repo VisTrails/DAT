@@ -77,13 +77,9 @@ class VariableDroppingOverlay(Overlay):
     """
 
     def __init__(self, cellcontainer, **kwargs):
-        self._overlayed = kwargs.get('overlayed', True)
         Overlay.__init__(self, cellcontainer, **kwargs)
 
         self.setStyleSheet(stylesheet)
-
-        if not self._overlayed:
-            self._remove_icon = get_icon('remove_parameter.png')
 
         # Type-checking, so we can show which parameters are suitable to
         # receive the drop
