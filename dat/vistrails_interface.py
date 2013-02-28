@@ -559,22 +559,18 @@ def get_function(module, function_name):
     return None
 
 
-def delete_linked(controller, modules, operations,
-                  module_filter=lambda m: True,
-                  connection_filter=lambda c: True,
-                  depth=sys.maxint):
-    """Delete all modules and connections linked to the specified modules.
+def walk_modules(pipeline, modules,
+                 module_filter=None,
+                 connection_filter=None,
+                 depth=sys.maxint):
+    if module_filter is None:
+        module_filter = lambda m: True
+    if connection_filter is None:
+        connection_filter = lambda m: True
 
-    module_filter is an optional function called during propagation to modules.
-
-    connection_filter is an optional function called during propagation to
-    connections.
-
-    depth_limit is an optional integer limiting the depth of the operation.
-    """
     # Build a map of the connections in which each module takes part
     module_connections = dict()
-    for connection in controller.current_pipeline.connection_list:
+    for connection in pipeline.connection_list:
         for mod in (connection.source.moduleId,
                     connection.destination.moduleId):
             try:
@@ -589,7 +585,8 @@ def delete_linked(controller, modules, operations,
         open_list = modules
     else:
         open_list = [modules]
-    to_delete = set(module for module in open_list)
+
+    selected = set(iter(open_list))
 
     # At each step
     while depth > 0 and open_list:
@@ -606,13 +603,13 @@ def delete_linked(controller, modules, operations,
                         other_mod = connection.destination.moduleId
                     else:
                         other_mod = connection.source.moduleId
-                    other_mod = controller.current_pipeline.modules[other_mod]
-                    if other_mod in to_delete:
+                    other_mod = pipeline.modules[other_mod]
+                    if other_mod in selected:
                         continue
                     # And if it passes the filter
                     if module_filter(other_mod):
-                        # Remove it
-                        to_delete.add(other_mod)
+                        # Select it
+                        selected.add(other_mod)
                         # And add it to the list
                         new_open_list.append(other_mod)
                 visited_connections.add(connection)
@@ -620,9 +617,32 @@ def delete_linked(controller, modules, operations,
         open_list = new_open_list
         depth -= 1
 
-    conn_to_delete = set()
-    for module in to_delete:
-        conn_to_delete.update(module_connections.get(module.id, []))
+    conn_selected = set()
+    for module in selected:
+        conn_selected.update(module_connections.get(module.id, []))
+
+    return selected, conn_selected
+
+
+def delete_linked(controller, modules, operations,
+                  module_filter=None,
+                  connection_filter=None,
+                  depth=sys.maxint):
+    """Delete all modules and connections linked to the specified modules.
+
+    module_filter is an optional function called during propagation to modules.
+
+    connection_filter is an optional function called during propagation to
+    connections.
+
+    depth_limit is an optional integer limiting the depth of the operation.
+    """
+    to_delete, conn_to_delete = walk_modules(
+            controller.current_pipeline,
+            modules,
+            module_filter,
+            connection_filter,
+            depth)
     operations.extend(('delete', conn) for conn in conn_to_delete)
     operations.extend(('delete', module) for module in to_delete)
 
@@ -651,6 +671,27 @@ def get_pipeline_location(controller, pipelineInfo):
         col = int(get_function(loc, 'Column')) - 1
         return row, col
     raise ValueError
+
+
+def get_plot_modules(pipelineInfo, pipeline):
+    """Gets all the modules from the plot subpipeline in a given pipeline.
+    """
+    # To get all the modules of the plot:
+    # We start from the input ports (modules in the port_map) and we follow
+    # edges, without traversing one of the connections from the var_map
+    ignore_edges = set(conn_id
+                       for var in pipelineInfo.var_map.itervalues()
+                       for conn_id in var) # set([conn_id: int])
+    init_modules = set(pipeline.modules[mod_id]
+                       for lp in pipelineInfo.port_map.itervalues()
+                       for mod_id, port_name in lp)
+    modules, conns = walk_modules(
+            pipeline,
+            init_modules,
+            connection_filter=lambda c: c.id not in ignore_edges)
+    modules = filter(lambda m: m.module_descriptor.module is not CellLocation,
+                     modules)
+    return modules
 
 
 class PipelineGenerator(object):
