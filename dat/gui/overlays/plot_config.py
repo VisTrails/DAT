@@ -9,6 +9,7 @@ from dat.vistrail_data import VistrailManager
 from vistrails.core.modules.module_registry import get_module_registry,\
     ModuleRegistryException
 from dat.gui.overlays import Overlay
+from dat import PipelineInformation
 
 #class PlotConfigWindow(QtGui.QDialog):
 #    """This window houses the plot configuration widgets
@@ -42,6 +43,9 @@ class DefaultPlotConfigOverlay(PlotConfigOverlay):
     """
     def __init__(self, cellcontainer):
         Overlay.__init__(self, cellcontainer, False)
+        
+        self.setSizePolicy(QtGui.QSizePolicy.Ignored,
+                           QtGui.QSizePolicy.Ignored)
         
         #create tab widget
         self.tabWidget = QtGui.QTabWidget()
@@ -129,17 +133,36 @@ class DefaultPlotConfigOverlay(PlotConfigOverlay):
         pass
             
     def applyClicked(self):
+        self.okClicked()
+        
+        #bring this overlay back up
+        self.cell._set_overlay(DefaultPlotConfigOverlay)
         mngr = VistrailManager(self.cell._controller)
         pipeline = mngr.get_pipeline(self.cell.cellInfo)
-        pipeline.version = self.cell._controller.current_version
-        self.cell.update_pipeline()
+        self.cell._overlay.setup(self.cell, pipeline.recipe.plot)
         
     def okClicked(self):
-        self.applyClicked()
-        self.cell._set_overlay(None)
+        mngr = VistrailManager(self.cell._controller)
+        pipeline = mngr.get_pipeline(self.cell.cellInfo)
+        if(pipeline.version != self.cell._controller.current_version):
+            new_pipeline = PipelineInformation(
+                self.cell._controller.current_version,
+                pipeline.recipe,
+                pipeline.port_map,
+                pipeline.var_map)
+            mngr.created_pipeline(self.cell.cellInfo, new_pipeline)
+            self.cell.update_pipeline()
+        else:
+            self.cell._set_overlay(None)
         
     def resetClicked(self):
-        self.setup(self.cell, self.plot)
+        mngr = VistrailManager(self.cell._controller)
+        pipeline = mngr.get_pipeline(self.cell.cellInfo)
+        if(pipeline.version != self.cell._controller.current_version):
+            self.cell._controller.change_selected_version(pipeline.version)
+            currentTabIndex = self.tabWidget.currentIndex()
+            self.setup(self.cell, self.plot)
+            self.tabWidget.setCurrentIndex(currentTabIndex)
         
 class DATPortItem(PortItem):
 
@@ -167,7 +190,7 @@ class DATPortsList(PortsList):
                  is_visible, parent=None):
         """Creates the port item
         """
-        return PortItem(port_spec, is_connected, is_optional, is_visible, parent)
+        return PortItem(port_spec, is_connected, True, False, parent)
     
     #overide visible_clicked to prevent changing this
     def visible_clicked(self, item):
