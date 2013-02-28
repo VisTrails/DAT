@@ -74,9 +74,9 @@ class ModuleWrapper(object):
         self._variable = variable
         descriptor = resolve_descriptor(module_type,
                                         self._variable._vt_package_id)
-        controller = self._variable._controller
+        controller = self._variable._generator.controller
         self._module = controller.create_module_from_descriptor(descriptor)
-        self._variable._operations.append(('add', self._module))
+        self._variable._generator.add_module(self._module)
 
     def add_function(self, inputport_name, vt_type, value):
         """Add a function for a port of this module.
@@ -114,12 +114,10 @@ class ModuleWrapper(object):
                 raise ValueError("add_function() called with incompatible "
                                  "types")
 
-        controller = self._variable._controller
-        self._variable._operations.extend(
-                controller.update_function_ops(
-                        self._module,
-                        inputport_name,
-                        value))
+        self._variable._generator.update_function(
+                self._module,
+                inputport_name,
+                value)
 
     def connect_outputport_to(self, outputport_name, other_module, inputport_name):
         """Create a connection between ports of two modules.
@@ -133,11 +131,9 @@ class ModuleWrapper(object):
             raise ValueError("connect_outputport_to() can only connect "
                              "modules of the same Variable")
         # Might raise vistrails.core.modules.module_registry:MissingPort
-        controller = self._variable._controller
-        connection = controller.create_connection(
+        self._variable._generator.connect_modules(
                 self._module, outputport_name,
                 other_module._module, inputport_name)
-        self._variable._operations.append(('add', connection))
 
 
 class Variable(object):
@@ -235,16 +231,9 @@ class Variable(object):
         type should be resolvable to a VisTrails module type.
         """
         # Create or get the version tagged 'dat-vars'
-        self._controller, self._root_version, self._output_module_id = (
+        controller, self._root_version, self._output_module_id = (
                 Variable._get_variables_root())
-
-        # The creation of a Variable is bufferized so as to handle exceptions
-        # in VisTrails packages correctly
-        # All the operations leading to the materialization of this variable
-        # as a pipeline, child of the 'dat-vars' version, are stored in this
-        # list and will be added to the Vistrail when perform_operations() is
-        # called by the VistrailData
-        self._operations = []
+        self._generator = PipelineGenerator(controller)
 
         # Get the VisTrails package that's creating this Variable by inspecting
         # the stack
@@ -303,20 +292,14 @@ class Variable(object):
             raise ValueError("select_output_port() designated a port with an "
                              "incompatible type")
 
-        controller = self._controller
+        controller = self._generator.controller
 
         out_mod = controller.current_pipeline.modules[self._output_module_id]
-        connection = controller.create_connection(
+        self._generator.connect_modules(
                 module._module, outputport_name,
                 out_mod, 'InternalPipe')
-        self._operations.append(('add', connection))
 
-        out_mod
-        self._operations.extend(
-                controller.update_function_ops(
-                        out_mod,
-                        'spec',
-                        [self.type.sigstring]))
+        self._generator.update_function(out_mod, 'spec', [self.type.sigstring])
 
         self._output_designated = True
 
@@ -328,12 +311,10 @@ class Variable(object):
 
         This is called by the VistrailData when the Variable is inserted.
         """
-        controller = self._controller
+        controller = self._generator.controller
         controller.change_selected_version(self._root_version)
 
-        action = create_action(self._operations)
-        controller.add_new_action(action)
-        self._var_version = controller.perform_action(action)
+        self._var_version = self._generator.perform_action()
         controller.vistrail.set_tag(self._var_version,
                                     'dat-var-%s' % name)
         controller.change_selected_version(self._var_version)
