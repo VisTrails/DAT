@@ -1,6 +1,6 @@
 import warnings
 
-from dat import BaseVariableLoader
+from dat import BaseVariableLoader, VariableOperation
 from dat.vistrails_interface import resolve_descriptor, Plot
 
 from vistrails.core.application import get_vistrails_application
@@ -21,6 +21,7 @@ class GlobalManager(object):
     def __init__(self):
         self._plots = dict()
         self._variable_loaders = set()
+        self._variable_operations = set()
 
     def init(self):
         """Initial setup of the Manager.
@@ -38,6 +39,10 @@ class GlobalManager(object):
         app.create_notification('dat_new_loader')
         # dat_removed_loader(loader: BaseVariableLoader)
         app.create_notification('dat_removed_loader')
+        # dat_new_operation(loader: VariableOperation)
+        app.create_notification('dat_new_operation')
+        # dat_removed_operation(loader: VariableOperation)
+        app.create_notification('dat_removed_operation')
 
         app.register_notification("reg_new_package", self.new_package)
         app.register_notification("reg_deleted_package", self.deleted_package)
@@ -78,6 +83,20 @@ class GlobalManager(object):
     def _get_loaders(self):
         return iter(self._variable_loaders)
     variable_loaders = property(_get_loaders)
+
+    def _add_operation(self, operation):
+        self._variable_operations.add(operation)
+        get_vistrails_application().send_notification('dat_new_operation',
+                                                      operation)
+
+    def _remove_operation(self, operation):
+        self._variable_operations.remove(operation)
+        get_vistrails_application().send_notification('dat_removed_operation',
+                                                      operation)
+
+    def _get_operations(self):
+        return iter(self._variable_operations)
+    variable_operations = property(_get_operations)
 
     def new_package(self, package_identifier, prepend=False):
         """Called when a package is loaded in VisTrails.
@@ -120,6 +139,17 @@ class GlobalManager(object):
                 loader.package_identifier = package_identifier
                 loader.loader_tab_name = name
                 self._add_loader(loader)
+        if hasattr(package.init_module, '_variable_operations'):
+            for operation in package.init_module._variable_operations:
+                if not isinstance(operation, VariableOperation):
+                    warnings.warn(
+                            "Package %s (%s) declares in _operations "
+                            "something that is not a variable operation: "
+                            "%r" % (package_identifier, package.codepath,
+                            operation))
+                    continue
+                operation.package_identifier = package_identifier
+                self._add_operation(operation)
 
     def deleted_package(self, package):
         """Called when a package is unloaded in VisTrails.

@@ -89,6 +89,27 @@ class BaseVariableLoader(object):
 
 
 class VariableOperation(object):
-    def __init__(self, param_types, callback):
-        self.param_types = param_types
+    """An operation descriptor.
+
+    Describes a variable operation. These objects should be created by a
+    VisTrails package for each operation it wants to register with DAT, and
+    added to a global '_variable_operations' list in the 'init' module (for a
+    reloadable package).
+
+    name is mandatory and is what will need to be typed to call the operation.
+    It can also be an operator: +, -, *, /
+    callback is a function that will be called to construct the new variable
+    from the operands.
+    args is a tuple; each element is the type (or types) accepted for that
+    parameter. For instance, an operation that accepts two arguments, the first
+    argument being a String and the second argument either a Float or an
+    Integer, use: args=(String, (Float, Integer))
+    symmetric means that the function will be called if the arguments are
+    backwards; this only works for operations with 2 arguments of different
+    types. It is useful for operators such as * and +.
+    """
+    def __init__(self, name, callback, args, symmetric=False):
+        self.name = name
+        self.param_types = args
         self.callback = callback
+        self.symmetric = symmetric

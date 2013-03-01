@@ -227,3 +227,16 @@ def advanced_input_dialog(parent, title, label, init_text,
         return str(lineedit.text()), True
     else:
         return None, False
+
+
+class ConsoleWidget(QtGui.QTextEdit):
+    def __init__(self, parent=None):
+        QtGui.QTextEdit.__init__(self, parent)
+        self.setReadOnly(True)
+        self.setFont(QtGui.QFont('Courier'))
+
+    def add_line(self, text):
+        self.append("%s<br/>" % text)
+
+    def add_error(self, text):
+        self.append("<span style=\"color: red\">%s</span><br/>" % text)

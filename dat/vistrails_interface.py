@@ -443,7 +443,7 @@ class Plot(object):
         """A plot descriptor.
 
         Describes a Plot. These objects should be created by a VisTrails
-        package for each Plot it want to registers with DAT, and added to a
+        package for each Plot it wants to registers with DAT, and added to a
         global '_plots' variable in the 'init' module (for a reloadable
         package).
 
