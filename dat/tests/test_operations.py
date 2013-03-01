@@ -25,15 +25,34 @@ class Test_operation_parsing(unittest.TestCase):
                         )
                     )
                 ))
-        with self.assertRaises(InvalidExpression):
-            parse_expression('a . b')
-        with self.assertRaises(InvalidExpression):
-            parse_expression('2 = 3 + 3')
+
+        with self.assertRaises(InvalidExpression) as cm:
+            parse_expression('t = a . b')
+        self.assertIn("Error while parsing", cm.exception.message)
+
+        with self.assertRaises(InvalidExpression) as cm:
+            parse_expression('42 = 3 + 3')
+        self.assertIn("Invalid target ", cm.exception.message)
+        self.assertEqual(cm.exception.select, (0, 2)) # target selected
+
+        with self.assertRaises(InvalidExpression) as cm:
+            parse_expression('= 6*7')
+        self.assertIn("Missing target ", cm.exception.message)
+        self.assertEqual(cm.exception.fix, 'new_var = 6*7')
+        self.assertEqual(cm.exception.select, (0, 7))
+
+        with self.assertRaises(InvalidExpression) as cm:
+            parse_expression('6*7')
+        self.assertIn("Missing target ", cm.exception.message)
+        self.assertEqual(cm.exception.fix, 'new_var = 6*7')
+        self.assertEqual(cm.exception.select, (0, 7))
+
         self.assertEqual(parse_expression('a = 3 + 3')[0], 'a')
+
         self.assertEqual(
-                parse_expression('4 *(2+ 5) + (1-4)/7'),
+                parse_expression('b = 4 *(2+ 5) + (1-4)/7'),
                 (
-                    None,
+                    'b',
                     (OP, '+',
                         (OP, '*',
                             (NUMBER, 4),

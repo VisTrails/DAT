@@ -1,15 +1,17 @@
+import re
 from tdparser import Lexer, Token, ParserError
 
 from dat import variable_format
+from dat.utils import iswhitespace
 
 
 class InvalidExpression(ValueError):
     """Error while parsing an expression.
     """
-    def __init__(self, *args):
-        if len(args) >= 2:
-            self.pos = args[1]
-        ValueError.__init__(self, *args)
+    def __init__(self, message, fix=None, select=None):
+        self.fix = fix          # Fixed expression
+        self.select = select    # What to select in the fixed expression
+        ValueError.__init__(self, message)
 
 
 SYMBOL = 1
@@ -82,34 +84,42 @@ class Division(Token):
         return (OP, '/', left, right)
 
 
-class Equal(Token):
-    regexp = r'='
-    lbp = 10 # Precedence: lowest
-
-    def led(self, left, context):
-        right = context.expression(self.lbp)
-        return (ASSIGN, left, right)
-
-
 lexer = Lexer(with_parens=True)
 lexer.register_tokens(
         Symbol, Integer,
-        Addition, Substraction, Multiplication, Division,
-        Equal)
+        Addition, Substraction, Multiplication, Division)
 
+
+# TODO-dat : "function call" syntax: symbol(...)
+
+
+_variable_format = re.compile('^' + variable_format + '$')
 
 def parse_expression(expression):
+    equal = expression.find('=')
+    if equal == -1:
+        raise InvalidExpression("Missing target variable name",
+                                "new_var = %s" % expression,
+                                (0, 7))
+    else:
+        target = expression[:equal].strip()
+        if not _variable_format.match(target):
+            right = equal
+            if right > 0 and expression[right-1] == ' ':
+                right -= 1
+            if iswhitespace(expression[0:right]):
+                raise InvalidExpression("Missing target variable name",
+                                        "new_var %s" % expression.lstrip(),
+                                        (0, 7))
+            else:
+                raise InvalidExpression("Invalid target variable name",
+                                        None,
+                                        (0, right))
+        expression = expression[equal+1:]
     try:
-        tree = lexer.parse(expression)
+        return target, lexer.parse(expression)
     except (ParserError, ValueError):
         raise InvalidExpression("Error while parsing expression")
-    if tree[0] == ASSIGN:
-        if tree[1][0] == SYMBOL:
-            return tree[1][1], tree[2]
-        else:
-            raise InvalidExpression("Assignment to non-symbol")
-    else:
-        return None, tree
 
 
 def perform_operation(controller, expression):
