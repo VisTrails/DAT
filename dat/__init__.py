@@ -113,3 +113,6 @@ class VariableOperation(object):
         self.param_types = args
         self.callback = callback
         self.symmetric = symmetric
+
+    def is_operator(self):
+        return self.name in iter('+-*/')

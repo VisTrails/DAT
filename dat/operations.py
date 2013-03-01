@@ -127,3 +127,7 @@ def perform_operation(controller, expression):
     """
     # First, parse the expressions
     target, expr_tree = parse_expression(expression)
+    # TODO-dat : execute operation
+
+def is_operator(op_name):
+    return op_name in iter('+-*/')

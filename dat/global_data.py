@@ -165,4 +165,8 @@ class GlobalManager(object):
             if loader.package_identifier == package.identifier:
                 self._remove_loader(loader)
 
+        for operation in list(self._variable_operations):
+            if operation.package_identifier == package.identifier:
+                self._remove_operation(operation)
+
 GlobalManager = GlobalManager()
