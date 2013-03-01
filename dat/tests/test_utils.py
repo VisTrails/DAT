@@ -5,7 +5,7 @@
 
 import unittest
 
-from dat.utils import bisect
+from dat.utils import bisect, iswhitespace
 
 
 class Test_bisect(unittest.TestCase):
@@ -39,3 +39,8 @@ class Test_bisect(unittest.TestCase):
                          15) # 100/14=7, 100/15=6
         self.assertEqual(bisect(200, getter, 11, 1, lambda x, y: y<x),
                          10) # 100/9=11, 100/10=10
+
+    def test_iswhitespace(self):
+        self.assertTrue(iswhitespace('  \t\n'))
+        self.assertTrue(iswhitespace(''))
+        self.assertFalse(iswhitespace(' \ta  \n '))
