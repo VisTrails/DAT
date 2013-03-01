@@ -1,7 +1,7 @@
 import re
 from PyQt4 import QtCore, QtGui
 
-from dat import DEFAULT_VARIABLE_NAME
+from dat import DEFAULT_VARIABLE_NAME, variable_format
 from dat.gui import translate
 from dat.gui.generic import AdvancedLineEdit
 from dat.global_data import GlobalManager
@@ -36,7 +36,7 @@ def unique_varname(varname, vistraildata):
             return new_varname
 
 
-_varname_format = re.compile('^[A-Za-z_$@][A-Za-z_$@0-9]+$')
+_varname_format = re.compile('^' + variable_format + '$')
 
 class VariableNameValidator(object):
     """Validates variable names according to a given VistrailData.

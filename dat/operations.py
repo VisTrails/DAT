@@ -1,5 +1,7 @@
 from tdparser import Lexer, Token, ParserError
 
+from dat import variable_format
+
 
 class InvalidExpression(ValueError):
     """Error while parsing an expression.
@@ -17,7 +19,7 @@ ASSIGN = 4
 
 
 class Symbol(Token):
-    regexp = r'[A-Za-z_$@][A-Za-z_$@0-9]*'
+    regexp = variable_format
     def __init__(self, text):
         self.value = text
 
