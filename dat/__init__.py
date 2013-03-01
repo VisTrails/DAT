@@ -83,3 +83,9 @@ class BaseVariableLoader(object):
         """
         if self.default_variable_name_observer is not None:
             self.default_variable_name_observer(self, new_default_name)
+
+
+class VariableOperation(object):
+    def __init__(self, param_types, callback):
+        self.param_types = param_types
+        self.callback = callback
