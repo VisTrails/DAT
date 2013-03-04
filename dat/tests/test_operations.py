@@ -70,3 +70,16 @@ class Test_operation_parsing(unittest.TestCase):
                         )
                     )
                 ))
+
+    @unittest.skip("Bug in tdparser, pending request")
+    def test_parens(self):
+        with self.assertRaises(InvalidExpression):
+            parse_expression('new_var = 3 + (5*7')
+        with self.assertRaises(InvalidExpression):
+            parse_expression('new_var = 3 + 5*7)')
+        with self.assertRaises(InvalidExpression):
+            parse_expression('new_var = 3 + (5*)7')
+        with self.assertRaises(InvalidExpression):
+            parse_expression('new_var = 3 + 5(*7)')
+        with self.assertRaises(InvalidExpression):
+            parse_expression('new_var = 3 + 5(7)')

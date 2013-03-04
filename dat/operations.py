@@ -17,13 +17,13 @@ class InvalidExpression(ValueError):
 SYMBOL = 1
 NUMBER = 2
 OP = 3
-ASSIGN = 4
 
 
 class Symbol(Token):
     regexp = variable_format
     def __init__(self, text):
         self.value = text
+        Token.__init__(self, text)
 
     def nud(self, context):
         return (SYMBOL, self.value)
@@ -34,6 +34,7 @@ class Integer(Token):
 
     def __init__(self, text):
         self.value = int(text)
+        Token.__init__(self, text)
 
     def nud(self, context):
         return (NUMBER, self.value)
@@ -84,13 +85,51 @@ class Division(Token):
         return (OP, '/', left, right)
 
 
-lexer = Lexer(with_parens=True)
+class LeftParen(Token):
+    regexp = r'\('
+    lbp = 100 # Left binding power: highest
+    rbp = 10 # Right binding power: lowest
+
+    def led(self, left, context):
+        # Binary operator: corresponds to the function call contruct, as in
+        # 2 * abc(7, 31) + 18
+        params = []
+        if left[0] != SYMBOL:
+            raise InvalidExpression("Function call syntax only allowed on "
+                                    "symbols")
+        if not isinstance(context.current_token, RightParen):
+            while True:
+                params.append(context.expression(self.rbp))
+                if not isinstance(context.current_token, Comma):
+                    break
+                context.consume(expect_class=Comma)
+        context.consume(RightParen)
+        return (OP, left) + tuple(params)
+
+    def nud(self, context):
+        # Unary operator: corresponds to the parenthesized construct, as in
+        # 2 * (3 + 1)
+
+        # Fetch the next expression
+        expr = context.expression()
+        # Eat the next token, that should be a ')'
+        context.consume(expect_class=RightParen)
+        return expr
+
+
+class RightParen(Token):
+    regexp = r'\)'
+
+
+class Comma(Token):
+    regexp = r','
+
+
+lexer = Lexer()
 lexer.register_tokens(
         Symbol, Integer,
-        Addition, Substraction, Multiplication, Division)
-
-
-# TODO-dat : "function call" syntax: symbol(...)
+        Addition, Substraction, Multiplication, Division,
+        LeftParen, RightParen, Comma)
 
 
 _variable_format = re.compile('^' + variable_format + '$')
