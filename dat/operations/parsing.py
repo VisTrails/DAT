@@ -4,14 +4,7 @@ from tdparser import Lexer, Token, ParserError
 from dat import variable_format
 from dat.utils import iswhitespace
 
-
-class InvalidExpression(ValueError):
-    """Error while parsing an expression.
-    """
-    def __init__(self, message, fix=None, select=None):
-        self.fix = fix          # Fixed expression
-        self.select = select    # What to select in the fixed expression
-        ValueError.__init__(self, message)
+from dat.operations import InvalidExpression
 
 
 SYMBOL = 1
@@ -159,14 +152,3 @@ def parse_expression(expression):
         return target, lexer.parse(expression)
     except (ParserError, ValueError):
         raise InvalidExpression("Error while parsing expression")
-
-
-def perform_operation(controller, expression):
-    """Perform a variable operation from the given string.
-    """
-    # First, parse the expressions
-    target, expr_tree = parse_expression(expression)
-    # TODO-dat : execute operation
-
-def is_operator(op_name):
-    return op_name in iter('+-*/')
