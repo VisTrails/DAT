@@ -32,6 +32,9 @@ class Test_vistrails_interface(unittest.TestCase):
                 TypeError,
                 lambda: resolve_descriptor(42))
         self.assertEqual(
+                resolve_descriptor(desc_HTTPFile),
+                desc_HTTPFile)
+        self.assertEqual(
                 resolve_descriptor('edu.utah.sci.vistrails.http:HTTPFile'),
                 desc_HTTPFile)
         self.assertEqual(

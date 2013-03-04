@@ -22,6 +22,7 @@ from vistrails.core.db.locator import XMLFileLocator
 from vistrails.core.layout.workflow_layout import Pipeline as LayoutPipeline, \
     WorkflowLayout
 from vistrails.core.modules.basic_modules import Constant
+from vistrails.core.modules.module_descriptor import ModuleDescriptor
 from vistrails.core.modules.module_registry import get_module_registry
 from vistrails.core.modules.sub_module import InputPort
 from vistrails.core.modules.utils import parse_descriptor_string
@@ -59,6 +60,8 @@ def resolve_descriptor(param, package_identifier=None):
         return reg.get_descriptor_by_name(*d_tuple)
     elif isinstance(param, type) and issubclass(param, Module):
         return reg.get_descriptor(param)
+    elif isinstance(param, ModuleDescriptor):
+        return param
     else:
         raise TypeError("resolve_descriptor() argument must be a Module "
                         "subclass or str object, not '%s'" % type(param))
