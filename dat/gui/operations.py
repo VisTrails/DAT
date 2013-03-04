@@ -96,7 +96,7 @@ class OperationPanel(QtGui.QWidget):
     def execute_line(self):
         text = str(self._input_line.text())
         try:
-            perform_operation(VistrailManager().controller, text)
+            perform_operation(text)
             self._console.add_line("Execute %r" % text)
             self._console.add_error("Not implemented")
             self._input_line.setText('')

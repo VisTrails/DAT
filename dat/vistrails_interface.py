@@ -225,7 +225,7 @@ class Variable(object):
         outmod_id = outmod_id[0]
         return controller, root_version, outmod_id
 
-    def __init__(self, type):
+    def __init__(self, type, generator=None):
         """Create a new variable.
 
         type should be resolvable to a VisTrails module type.
@@ -233,21 +233,26 @@ class Variable(object):
         # Create or get the version tagged 'dat-vars'
         controller, self._root_version, self._output_module_id = (
                 Variable._get_variables_root())
-        self._generator = PipelineGenerator(controller)
-
-        # Get the VisTrails package that's creating this Variable by inspecting
-        # the stack
-        caller = inspect.currentframe().f_back
-        try:
-            module = inspect.getmodule(caller).__name__
-            if module.endswith('.__init__'):
-                module = module[:-9]
-            if module.endswith('.init'):
-                module = module[:-5]
-            pkg = importlib.import_module(module)
-            self._vt_package_id = pkg.identifier
-        except (ImportError, AttributeError):
+        if generator is None:
+            self._generator = PipelineGenerator(controller)
+    
+            # Get the VisTrails package that's creating this Variable by inspecting
+            # the stack
+            caller = inspect.currentframe().f_back
+            try:
+                module = inspect.getmodule(caller).__name__
+                if module.endswith('.__init__'):
+                    module = module[:-9]
+                if module.endswith('.init'):
+                    module = module[:-5]
+                pkg = importlib.import_module(module)
+                self._vt_package_id = pkg.identifier
+            except (ImportError, AttributeError):
+                self._vt_package_id = None
+        else:
+            self._generator = generator
             self._vt_package_id = None
+
         self.type = resolve_descriptor(type, self._vt_package_id)
 
         self._output_designated = False
@@ -829,8 +834,14 @@ class PipelineGenerator(object):
         self.controller.add_new_action(action)
         return self.controller.perform_action(action)
 
+    @staticmethod
+    def from_variable(controller, variable):
+        generator = PipelineGenerator(controller)
+        add_variable_subworkflow(generator, variable.name)
+        return generator
 
-def add_variable_subworkflow(generator, varname, plot_ports):
+
+def add_variable_subworkflow(generator, varname, plot_ports=None):
     """Add a variable subworkflow to the pipeline.
 
     Copy the variable subworkflow from its own pipeline to the given one, and
@@ -863,21 +874,22 @@ def add_variable_subworkflow(generator, varname, plot_ports):
                          "'OutputPort' module")
 
     connection_ids = []
-    # Copy every connection except the one to the OutputPort module
-    for connection in var_pipeline.connection_list:
-        if connection.destination.moduleId == output_id:
-            for var_output_mod, var_output_port in plot_ports:
-                connection_ids.append(generator.connect_modules(
+    if plot_ports:
+        # Copy every connection except the one to the OutputPort module
+        for connection in var_pipeline.connection_list:
+            if connection.destination.moduleId == output_id:
+                for var_output_mod, var_output_port in plot_ports:
+                    connection_ids.append(generator.connect_modules(
+                            var_modules_map[connection.source.moduleId],
+                            connection.source.name,
+                            var_output_mod,
+                            var_output_port))
+            else:
+                generator.connect_modules(
                         var_modules_map[connection.source.moduleId],
                         connection.source.name,
-                        var_output_mod,
-                        var_output_port))
-        else:
-            generator.connect_modules(
-                    var_modules_map[connection.source.moduleId],
-                    connection.source.name,
-                    var_modules_map[connection.destination.moduleId],
-                    connection.destination.name)
+                        var_modules_map[connection.destination.moduleId],
+                        connection.destination.name)
 
     return connection_ids
 

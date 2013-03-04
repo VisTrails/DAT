@@ -5,7 +5,7 @@
 
 import unittest
 
-from dat.operations import InvalidExpression, parse_expression, \
+from dat.operations.parsing import InvalidExpression, parse_expression, \
     SYMBOL, NUMBER, OP
 
 
