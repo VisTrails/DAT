@@ -255,7 +255,7 @@ class Variable(object):
 
         self.type = resolve_descriptor(type, self._vt_package_id)
 
-        self._output_designated = False
+        self._output_module = None
 
     def add_module(self, module_type):
         """Add a new module to the pipeline and return a wrapper.
@@ -279,7 +279,7 @@ class Variable(object):
         if module._variable is not self:
             raise ValueError("select_output_port() designated a module from a "
                              "different Variable")
-        elif self._output_designated:
+        elif self._output_module is not None:
             raise ValueError("select_output_port() was called more than once")
 
         # Check that the port is compatible to self.type
@@ -297,16 +297,8 @@ class Variable(object):
             raise ValueError("select_output_port() designated a port with an "
                              "incompatible type")
 
-        controller = self._generator.controller
-
-        out_mod = controller.current_pipeline.modules[self._output_module_id]
-        self._generator.connect_modules(
-                module._module, outputport_name,
-                out_mod, 'InternalPipe')
-
-        self._generator.update_function(out_mod, 'spec', [self.type.sigstring])
-
-        self._output_designated = True
+        self._output_module = module
+        self._outputport_name = outputport_name
 
     def perform_operations(self, name):
         """Materialize this Variable in the Vistrail.
@@ -316,8 +308,19 @@ class Variable(object):
 
         This is called by the VistrailData when the Variable is inserted.
         """
+        if self._output_module is None:
+            raise ValueError("Invalid Variable: select_output_port() was "
+                             "never called")
+
         controller = self._generator.controller
         controller.change_selected_version(self._root_version)
+
+        out_mod = controller.current_pipeline.modules[self._output_module_id]
+        self._generator.connect_modules(
+                self._output_module._module, self._outputport_name,
+                out_mod, 'InternalPipe')
+
+        self._generator.update_function(out_mod, 'spec', [self.type.sigstring])
 
         self._var_version = self._generator.perform_action()
         controller.vistrail.set_tag(self._var_version,
