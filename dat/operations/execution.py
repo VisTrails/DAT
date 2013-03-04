@@ -2,8 +2,9 @@ from dat.vistrail_data import VistrailManager
 
 from dat.operations import InvalidExpression
 from dat.operations.parsing import SYMBOL, NUMBER, OP, parse_expression
-from dat.vistrails_interface import PipelineGenerator, Variable
+from dat.vistrails_interface import Variable, PipelineGenerator
 
+from vistrails.core.modules.basic_modules import Float
 from vistrails.core.modules.module_registry import get_module_registry
 
 
@@ -20,7 +21,7 @@ class GetExistingVariable(ComputeVariable):
         self.type = self._variable.type
 
     def execute(self, controller):
-        return PipelineGenerator.from_variable(controller, self._variable)
+        return Variable.from_pipeline(controller, self._variable)
 
 
 class BuildConstant(ComputeVariable):
@@ -32,19 +33,22 @@ class BuildConstant(ComputeVariable):
 
     def execute(self, controller):
         generator = PipelineGenerator(controller)
-        module = generator.controller.create_module(
+        Float_desc = get_module_registry().get_descriptor(Float)
+        module = generator.controller.create_module_from_descriptor(
                 generator.controller.id_scope,
-                'edu.utah.sci.vistrails.basic',
-                'Float')
+                Float_desc)
         generator.add_module(module)
         generator.update_function(module, 'value', [self.value])
-        return generator
+        return Variable(
+                type=Float_desc,
+                controller=controller,
+                generator=generator)
 
 
 class ApplyOperation(ComputeVariable):
     def __init__(self, name, args):
         self._op = find_operation(name, [arg.type for arg in args])
-        self.type = self._op.type
+        self.type = self._op.return_type
         self._args = args
 
     def execute(self, controller):
@@ -77,22 +81,20 @@ def resolve_symbols(vistraildata, expr):
         return ApplyOperation(name, args)
 
 
-def perform_operation(expression):
+def perform_operation(expression, controller=None):
     """Perform a variable operation from the given string.
     """
     # First, parse the expressions
     target, expr_tree = parse_expression(expression)
 
     # Find the actual operations & variables
-    controller, root_version, output_module_id = Variable._get_variables_root()
+    controller, root_version, output_module_id = (
+            Variable._get_variables_root(controller))
     vistraildata = VistrailManager(controller)
     op_tree = resolve_symbols(vistraildata, expr_tree)
 
     # Build the new variable
-    generator = op_tree.execute(controller)
-    variable = Variable(op_tree.type, generator)
-    # TODO-dat : where do I find the output port?
-    variable.select_output_port(module, outputport_name)
+    variable = op_tree.execute(controller)
     vistraildata.new_variable(target, variable)
 
 

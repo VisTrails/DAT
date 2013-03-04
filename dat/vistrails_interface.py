@@ -185,13 +185,14 @@ class Variable(object):
             self.name = new_varname
 
     @staticmethod
-    def _get_variables_root():
+    def _get_variables_root(controller=None):
         """Create or get the version tagged 'dat-vars'
 
         This is the base version of all DAT variables. It consists of a single
         OutputPort module with name 'value'.
         """
-        controller = get_vistrails_application().get_controller()
+        if controller is None:
+            controller = get_vistrails_application().get_controller()
         if controller.vistrail.has_tag_str('dat-vars'):
             root_version = controller.vistrail.get_version_number('dat-vars')
         else:
@@ -228,14 +229,14 @@ class Variable(object):
         outmod_id = outmod_id[0]
         return controller, root_version, outmod_id
 
-    def __init__(self, type, generator=None):
+    def __init__(self, type, controller=None, generator=None):
         """Create a new variable.
 
         type should be resolvable to a VisTrails module type.
         """
         # Create or get the version tagged 'dat-vars'
         controller, self._root_version, self._output_module_id = (
-                Variable._get_variables_root())
+                Variable._get_variables_root(controller))
         if generator is None:
             self._generator = PipelineGenerator(controller)
     
@@ -349,6 +350,17 @@ class Variable(object):
                 spec = get_function(output, 'spec')
                 return resolve_descriptor(spec)
         return None
+
+    @staticmethod
+    def from_pipeline(controller, varname):
+        generator = PipelineGenerator(controller)
+        add_variable_subworkflow(generator, varname)
+        var_type = Variable.read_type(controller.vistrail.getPipeline(
+                'dat-var-%s' % varname))
+        return Variable(
+                type=var_type,
+                controller=controller,
+                generator=generator)
 
 
 class CustomVariableLoader(QtGui.QWidget, BaseVariableLoader):
@@ -839,12 +851,6 @@ class PipelineGenerator(object):
         action = create_action(self.operations)
         self.controller.add_new_action(action)
         return self.controller.perform_action(action)
-
-    @staticmethod
-    def from_variable(controller, variable):
-        generator = PipelineGenerator(controller)
-        add_variable_subworkflow(generator, variable.name)
-        return generator
 
 
 def add_variable_subworkflow(generator, varname, plot_ports=None):

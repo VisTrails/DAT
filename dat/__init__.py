@@ -108,10 +108,11 @@ class VariableOperation(object):
     backwards; this only works for operations with 2 arguments of different
     types. It is useful for operators such as * and +.
     """
-    def __init__(self, name, args,
+    def __init__(self, name, args, return_type,
              callback=None, subworkflow=None, symmetric=False):
         self.name = name
         self.param_types = args
+        self.return_type = return_type
         if callback is not None and subworkflow is not None:
             raise ValueError("VariableOperation() got both callback and "
                              "subworkflow parameters")

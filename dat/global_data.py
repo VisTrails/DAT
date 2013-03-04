@@ -148,6 +148,7 @@ class GlobalManager(object):
                             "%r" % (package_identifier, package.codepath,
                             operation))
                     continue
+                # TODO-dat : resolve parameter/return types
                 operation.package_identifier = package_identifier
                 self._add_operation(operation)
 
