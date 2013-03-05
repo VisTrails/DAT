@@ -116,6 +116,9 @@ class VariableOperation(object):
         if callback is not None and subworkflow is not None:
             raise ValueError("VariableOperation() got both callback and "
                              "subworkflow parameters")
+        if callback is None and subworkflow is None:
+            raise ValueError("VariableOperation() got neither callback nor "
+                             "subworkflow parameters")
         self.callback = callback
         self.subworkflow = subworkflow
         self.symmetric = symmetric
@@ -136,7 +139,7 @@ class OperationArgument(object):
     """
     def __init__(self, name, types):
         self.name = name
-        if isinstance(types, type):
-            self.types = (types,)
-        else: # Sequence assumed
+        if isinstance(types, (list, tuple)):
             self.types = tuple(types)
+        else:
+            self.types = (types,)

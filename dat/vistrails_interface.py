@@ -30,6 +30,7 @@ from vistrails.core.modules.vistrails_module import Module
 from vistrails.core.utils import DummyView
 from vistrails.core.vistrail.controller import VistrailController
 from vistrails.core.vistrail.location import Location
+from vistrails.core.vistrail.pipeline import Pipeline
 from vistrails.gui.theme import CurrentTheme
 from vistrails.gui.modules import get_widget_class
 from vistrails.packages.spreadsheet.basic_widgets import CellLocation, \
@@ -229,7 +230,7 @@ class Variable(object):
         outmod_id = outmod_id[0]
         return controller, root_version, outmod_id
 
-    def __init__(self, type, controller=None, generator=None):
+    def __init__(self, type, controller=None, generator=None, output=None):
         """Create a new variable.
 
         type should be resolvable to a VisTrails module type.
@@ -237,6 +238,9 @@ class Variable(object):
         # Create or get the version tagged 'dat-vars'
         controller, self._root_version, self._output_module_id = (
                 Variable._get_variables_root(controller))
+
+        self._output_module = None
+
         if generator is None:
             self._generator = PipelineGenerator(controller)
     
@@ -256,10 +260,10 @@ class Variable(object):
         else:
             self._generator = generator
             self._vt_package_id = None
+            if output is not None:
+                self._output_module, self._outputport_name = output
 
         self.type = resolve_descriptor(type, self._vt_package_id)
-
-        self._output_module = None
 
     def add_module(self, module_type):
         """Add a new module to the pipeline and return a wrapper.
@@ -301,7 +305,7 @@ class Variable(object):
             raise ValueError("select_output_port() designated a port with an "
                              "incompatible type")
 
-        self._output_module = module
+        self._output_module = module._module
         self._outputport_name = outputport_name
 
     def perform_operations(self, name):
@@ -321,7 +325,7 @@ class Variable(object):
 
         out_mod = controller.current_pipeline.modules[self._output_module_id]
         self._generator.connect_modules(
-                self._output_module._module, self._outputport_name,
+                self._output_module, self._outputport_name,
                 out_mod, 'InternalPipe')
 
         self._generator.update_function(out_mod, 'spec', [self.type.sigstring])
@@ -353,14 +357,15 @@ class Variable(object):
 
     @staticmethod
     def from_pipeline(controller, varname):
+        pipeline = controller.vistrail.getPipeline('dat-var-%s' % varname)
+        var_type = Variable.read_type(pipeline)
         generator = PipelineGenerator(controller)
-        add_variable_subworkflow(generator, varname)
-        var_type = Variable.read_type(controller.vistrail.getPipeline(
-                'dat-var-%s' % varname))
+        output = add_variable_subworkflow(generator, pipeline)
         return Variable(
                 type=var_type,
                 controller=controller,
-                generator=generator)
+                generator=generator,
+                output=output)
 
 
 class CustomVariableLoader(QtGui.QWidget, BaseVariableLoader):
@@ -853,17 +858,23 @@ class PipelineGenerator(object):
         return self.controller.perform_action(action)
 
 
-def add_variable_subworkflow(generator, varname, plot_ports=None):
+def add_variable_subworkflow(generator, variable, plot_ports=None):
     """Add a variable subworkflow to the pipeline.
 
-    Copy the variable subworkflow from its own pipeline to the given one, and
-    connects it according to the plot_params map.
+    Copy the variable subworkflow from its own pipeline to the given one.
 
-    It returns the ids of the connections tying this variable to the plot,
+    If plot_ports is given, connects the pipeline to the ports in plot_ports,
+    and returns the ids of the connections tying this variable to the plot,
     which are used to build the pipeline's var_map.
+
+    If plot_ports is None, just returns the (module, port_name) of the output
+    port.
     """
-    var_pipeline = generator.controller.vistrail.getPipeline(
-            'dat-var-%s' % varname)
+    if isinstance(variable, Pipeline):
+        var_pipeline = variable
+    else:
+        var_pipeline = generator.controller.vistrail.getPipeline(
+                'dat-var-%s' % variable)
 
     reg = get_module_registry()
     outputport_desc = reg.get_descriptor_by_name(
@@ -885,9 +896,19 @@ def add_variable_subworkflow(generator, varname, plot_ports=None):
         raise ValueError("add_variable_subworkflow: variable pipeline has no "
                          "'OutputPort' module")
 
-    connection_ids = []
+    # Copy every connection except the one to the OutputPort module
+    for connection in var_pipeline.connection_list:
+        if connection.destination.moduleId != output_id:
+            generator.connect_modules(
+                    var_modules_map[connection.source.moduleId],
+                    connection.source.name,
+                    var_modules_map[connection.destination.moduleId],
+                    connection.destination.name)
+
     if plot_ports:
-        # Copy every connection except the one to the OutputPort module
+        connection_ids = []
+        # Connects the port previously connected to the OutputPort to the ports
+        # in plot_ports
         for connection in var_pipeline.connection_list:
             if connection.destination.moduleId == output_id:
                 for var_output_mod, var_output_port in plot_ports:
@@ -896,14 +917,14 @@ def add_variable_subworkflow(generator, varname, plot_ports=None):
                             connection.source.name,
                             var_output_mod,
                             var_output_port))
-            else:
-                generator.connect_modules(
-                        var_modules_map[connection.source.moduleId],
-                        connection.source.name,
-                        var_modules_map[connection.destination.moduleId],
-                        connection.destination.name)
-
-    return connection_ids
+        return connection_ids
+    else:
+        # Just find the output port and return it
+        for connection in var_pipeline.connection_list:
+            if connection.destination.moduleId == output_id:
+                return (var_modules_map[connection.source.moduleId],
+                        connection.source.name)
+        assert False
 
 
 def add_constant_module(generator, descriptor, constant, plot_ports):

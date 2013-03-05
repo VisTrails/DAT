@@ -25,7 +25,7 @@ class GetExistingVariable(ComputeVariable):
         self.type = self._variable.type
 
     def execute(self, controller):
-        return Variable.from_pipeline(controller, self._variable)
+        return Variable.from_pipeline(controller, self._variable.name)
 
 
 class BuildConstant(ComputeVariable):
@@ -38,15 +38,14 @@ class BuildConstant(ComputeVariable):
     def execute(self, controller):
         generator = PipelineGenerator(controller)
         Float_desc = get_module_registry().get_descriptor(Float)
-        module = generator.controller.create_module_from_descriptor(
-                generator.controller.id_scope,
-                Float_desc)
+        module = generator.controller.create_module_from_descriptor(Float_desc)
         generator.add_module(module)
         generator.update_function(module, 'value', [self.value])
         return Variable(
                 type=Float_desc,
                 controller=controller,
-                generator=generator)
+                generator=generator,
+                output=(module, 'value'))
 
 
 class ApplyOperation(ComputeVariable):
@@ -58,7 +57,7 @@ class ApplyOperation(ComputeVariable):
     def execute(self, controller):
         """Recursively perform operations.
         """
-        args = (arg.execute(controller) for arg in self._args)
+        args = [arg.execute(controller) for arg in self._args]
         return apply_operation(self._op, args)
 
 
@@ -75,13 +74,13 @@ def resolve_symbols(vistraildata, expr):
         args = [resolve_symbols(vistraildata, arg) for arg in expr[2:]]
         if all(isinstance(arg, BuildConstant) for arg in args):
             if name == '+':
-                return BuildConstant(arg[0].value + arg[1].value)
+                return BuildConstant(args[0].value + args[1].value)
             elif name == '-':
-                return BuildConstant(arg[0].value - arg[1].value)
+                return BuildConstant(args[0].value - args[1].value)
             elif name == '*':
-                return BuildConstant(arg[0].value * arg[1].value)
+                return BuildConstant(args[0].value * args[1].value)
             elif name == '/':
-                return BuildConstant(arg[0].value / arg[1].value)
+                return BuildConstant(args[0].value / args[1].value)
         return ApplyOperation(name, args)
 
 
@@ -146,7 +145,7 @@ def find_operation(name, args):
         retained_operations = set()
         current_score = sys.maxint
         # All base classes
-        bases = parent_modules(actual)
+        bases = parent_modules(actual.module)
         for op in operations:
             for desc in op.parameters[i].types:
                 expected = desc.module

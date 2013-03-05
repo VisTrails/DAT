@@ -10,6 +10,7 @@ from dat.operations.parsing import InvalidOperation, parse_expression, \
     SYMBOL, NUMBER, OP
 import dat.tests
 
+from vistrails.core.modules.module_registry import get_module_registry
 from vistrails.core.packagemanager import get_package_manager
 
 
@@ -128,16 +129,19 @@ class Test_operations(unittest.TestCase):
         from vistrails.core.modules.basic_modules import Float, Integer
         from vistrails.packages.HTTP.init import HTTPFile
 
+        reg = get_module_registry()
+        gd = reg.get_descriptor
+
         self.assertIs(
                 find_operation(
                         'overload_std',
-                        [Float, HTTPFile]),
+                        [gd(Float), gd(HTTPFile)]),
                 pkg.overload_std_3)
 
         with self.assertRaises(InvalidOperation) as cm:
             find_operation(
                     'overload_std',
-                    [Float, Integer])
+                    [gd(Float), gd(Integer)])
         self.assertIn("Found no match", cm.exception.message)
 
         with self.assertRaises(InvalidOperation) as cm:
@@ -147,16 +151,16 @@ class Test_operations(unittest.TestCase):
         self.assertIs(
                 find_operation(
                         'overload_custom',
-                        [pkg.ModC, pkg.ModD]),
+                        [gd(pkg.ModC), gd(pkg.ModD)]),
                 pkg.overload_custom_2)
 
         with self.assertRaises(InvalidOperation) as cm:
             find_operation(
                     'overload_custom',
-                    [pkg.ModE, pkg.ModE])
+                    [gd(pkg.ModE), gd(pkg.ModE)])
 
         self.assertIs(
                 find_operation(
                         'overload_custom',
-                        [pkg.ModD, pkg.ModD]),
+                        [gd(pkg.ModD), gd(pkg.ModD)]),
                 pkg.overload_custom_1)
