@@ -2,9 +2,8 @@ from PyQt4 import QtCore, QtGui
 
 from dat.gui import translate
 from dat.gui.generic import ConsoleWidget
-from dat.operations import is_operator, perform_operation, InvalidExpression
+from dat.operations import is_operator, perform_operation, InvalidOperation
 from dat.utils import bisect
-from dat.vistrail_data import VistrailManager
 
 from vistrails.core.application import get_vistrails_application
 from dat.global_data import GlobalManager
@@ -96,11 +95,13 @@ class OperationPanel(QtGui.QWidget):
     def execute_line(self):
         text = str(self._input_line.text())
         try:
+            self._console.add_line(text)
+            # TODO-dat : catch OperationWarning warnings and display them in
+            # the console
             perform_operation(text)
-            self._console.add_line("Execute %r" % text)
             self._console.add_error("Not implemented")
             self._input_line.setText('')
-        except InvalidExpression, e:
+        except InvalidOperation, e:
             if e.fix is not None:
                 self._input_line.setText(e.fix)
             if e.select is not None:

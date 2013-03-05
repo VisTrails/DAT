@@ -111,7 +111,7 @@ class VariableOperation(object):
     def __init__(self, name, args, return_type,
              callback=None, subworkflow=None, symmetric=False):
         self.name = name
-        self.param_types = args
+        self.parameters = args
         self.return_type = return_type
         if callback is not None and subworkflow is not None:
             raise ValueError("VariableOperation() got both callback and "

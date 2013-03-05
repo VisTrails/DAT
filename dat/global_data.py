@@ -115,9 +115,13 @@ class GlobalManager(object):
                             plot))
                     continue
                 plot.package_identifier = package_identifier
+
+                # Resolve the port types
                 for port in plot.ports:
                     port.type = resolve_descriptor(port.type,
                                                    package_identifier)
+
+                # Read and check the metadata from the workflow
                 try:
                     plot._read_metadata(package_identifier)
                 except Exception, e:
@@ -148,7 +152,21 @@ class GlobalManager(object):
                             "%r" % (package_identifier, package.codepath,
                             operation))
                     continue
-                # TODO-dat : resolve parameter/return types
+
+                # Resolve the parameter types
+                new_args = []
+                for arg in operation.parameters:
+                    new_arg = (arg[0],) + tuple(
+                            resolve_descriptor(t, package_identifier)
+                            for t in arg[1:])
+                    new_args.append(new_arg)
+                operation.parameters = new_args
+
+                # Resolve the return type
+                operation.return_type = resolve_descriptor(
+                        operation.return_type,
+                        package_identifier)
+
                 operation.package_identifier = package_identifier
                 self._add_operation(operation)
 

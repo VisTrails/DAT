@@ -4,7 +4,7 @@ from tdparser import Lexer, Token, ParserError
 from dat import variable_format
 from dat.utils import iswhitespace
 
-from dat.operations import InvalidExpression
+from dat.operations import InvalidOperation
 
 
 SYMBOL = 1
@@ -88,8 +88,8 @@ class LeftParen(Token):
         # 2 * abc(7, 31) + 18
         params = []
         if left[0] != SYMBOL:
-            raise InvalidExpression("Function call syntax only allowed on "
-                                    "symbols")
+            raise InvalidOperation("Function call syntax only allowed on "
+                                   "symbols")
         if not isinstance(context.current_token, RightParen):
             while True:
                 params.append(context.expression(self.rbp))
@@ -97,7 +97,7 @@ class LeftParen(Token):
                     break
                 context.consume(expect_class=Comma)
         context.consume(RightParen)
-        return (OP, left) + tuple(params)
+        return (OP, left[1]) + tuple(params)
 
     def nud(self, context):
         # Unary operator: corresponds to the parenthesized construct, as in
@@ -130,9 +130,9 @@ _variable_format = re.compile('^' + variable_format + '$')
 def parse_expression(expression):
     equal = expression.find('=')
     if equal == -1:
-        raise InvalidExpression("Missing target variable name",
-                                "new_var = %s" % expression,
-                                (0, 7))
+        raise InvalidOperation("Missing target variable name",
+                               "new_var = %s" % expression,
+                               (0, 7))
     else:
         target = expression[:equal].strip()
         if not _variable_format.match(target):
@@ -140,15 +140,15 @@ def parse_expression(expression):
             if right > 0 and expression[right-1] == ' ':
                 right -= 1
             if iswhitespace(expression[0:right]):
-                raise InvalidExpression("Missing target variable name",
-                                        "new_var %s" % expression.lstrip(),
-                                        (0, 7))
+                raise InvalidOperation("Missing target variable name",
+                                       "new_var %s" % expression.lstrip(),
+                                       (0, 7))
             else:
-                raise InvalidExpression("Invalid target variable name",
-                                        None,
-                                        (0, right))
+                raise InvalidOperation("Invalid target variable name",
+                                       None,
+                                       (0, right))
         expression = expression[equal+1:]
     try:
         return target, lexer.parse(expression)
     except (ParserError, ValueError):
-        raise InvalidExpression("Error while parsing expression")
+        raise InvalidOperation("Error while parsing expression")
