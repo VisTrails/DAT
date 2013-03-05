@@ -4,6 +4,7 @@ from dat.global_data import GlobalManager
 from dat.operations import InvalidOperation, OperationWarning
 from dat.operations.parsing import SYMBOL, NUMBER, OP, parse_expression
 from dat.vistrail_data import VistrailManager
+from dat import vistrails_interface
 from dat.vistrails_interface import Variable, PipelineGenerator
 
 from vistrails.core.modules.basic_modules import Float
@@ -188,4 +189,13 @@ def apply_operation(op, args):
     Either load the subworkflow or wrap the parameter variables correctly and
     call the callback function.
     """
-    # TODO-dat : apply_operation()
+    if op.callback is not None:
+        return vistrails_interface.call_operation_callback(
+                op,
+                op.callback,
+                args)
+    else: # op.subworkflow is not None:
+        return vistrails_interface.apply_operation_subworkflow(
+                op,
+                op.subworkflow,
+                args)

@@ -99,10 +99,10 @@ class OperationPanel(QtGui.QWidget):
             # TODO-dat : catch OperationWarning warnings and display them in
             # the console
             perform_operation(text)
-            self._console.add_error("Not implemented")
             self._input_line.setText('')
         except InvalidOperation, e:
             if e.fix is not None:
                 self._input_line.setText(e.fix)
             if e.select is not None:
                 self._input_line.setSelection(*e.select)
+            self._console.add_error(e.message)

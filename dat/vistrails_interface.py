@@ -29,7 +29,9 @@ from vistrails.core.modules.utils import parse_descriptor_string
 from vistrails.core.modules.vistrails_module import Module
 from vistrails.core.utils import DummyView
 from vistrails.core.vistrail.controller import VistrailController
+from vistrails.core.vistrail.connection import Connection
 from vistrails.core.vistrail.location import Location
+from vistrails.core.vistrail.module import Module as PipelineModule
 from vistrails.core.vistrail.pipeline import Pipeline
 from vistrails.gui.theme import CurrentTheme
 from vistrails.gui.modules import get_widget_class
@@ -366,6 +368,46 @@ class Variable(object):
                 controller=controller,
                 generator=generator,
                 output=output)
+
+
+class ArgumentWrapper(object):
+    def __init__(self, variable):
+        self._variable = variable
+        self._copied = False
+
+    def connect_to(self, module, inputport_name):
+        if not self._copied:
+            # First, we need to copy this pipeline into the new Variable
+            generator = module._variable._generator
+            generator.append_operations(self._variable._generator.operations)
+            self._copied = True
+        generator.connect_modules(
+                self._variable._output_module, self._variable._outputport_name,
+                module._module, inputport_name)
+
+
+def call_operation_callback(op, callback, args):
+    """Call a VariableOperation callback to build a new Variable.
+
+    opname is the name of the requested operation.
+    callback is the VisTrails package's function that is wrapped here.
+    args is a list of Variable that are the arguments of the operation; they
+    need to be wrapped as the package is not supposed to manipulate these
+    directly.
+    """
+    kwargs = dict()
+    for i in xrange(len(args)):
+        kwargs[op.parameters[i].name] = ArgumentWrapper(args[i])
+    result = callback(**kwargs)
+    for argname, arg in kwargs.iteritems():
+        if not arg._copied:
+            warnings.warn("In operation %r, argument %r was not used" %(
+                          op.name, argname))
+    return result
+
+
+def apply_operation_subworkflow(op, subworkflow, args):
+    raise NotImplementedError # TODO-dat : apply_operation from subworkflow
 
 
 class CustomVariableLoader(QtGui.QWidget, BaseVariableLoader):
@@ -710,6 +752,15 @@ class PipelineGenerator(object):
         self.operations = []
         self.all_modules = set(controller.current_pipeline.module_list)
         self.all_connections = set(controller.current_pipeline.connection_list)
+
+    def append_operations(self, operations):
+        for op in operations:
+            if op[0] == 'add':
+                if isinstance(op[1], PipelineModule):
+                    self.all_modules.add(op[1])
+                elif isinstance(op[1], Connection):
+                    self.all_connections.add(op[1])
+        self.operations.extend(operations)
 
     def copy_module(self, module):
         """Copy a VisTrails module to this controller.
