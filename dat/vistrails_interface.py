@@ -389,7 +389,7 @@ class ArgumentWrapper(object):
 def call_operation_callback(op, callback, args):
     """Call a VariableOperation callback to build a new Variable.
 
-    opname is the name of the requested operation.
+    op is the requested operation.
     callback is the VisTrails package's function that is wrapped here.
     args is a list of Variable that are the arguments of the operation; they
     need to be wrapped as the package is not supposed to manipulate these
@@ -406,8 +406,75 @@ def call_operation_callback(op, callback, args):
     return result
 
 
-def apply_operation_subworkflow(op, subworkflow, args):
-    raise NotImplementedError # TODO-dat : apply_operation from subworkflow
+def apply_operation_subworkflow(controller, op, subworkflow, args):
+    """Load an operation subworkflow from a file to build a new Variable.
+
+    op is the requested operation.
+    subworkflow is the filename of an XML file.
+    args is a list of Variable that are the arguments of the operation; they
+    will be connected in place of the operation subworkflow's InputPort
+    modules.
+    """
+    reg = get_module_registry()
+    inputport_desc = reg.get_descriptor_by_name(
+            'edu.utah.sci.vistrails.basic', 'InputPort')
+    outputport_desc = reg.get_descriptor_by_name(
+            'edu.utah.sci.vistrails.basic', 'OutputPort')
+
+    generator = PipelineGenerator(controller)
+
+    # Add the operation subworkflow
+    locator = XMLFileLocator(subworkflow)
+    vistrail = locator.load()
+    version = vistrail.get_latest_version()
+    operation_pipeline = vistrail.getPipeline(version)
+
+    # Copy every module but the InputPorts and the OutputPort
+    operation_modules_map = dict() # old module id -> new module
+    for module in operation_pipeline.modules.itervalues():
+        if module.module_descriptor not in (inputport_desc, outputport_desc):
+            operation_modules_map[module.id] = generator.copy_module(module)
+
+    # Copy the connections and locate the input ports and the output port
+    operation_params = dict() # param name -> [(module, input port name)]
+    output = None # (module, port name)
+    for connection in operation_pipeline.connection_list:
+        src = operation_pipeline.modules[connection.source.moduleId]
+        dest = operation_pipeline.modules[connection.destination.moduleId]
+        if src.module_descriptor is inputport_desc:
+            param = get_function(src, 'name')
+            try:
+                ports = operation_params[param]
+            except KeyError:
+                ports = operation_params[param] = []
+            ports.append((
+                    operation_modules_map[connection.destination.moduleId],
+                    connection.destination.name))
+        elif dest.module_descriptor is outputport_desc:
+            output = (operation_modules_map[connection.source.moduleId],
+                      connection.source.name)
+        else:
+            generator.connect_modules(
+                    operation_modules_map[connection.source.moduleId],
+                    connection.source.name,
+                    operation_modules_map[connection.destination.moduleId],
+                    connection.destination.name)
+
+    # Add the parameter subworkflows
+    for i in xrange(len(args)):
+        generator.append_operations(args[i]._generator.operations)
+        o_mod = args[i]._output_module
+        o_port = args[i]._outputport_name
+        for i_mod, i_port in operation_params.get(op.parameters[i].name, []):
+            generator.connect_modules(
+                    o_mod, o_port,
+                    i_mod, i_port)
+
+    return Variable(
+        type=op.return_type,
+        controller=controller,
+        generator=generator,
+        output=output)
 
 
 class CustomVariableLoader(QtGui.QWidget, BaseVariableLoader):
@@ -634,6 +701,68 @@ class Plot(object):
             if isinstance(port, ConstantPort):
                 module = port.type.module
                 port.widget_class = get_widget_class(module)
+
+
+class VariableOperation(object):
+    """An operation descriptor.
+
+    Describes a variable operation. These objects should be created by a
+    VisTrails package for each operation it wants to register with DAT, and
+    added to a global '_variable_operations' list in the 'init' module (for a
+    reloadable package).
+
+    name is mandatory and is what will need to be typed to call the operation.
+    It can also be an operator: +, -, *, /
+    callback is a function that will be called to construct the new variable
+    from the operands.
+    args is a tuple; each element is the type (or types) accepted for that
+    parameter. For instance, an operation that accepts two arguments, the first
+    argument being a String and the second argument either a Float or an
+    Integer, use: args=(String, (Float, Integer))
+    symmetric means that the function will be called if the arguments are
+    backwards; this only works for operations with 2 arguments of different
+    types. It is useful for operators such as * and +.
+    """
+    def __init__(self, name, args, return_type,
+             callback=None, subworkflow=None, symmetric=False):
+        self.name = name
+        self.parameters = args
+        self.return_type = return_type
+        self.callback = self.subworkflow = None
+        if callback is not None and subworkflow is not None:
+            raise ValueError("VariableOperation() got both callback and "
+                             "subworkflow parameters")
+        elif callback is not None:
+            self.callback = callback
+        elif subworkflow is not None:
+            caller = inspect.currentframe().f_back
+            package = os.path.dirname(inspect.getabsfile(caller))
+            self.subworkflow = subworkflow.format(package_dir=package)
+        else:
+            raise ValueError("VariableOperation() got neither callback nor "
+                             "subworkflow parameters")
+        self.symmetric = symmetric
+
+
+class OperationArgument(object):
+    """One of the argument of an operation.
+
+    Describes one of the arguments of a VariableOperation. These objects should
+    be created by a VisTrails package and passed in a list as the 'args'
+    argument of VariableOperation's constructor.
+
+    name is mandatory and is what will be passed to the callback function or
+    subworkflow. Note that arguments are passed as keywords, not positional
+    arguments.
+    types is a VisTrails Module subclass, or a sequence of Module subclasses,
+    in which case the argument will accept any of these types.
+    """
+    def __init__(self, name, types):
+        self.name = name
+        if isinstance(types, (list, tuple)):
+            self.types = tuple(types)
+        else:
+            self.types = (types,)
 
 
 def get_function(module, function_name):

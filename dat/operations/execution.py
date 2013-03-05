@@ -59,7 +59,7 @@ class ApplyOperation(ComputeVariable):
         """Recursively perform operations.
         """
         args = [arg.execute(controller) for arg in self._args]
-        return apply_operation(self._op, args)
+        return apply_operation(controller, self._op, args)
 
 
 def resolve_symbols(vistraildata, expr):
@@ -183,19 +183,22 @@ def find_operation(name, args):
     return next(iter(operations))
 
 
-def apply_operation(op, args):
+def apply_operation(controller, op, args):
     """Apply an operation to build a new variable.
 
     Either load the subworkflow or wrap the parameter variables correctly and
     call the callback function.
     """
     if op.callback is not None:
+        # FIXME : controller is ignored here...
+        assert controller == VistrailManager().controller
         return vistrails_interface.call_operation_callback(
                 op,
                 op.callback,
                 args)
     else: # op.subworkflow is not None:
         return vistrails_interface.apply_operation_subworkflow(
+                controller,
                 op,
                 op.subworkflow,
                 args)

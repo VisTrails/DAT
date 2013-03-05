@@ -31,10 +31,10 @@ else:
     ]
 """
 
-from dat import VariableOperation, OperationArgument
 from dat.gui import translate
 from dat.vistrails_interface import Plot, DataPort, ConstantPort, Variable, \
-    CustomVariableLoader, FileVariableLoader
+    CustomVariableLoader, FileVariableLoader, \
+    VariableOperation, OperationArgument
 
 
 __all__ = ['Plot', 'DataPort', 'ConstantPort', 'Variable',
