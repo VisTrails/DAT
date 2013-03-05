@@ -3,7 +3,6 @@ from PyQt4 import QtCore, QtGui
 from dat.gui.overlays import Overlay
 
 from dat import MIMETYPE_DAT_VARIABLE
-from dat.gui import get_icon
 from dat.vistrail_data import VistrailManager
 from dat.vistrails_interface import DataPort
 

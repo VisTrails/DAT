@@ -186,8 +186,6 @@ class Application(QtGui.QApplication, NotificationDispatcher, VistrailsApplicati
         self.builderWindow.create_first_vistrail()
 
         # Set our own spreadsheet cell container class
-        from vistrails.packages.spreadsheet.spreadsheet_controller import (
-                spreadsheetController)
         from dat.gui.cellcontainer import DATCellContainer
         spreadsheetController.setCellContainerClass(DATCellContainer)
 

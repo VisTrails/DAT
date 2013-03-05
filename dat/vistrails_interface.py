@@ -35,10 +35,6 @@ from vistrails.packages.spreadsheet.basic_widgets import CellLocation, \
     SpreadsheetCell, SheetReference
 
 
-__all__ = ['Plot', 'Port', 'Variable',
-           'CustomVariableLoader', 'FileVariableLoader']
-
-
 def resolve_descriptor(param, package_identifier=None):
     """Resolve a type specifier to a ModuleDescriptor.
 

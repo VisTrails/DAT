@@ -3,6 +3,7 @@
 """
 
 
+import os
 import unittest
 
 from dat import DATRecipe
@@ -19,8 +20,6 @@ from vistrails.core.modules.sub_module import OutputPort
 from vistrails.core.packagemanager import get_package_manager, PackageManager
 from vistrails.core.utils import DummyView
 from dat.vistrails_interface import Variable
-import os
-import sys
 
 
 class Test_generation(unittest.TestCase):
