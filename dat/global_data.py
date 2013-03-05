@@ -1,6 +1,6 @@
 import warnings
 
-from dat import BaseVariableLoader, VariableOperation
+from dat import BaseVariableLoader, VariableOperation, OperationArgument
 from dat.vistrails_interface import resolve_descriptor, Plot
 
 from vistrails.core.application import get_vistrails_application
@@ -156,10 +156,10 @@ class GlobalManager(object):
                 # Resolve the parameter types
                 new_args = []
                 for arg in operation.parameters:
-                    new_arg = (arg[0],) + tuple(
-                            resolve_descriptor(t, package_identifier)
-                            for t in arg[1:])
-                    new_args.append(new_arg)
+                    new_args.append(OperationArgument(
+                            arg.name,
+                            tuple(resolve_descriptor(t, package_identifier)
+                                  for t in arg.types)))
                 operation.parameters = new_args
 
                 # Resolve the return type

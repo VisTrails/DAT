@@ -1,4 +1,4 @@
-from dat.packages import VariableOperation
+from dat.packages import VariableOperation, OperationArgument
 
 from vistrails.core.modules.basic_modules import Float, Integer
 from vistrails.core.modules.vistrails_module import Module
@@ -13,8 +13,8 @@ overload_std_1 = VariableOperation(
     'overload_std',
     callback=nop,
     args=[
-        ('op1', Module),
-        ('op2', Module),
+        OperationArgument('op1', Module),
+        OperationArgument('op2', Module),
     ],
     return_type=Module)
 
@@ -22,8 +22,8 @@ overload_std_2 = VariableOperation(
     'overload_std',
     callback=nop,
     args=[
-        ('op1', Integer),
-        ('op2', HTTPFile),
+        OperationArgument('op1', Integer),
+        OperationArgument('op2', HTTPFile),
     ],
     return_type=Module)
 
@@ -31,8 +31,8 @@ overload_std_3 = VariableOperation(
     'overload_std',
     callback=nop,
     args=[
-        ('op1', Float),
-        ('op2', HTTPFile),
+        OperationArgument('op1', Float),
+        OperationArgument('op2', HTTPFile),
     ],
     return_type=Module)
 
@@ -40,8 +40,8 @@ overload_std_4 = VariableOperation(
     'overload_std',
     callback=nop,
     args=[
-        ('op1', Float),
-        ('op2', HTTP),
+        OperationArgument('op1', Float),
+        OperationArgument('op2', HTTP),
     ],
     return_type=Module)
 
@@ -65,8 +65,8 @@ overload_custom_1 = VariableOperation(
     'overload_custom',
     callback=nop,
     args=[
-        ('op1', ModA),
-        ('op2', ModD),
+        OperationArgument('op1', ModA),
+        OperationArgument('op2', ModD),
     ],
     return_type=Module)
 
@@ -74,8 +74,8 @@ overload_custom_2 = VariableOperation(
     'overload_custom',
     callback=nop,
     args=[
-        ('op1', ModB),
-        ('op2', ModD),
+        OperationArgument('op1', ModB),
+        OperationArgument('op2', ModD),
     ],
     return_type=Module)
 
@@ -83,8 +83,8 @@ overload_custom_3 = VariableOperation(
     'overload_custom',
     callback=nop,
     args=[
-        ('op1', ModE),
-        ('op2', ModD),
+        OperationArgument('op1', ModE),
+        OperationArgument('op2', ModD),
     ],
     return_type=Module)
 
@@ -92,8 +92,8 @@ overload_custom_4 = VariableOperation(
     'overload_custom',
     callback=nop,
     args=[
-        ('op1', ModB),
-        ('op2', ModE),
+        OperationArgument('op1', ModB),
+        OperationArgument('op2', ModE),
     ],
     return_type=Module)
 

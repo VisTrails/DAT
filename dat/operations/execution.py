@@ -148,7 +148,7 @@ def find_operation(name, args):
         # All base classes
         bases = parent_modules(actual)
         for op in operations:
-            for desc in op.parameters[i][1:]:
+            for desc in op.parameters[i].types:
                 expected = desc.module
                 # Score of this operation for this argument
                 try:

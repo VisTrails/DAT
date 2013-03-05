@@ -119,3 +119,24 @@ class VariableOperation(object):
         self.callback = callback
         self.subworkflow = subworkflow
         self.symmetric = symmetric
+
+
+class OperationArgument(object):
+    """One of the argument of an operation.
+
+    Describes one of the arguments of a VariableOperation. These objects should
+    be created by a VisTrails package and passed in a list as the 'args'
+    argument of VariableOperation's constructor.
+
+    name is mandatory and is what will be passed to the callback function or
+    subworkflow. Note that arguments are passed as keywords, not positional
+    arguments.
+    types is a VisTrails Module subclass, or a sequence of Module subclasses,
+    in which case the argument will accept any of these types.
+    """
+    def __init__(self, name, types):
+        self.name = name
+        if isinstance(types, type):
+            self.types = (types,)
+        else: # Sequence assumed
+            self.types = tuple(types)

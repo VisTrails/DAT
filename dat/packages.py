@@ -31,7 +31,7 @@ else:
     ]
 """
 
-from dat import VariableOperation
+from dat import VariableOperation, OperationArgument
 from dat.gui import translate
 from dat.vistrails_interface import Plot, DataPort, ConstantPort, Variable, \
     CustomVariableLoader, FileVariableLoader
@@ -39,5 +39,5 @@ from dat.vistrails_interface import Plot, DataPort, ConstantPort, Variable, \
 
 __all__ = ['Plot', 'DataPort', 'ConstantPort', 'Variable',
            'CustomVariableLoader', 'FileVariableLoader',
-           'VariableOperation',
+           'VariableOperation', 'OperationArgument',
            'translate']
