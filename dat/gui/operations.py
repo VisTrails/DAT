@@ -1,12 +1,13 @@
 from PyQt4 import QtCore, QtGui
 
+from dat.global_data import GlobalManager
 from dat.gui import translate
 from dat.gui.generic import ConsoleWidget
-from dat.operations import is_operator, perform_operation, InvalidOperation
-from dat.utils import bisect
+from dat.operations import is_operator, perform_operation, \
+    InvalidOperation, OperationWarning
+from dat.utils import bisect, catch_warning
 
 from vistrails.core.application import get_vistrails_application
-from dat.global_data import GlobalManager
 
 
 class OperationPanel(QtGui.QWidget):
@@ -92,13 +93,16 @@ class OperationPanel(QtGui.QWidget):
         else:
             self._input_line.setSelection(*pos)
 
+    def _show_error(self, message, category, filename, lineno,
+            file=None, line=None):
+        self._console.add_error(message[0])
+
     def execute_line(self):
         text = str(self._input_line.text())
         try:
             self._console.add_line(text)
-            # TODO-dat : catch OperationWarning warnings and display them in
-            # the console
-            perform_operation(text)
+            with catch_warning(OperationWarning, handle=self._show_error):
+                perform_operation(text)
             self._input_line.setText('')
         except InvalidOperation, e:
             if e.fix is not None:
