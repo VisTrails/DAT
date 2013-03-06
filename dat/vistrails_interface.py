@@ -22,13 +22,17 @@ from vistrails.core.db.locator import XMLFileLocator
 from vistrails.core.layout.workflow_layout import Pipeline as LayoutPipeline, \
     WorkflowLayout
 from vistrails.core.modules.basic_modules import Constant
+from vistrails.core.modules.module_descriptor import ModuleDescriptor
 from vistrails.core.modules.module_registry import get_module_registry
 from vistrails.core.modules.sub_module import InputPort
 from vistrails.core.modules.utils import parse_descriptor_string
 from vistrails.core.modules.vistrails_module import Module
 from vistrails.core.utils import DummyView
 from vistrails.core.vistrail.controller import VistrailController
+from vistrails.core.vistrail.connection import Connection
 from vistrails.core.vistrail.location import Location
+from vistrails.core.vistrail.module import Module as PipelineModule
+from vistrails.core.vistrail.pipeline import Pipeline
 from vistrails.gui.theme import CurrentTheme
 from vistrails.gui.modules import get_widget_class
 from vistrails.packages.spreadsheet.basic_widgets import CellLocation, \
@@ -55,6 +59,8 @@ def resolve_descriptor(param, package_identifier=None):
         return reg.get_descriptor_by_name(*d_tuple)
     elif isinstance(param, type) and issubclass(param, Module):
         return reg.get_descriptor(param)
+    elif isinstance(param, ModuleDescriptor):
+        return param
     else:
         raise TypeError("resolve_descriptor() argument must be a Module "
                         "subclass or str object, not '%s'" % type(param))
@@ -178,13 +184,14 @@ class Variable(object):
             self.name = new_varname
 
     @staticmethod
-    def _get_variables_root():
+    def _get_variables_root(controller=None):
         """Create or get the version tagged 'dat-vars'
 
         This is the base version of all DAT variables. It consists of a single
         OutputPort module with name 'value'.
         """
-        controller = get_vistrails_application().get_controller()
+        if controller is None:
+            controller = get_vistrails_application().get_controller()
         if controller.vistrail.has_tag_str('dat-vars'):
             root_version = controller.vistrail.get_version_number('dat-vars')
         else:
@@ -221,32 +228,40 @@ class Variable(object):
         outmod_id = outmod_id[0]
         return controller, root_version, outmod_id
 
-    def __init__(self, type):
+    def __init__(self, type, controller=None, generator=None, output=None):
         """Create a new variable.
 
         type should be resolvable to a VisTrails module type.
         """
         # Create or get the version tagged 'dat-vars'
         controller, self._root_version, self._output_module_id = (
-                Variable._get_variables_root())
-        self._generator = PipelineGenerator(controller)
+                Variable._get_variables_root(controller))
 
-        # Get the VisTrails package that's creating this Variable by inspecting
-        # the stack
-        caller = inspect.currentframe().f_back
-        try:
-            module = inspect.getmodule(caller).__name__
-            if module.endswith('.__init__'):
-                module = module[:-9]
-            if module.endswith('.init'):
-                module = module[:-5]
-            pkg = importlib.import_module(module)
-            self._vt_package_id = pkg.identifier
-        except (ImportError, AttributeError):
+        self._output_module = None
+
+        if generator is None:
+            self._generator = PipelineGenerator(controller)
+    
+            # Get the VisTrails package that's creating this Variable by inspecting
+            # the stack
+            caller = inspect.currentframe().f_back
+            try:
+                module = inspect.getmodule(caller).__name__
+                if module.endswith('.__init__'):
+                    module = module[:-9]
+                if module.endswith('.init'):
+                    module = module[:-5]
+                pkg = importlib.import_module(module)
+                self._vt_package_id = pkg.identifier
+            except (ImportError, AttributeError):
+                self._vt_package_id = None
+        else:
+            self._generator = generator
             self._vt_package_id = None
-        self.type = resolve_descriptor(type, self._vt_package_id)
+            if output is not None:
+                self._output_module, self._outputport_name = output
 
-        self._output_designated = False
+        self.type = resolve_descriptor(type, self._vt_package_id)
 
     def add_module(self, module_type):
         """Add a new module to the pipeline and return a wrapper.
@@ -270,7 +285,7 @@ class Variable(object):
         if module._variable is not self:
             raise ValueError("select_output_port() designated a module from a "
                              "different Variable")
-        elif self._output_designated:
+        elif self._output_module is not None:
             raise ValueError("select_output_port() was called more than once")
 
         # Check that the port is compatible to self.type
@@ -288,16 +303,8 @@ class Variable(object):
             raise ValueError("select_output_port() designated a port with an "
                              "incompatible type")
 
-        controller = self._generator.controller
-
-        out_mod = controller.current_pipeline.modules[self._output_module_id]
-        self._generator.connect_modules(
-                module._module, outputport_name,
-                out_mod, 'InternalPipe')
-
-        self._generator.update_function(out_mod, 'spec', [self.type.sigstring])
-
-        self._output_designated = True
+        self._output_module = module._module
+        self._outputport_name = outputport_name
 
     def perform_operations(self, name):
         """Materialize this Variable in the Vistrail.
@@ -307,8 +314,19 @@ class Variable(object):
 
         This is called by the VistrailData when the Variable is inserted.
         """
+        if self._output_module is None:
+            raise ValueError("Invalid Variable: select_output_port() was "
+                             "never called")
+
         controller = self._generator.controller
         controller.change_selected_version(self._root_version)
+
+        out_mod = controller.current_pipeline.modules[self._output_module_id]
+        self._generator.connect_modules(
+                self._output_module, self._outputport_name,
+                out_mod, 'InternalPipe')
+
+        self._generator.update_function(out_mod, 'spec', [self.type.sigstring])
 
         self._var_version = self._generator.perform_action()
         controller.vistrail.set_tag(self._var_version,
@@ -334,6 +352,125 @@ class Variable(object):
                 spec = get_function(output, 'spec')
                 return resolve_descriptor(spec)
         return None
+
+    @staticmethod
+    def from_pipeline(controller, varname):
+        pipeline = controller.vistrail.getPipeline('dat-var-%s' % varname)
+        var_type = Variable.read_type(pipeline)
+        generator = PipelineGenerator(controller)
+        output = add_variable_subworkflow(generator, pipeline)
+        return Variable(
+                type=var_type,
+                controller=controller,
+                generator=generator,
+                output=output)
+
+
+class ArgumentWrapper(object):
+    def __init__(self, variable):
+        self._variable = variable
+        self._copied = False
+
+    def connect_to(self, module, inputport_name):
+        if not self._copied:
+            # First, we need to copy this pipeline into the new Variable
+            generator = module._variable._generator
+            generator.append_operations(self._variable._generator.operations)
+            self._copied = True
+        generator.connect_modules(
+                self._variable._output_module, self._variable._outputport_name,
+                module._module, inputport_name)
+
+
+def call_operation_callback(op, callback, args):
+    """Call a VariableOperation callback to build a new Variable.
+
+    op is the requested operation.
+    callback is the VisTrails package's function that is wrapped here.
+    args is a list of Variable that are the arguments of the operation; they
+    need to be wrapped as the package is not supposed to manipulate these
+    directly.
+    """
+    kwargs = dict()
+    for i in xrange(len(args)):
+        kwargs[op.parameters[i].name] = ArgumentWrapper(args[i])
+    result = callback(**kwargs)
+    for argname, arg in kwargs.iteritems():
+        if not arg._copied:
+            warnings.warn("In operation %r, argument %r was not used" %(
+                          op.name, argname))
+    return result
+
+
+def apply_operation_subworkflow(controller, op, subworkflow, args):
+    """Load an operation subworkflow from a file to build a new Variable.
+
+    op is the requested operation.
+    subworkflow is the filename of an XML file.
+    args is a list of Variable that are the arguments of the operation; they
+    will be connected in place of the operation subworkflow's InputPort
+    modules.
+    """
+    reg = get_module_registry()
+    inputport_desc = reg.get_descriptor_by_name(
+            'edu.utah.sci.vistrails.basic', 'InputPort')
+    outputport_desc = reg.get_descriptor_by_name(
+            'edu.utah.sci.vistrails.basic', 'OutputPort')
+
+    generator = PipelineGenerator(controller)
+
+    # Add the operation subworkflow
+    locator = XMLFileLocator(subworkflow)
+    vistrail = locator.load()
+    version = vistrail.get_latest_version()
+    operation_pipeline = vistrail.getPipeline(version)
+
+    # Copy every module but the InputPorts and the OutputPort
+    operation_modules_map = dict() # old module id -> new module
+    for module in operation_pipeline.modules.itervalues():
+        if module.module_descriptor not in (inputport_desc, outputport_desc):
+            operation_modules_map[module.id] = generator.copy_module(module)
+
+    # Copy the connections and locate the input ports and the output port
+    operation_params = dict() # param name -> [(module, input port name)]
+    output = None # (module, port name)
+    for connection in operation_pipeline.connection_list:
+        src = operation_pipeline.modules[connection.source.moduleId]
+        dest = operation_pipeline.modules[connection.destination.moduleId]
+        if src.module_descriptor is inputport_desc:
+            param = get_function(src, 'name')
+            try:
+                ports = operation_params[param]
+            except KeyError:
+                ports = operation_params[param] = []
+            ports.append((
+                    operation_modules_map[connection.destination.moduleId],
+                    connection.destination.name))
+        elif dest.module_descriptor is outputport_desc:
+            output = (operation_modules_map[connection.source.moduleId],
+                      connection.source.name)
+        else:
+            generator.connect_modules(
+                    operation_modules_map[connection.source.moduleId],
+                    connection.source.name,
+                    operation_modules_map[connection.destination.moduleId],
+                    connection.destination.name)
+
+    # Add the parameter subworkflows
+    for i in xrange(len(args)):
+        generator.append_operations(args[i]._generator.operations)
+        o_mod = args[i]._output_module
+        o_port = args[i]._outputport_name
+        for i_mod, i_port in operation_params.get(op.parameters[i].name, []):
+            generator.connect_modules(
+                    o_mod, o_port,
+                    i_mod, i_port)
+
+    return Variable(
+        type=op.return_type,
+        controller=controller,
+        generator=generator,
+        output=output)
 
 
 class CustomVariableLoader(QtGui.QWidget, BaseVariableLoader):
@@ -439,7 +576,7 @@ class Plot(object):
         """A plot descriptor.
 
         Describes a Plot. These objects should be created by a VisTrails
-        package for each Plot it want to registers with DAT, and added to a
+        package for each Plot it wants to registers with DAT, and added to a
         global '_plots' variable in the 'init' module (for a reloadable
         package).
 
@@ -562,6 +699,68 @@ class Plot(object):
                 port.widget_class = get_widget_class(module)
 
 
+class VariableOperation(object):
+    """An operation descriptor.
+
+    Describes a variable operation. These objects should be created by a
+    VisTrails package for each operation it wants to register with DAT, and
+    added to a global '_variable_operations' list in the 'init' module (for a
+    reloadable package).
+
+    name is mandatory and is what will need to be typed to call the operation.
+    It can also be an operator: +, -, *, /
+    callback is a function that will be called to construct the new variable
+    from the operands.
+    args is a tuple; each element is the type (or types) accepted for that
+    parameter. For instance, an operation that accepts two arguments, the first
+    argument being a String and the second argument either a Float or an
+    Integer, use: args=(String, (Float, Integer))
+    symmetric means that the function will be called if the arguments are
+    backwards; this only works for operations with 2 arguments of different
+    types. It is useful for operators such as * and +.
+    """
+    def __init__(self, name, args, return_type,
+             callback=None, subworkflow=None, symmetric=False):
+        self.name = name
+        self.parameters = args
+        self.return_type = return_type
+        self.callback = self.subworkflow = None
+        if callback is not None and subworkflow is not None:
+            raise ValueError("VariableOperation() got both callback and "
+                             "subworkflow parameters")
+        elif callback is not None:
+            self.callback = callback
+        elif subworkflow is not None:
+            caller = inspect.currentframe().f_back
+            package = os.path.dirname(inspect.getabsfile(caller))
+            self.subworkflow = subworkflow.format(package_dir=package)
+        else:
+            raise ValueError("VariableOperation() got neither callback nor "
+                             "subworkflow parameters")
+        self.symmetric = symmetric
+
+
+class OperationArgument(object):
+    """One of the argument of an operation.
+
+    Describes one of the arguments of a VariableOperation. These objects should
+    be created by a VisTrails package and passed in a list as the 'args'
+    argument of VariableOperation's constructor.
+
+    name is mandatory and is what will be passed to the callback function or
+    subworkflow. Note that arguments are passed as keywords, not positional
+    arguments.
+    types is a VisTrails Module subclass, or a sequence of Module subclasses,
+    in which case the argument will accept any of these types.
+    """
+    def __init__(self, name, types):
+        self.name = name
+        if isinstance(types, (list, tuple)):
+            self.types = tuple(types)
+        else:
+            self.types = (types,)
+
+
 def get_function(module, function_name):
     """Get the value of a function of a pipeline module.
     """
@@ -678,6 +877,15 @@ class PipelineGenerator(object):
         self.operations = []
         self.all_modules = set(controller.current_pipeline.module_list)
         self.all_connections = set(controller.current_pipeline.connection_list)
+
+    def append_operations(self, operations):
+        for op in operations:
+            if op[0] == 'add':
+                if isinstance(op[1], PipelineModule):
+                    self.all_modules.add(op[1])
+                elif isinstance(op[1], Connection):
+                    self.all_connections.add(op[1])
+        self.operations.extend(operations)
 
     def copy_module(self, module):
         """Copy a VisTrails module to this controller.
@@ -826,17 +1034,23 @@ class PipelineGenerator(object):
         return self.controller.perform_action(action)
 
 
-def add_variable_subworkflow(generator, varname, plot_ports):
+def add_variable_subworkflow(generator, variable, plot_ports=None):
     """Add a variable subworkflow to the pipeline.
 
-    Copy the variable subworkflow from its own pipeline to the given one, and
-    connects it according to the plot_params map.
+    Copy the variable subworkflow from its own pipeline to the given one.
 
-    It returns the ids of the connections tying this variable to the plot,
+    If plot_ports is given, connects the pipeline to the ports in plot_ports,
+    and returns the ids of the connections tying this variable to the plot,
     which are used to build the pipeline's var_map.
+
+    If plot_ports is None, just returns the (module, port_name) of the output
+    port.
     """
-    var_pipeline = generator.controller.vistrail.getPipeline(
-            'dat-var-%s' % varname)
+    if isinstance(variable, Pipeline):
+        var_pipeline = variable
+    else:
+        var_pipeline = generator.controller.vistrail.getPipeline(
+                'dat-var-%s' % variable)
 
     reg = get_module_registry()
     outputport_desc = reg.get_descriptor_by_name(
@@ -858,24 +1072,35 @@ def add_variable_subworkflow(generator, varname, plot_ports):
         raise ValueError("add_variable_subworkflow: variable pipeline has no "
                          "'OutputPort' module")
 
-    connection_ids = []
     # Copy every connection except the one to the OutputPort module
     for connection in var_pipeline.connection_list:
-        if connection.destination.moduleId == output_id:
-            for var_output_mod, var_output_port in plot_ports:
-                connection_ids.append(generator.connect_modules(
-                        var_modules_map[connection.source.moduleId],
-                        connection.source.name,
-                        var_output_mod,
-                        var_output_port))
-        else:
+        if connection.destination.moduleId != output_id:
             generator.connect_modules(
                     var_modules_map[connection.source.moduleId],
                     connection.source.name,
                     var_modules_map[connection.destination.moduleId],
                     connection.destination.name)
 
-    return connection_ids
+    if plot_ports:
+        connection_ids = []
+        # Connects the port previously connected to the OutputPort to the ports
+        # in plot_ports
+        for connection in var_pipeline.connection_list:
+            if connection.destination.moduleId == output_id:
+                for var_output_mod, var_output_port in plot_ports:
+                    connection_ids.append(generator.connect_modules(
+                            var_modules_map[connection.source.moduleId],
+                            connection.source.name,
+                            var_output_mod,
+                            var_output_port))
+        return connection_ids
+    else:
+        # Just find the output port and return it
+        for connection in var_pipeline.connection_list:
+            if connection.destination.moduleId == output_id:
+                return (var_modules_map[connection.source.moduleId],
+                        connection.source.name)
+        assert False
 
 
 def add_constant_module(generator, descriptor, constant, plot_ports):

@@ -1,3 +1,6 @@
+import string
+
+
 def bisect(count, getter, element, lo=0, comp=lambda x, y: x<y):
     """Version of bisect.bisect_right that uses lambdas.
 
@@ -18,3 +21,9 @@ def bisect(count, getter, element, lo=0, comp=lambda x, y: x<y):
         else:
             lo = mid + 1
     return lo
+
+
+_whitespace = set(iter(string.whitespace))
+
+def iswhitespace(s):
+    return all(c in _whitespace for c in s)

@@ -12,6 +12,9 @@ MIMETYPE_DAT_VARIABLE = 'X-Vistrails/DATVariable'
 MIMETYPE_DAT_PLOT = 'X-Vistrails/DATPlot'
 
 
+variable_format = r'[A-Za-z_$@][A-Za-z_$@0-9]*'
+
+
 class DATRecipe(object):
     """Just a simple class holding a Plot and its parameters.
     """
