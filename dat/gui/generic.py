@@ -240,3 +240,35 @@ class ConsoleWidget(QtGui.QTextEdit):
 
     def add_error(self, text):
         self.append("<span style=\"color: red\">%s</span><br/>" % text)
+
+
+class SingleLineTextEdit(QtGui.QTextEdit):
+    def __init__(self):
+        QtGui.QTextEdit.__init__(self)
+        self.document().setMaximumBlockCount(1)
+        self.setAcceptRichText(False)
+        self.setLineWrapMode(QtGui.QTextEdit.NoWrap)
+        self.setMaximumHeight(self.document().size().height())
+        self.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        self.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+
+    def keyPressEvent(self, event):
+        if event.key() == QtCore.Qt.Key_Enter:
+            self.emit(self.returnPressed)
+            event.accept()
+        else:
+            QtGui.QTextEdit.keyPressEvent(self, event)
+
+    def text(self):
+        return self.toPlainText()
+
+    def setText(self, text):
+        self.setPlainText(text)
+
+    def setSelection(self, start, length):
+        cursor = self.textCursor()
+        cursor.setPosition(start)
+        cursor.setPosition(start+length, QtGui.QTextCursor.KeepAnchor)
+        self.setTextCursor(cursor)
+
+    returnPressed = QtCore.SIGNAL('returnPressed()')

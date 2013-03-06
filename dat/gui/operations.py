@@ -2,12 +2,39 @@ from PyQt4 import QtCore, QtGui
 
 from dat.global_data import GlobalManager
 from dat.gui import translate
-from dat.gui.generic import ConsoleWidget
+from dat.gui.generic import ConsoleWidget, SingleLineTextEdit
 from dat.operations import is_operator, perform_operation, \
     InvalidOperation, OperationWarning
 from dat.utils import bisect, catch_warning
 
 from vistrails.core.application import get_vistrails_application
+
+
+class MarkerHighlighterLineEdit(SingleLineTextEdit):
+    def __init__(self):
+        SingleLineTextEdit.__init__(self)
+        self.__changing = False
+        self.setUndoRedoEnabled(False) # FIXME : _highlight breaks undo :(
+        self.connect(self, QtCore.SIGNAL('textChanged()'), self._highlight)
+
+    def _highlight(self):
+        if self.__changing:
+            return
+        self.__changing = True
+        try:
+            pos = self.textCursor().position()
+            text = str(self.toPlainText())
+            text = text.replace('<', '&lt;')
+            text = text.replace('>', '&gt;')
+            text = text.replace(
+                    '&lt;?&gt;',
+                    '<span style="background-color: #99F;">&lt;?&gt;</span>')
+            self.setHtml(text)
+            cursor = self.textCursor()
+            cursor.setPosition(pos)
+            self.setTextCursor(cursor)
+        finally:
+            self.__changing = False
 
 
 class OperationPanel(QtGui.QWidget):
@@ -25,7 +52,7 @@ class OperationPanel(QtGui.QWidget):
 
         layout.addWidget(QtGui.QLabel(_("Enter a command and press return")))
 
-        self._input_line = QtGui.QLineEdit()
+        self._input_line = MarkerHighlighterLineEdit()
         self.connect(self._input_line, QtCore.SIGNAL('returnPressed()'),
                      self.execute_line)
         layout.addWidget(self._input_line)
@@ -79,8 +106,8 @@ class OperationPanel(QtGui.QWidget):
     def operation_clicked(self, item):
         text = str(item.text())
         if is_operator(text):
-            append = '? ' + text + ' ?'
-            pos = (-6, 1)
+            append = '<?> ' + text + ' <?>'
+            pos = (-10, 3)
         else:
             append = text + '()'
             pos = (-2, 0)
@@ -88,10 +115,7 @@ class OperationPanel(QtGui.QWidget):
         if pos[0] < 0:
             pos = (len(str(self._input_line.text())) + pos[0] + 1, pos[1])
         self._input_line.setFocus()
-        if pos[1] == 0:
-            self._input_line.setCursorPosition(pos[0])
-        else:
-            self._input_line.setSelection(*pos)
+        self._input_line.setSelection(*pos)
 
     def _show_error(self, message, category, filename, lineno,
             file=None, line=None):
