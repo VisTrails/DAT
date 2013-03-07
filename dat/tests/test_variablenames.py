@@ -10,22 +10,28 @@ class Test_variablenames(unittest.TestCase):
     def test_unique_varname(self):
         """Tests the unique_varname() function.
         """
-        from dat.gui.load_variable_dialog import unique_varname
+        from dat.gui.load_variable_dialog import unique_varname, \
+            VariableNameValidator
 
         class FakeData(object):
             def get_variable(self, varname):
-                if varname == 'variable (5)':
+                if varname == 'variable_5':
                     return True
                 else:
                     return None
         vistraildata = FakeData()
 
+        new_varname = unique_varname('variable', vistraildata)
         self.assertEqual(
-                unique_varname('variable', vistraildata),
-                'variable (2)')
+                new_varname,
+                'variable_2')
+        self.assertTrue(VariableNameValidator.format(new_varname))
+
+        new_varname = unique_varname('variable_4', vistraildata)
         self.assertEqual(
-                unique_varname('variable (4)', vistraildata),
-                'variable (6)')
+                new_varname,
+                'variable_6')
+        self.assertTrue(VariableNameValidator.format(new_varname))
 
     def test_validator(self):
         """Tests the VariableNameValidator class.

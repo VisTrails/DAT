@@ -11,7 +11,7 @@ from dat.vistrails_interface import FileVariableLoader, CustomVariableLoader
 from vistrails.core.application import get_vistrails_application
 
 
-_unique_varname_format = re.compile('^(.+) \(([0-9]+)\)$')
+_unique_varname_format = re.compile('^(.+)_([0-9]+)$')
 
 def unique_varname(varname, vistraildata):
     """Makes a variable name unique.
@@ -20,9 +20,9 @@ def unique_varname(varname, vistraildata):
 
     >>> vistraildata = VistrailManager()
     >>> unique_varname('variable', vistraildata)
-    'variable (2)'
-    >>> unique_varname('variable (4)', vistraildata)
-    'variable (5)'
+    'variable_2'
+    >>> unique_varname('variable_4', vistraildata)
+    'variable_5'
     """
     match = _unique_varname_format.match(varname)
     num = 1
@@ -31,7 +31,7 @@ def unique_varname(varname, vistraildata):
         num = int(match.group(2))
     while True:
         num += 1
-        new_varname = '%s (%d)' % (varname, num)
+        new_varname = '%s_%d' % (varname, num)
         if vistraildata.get_variable(new_varname) is None:
             return new_varname
 
@@ -55,7 +55,7 @@ class VariableNameValidator(object):
     def format(name):
         """Returns True if this name has an acceptable format.
         """
-        return name and _varname_format.match(name)
+        return bool(name) and bool(_varname_format.match(name))
 
     def __call__(self, name):
         """Returns True if this name can be used for a new variable.
