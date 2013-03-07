@@ -265,7 +265,7 @@ class SingleLineTextEdit(QtGui.QTextEdit):
     def setText(self, text):
         self.setPlainText(text)
 
-    def setSelection(self, start, length):
+    def setSelection(self, start, length=0):
         cursor = self.textCursor()
         cursor.setPosition(start)
         cursor.setPosition(start+length, QtGui.QTextCursor.KeepAnchor)

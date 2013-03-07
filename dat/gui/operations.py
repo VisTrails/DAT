@@ -16,6 +16,7 @@ class MarkerHighlighterLineEdit(SingleLineTextEdit):
         self.__changing = False
         self.setUndoRedoEnabled(False) # FIXME : _highlight breaks undo :(
         self.connect(self, QtCore.SIGNAL('textChanged()'), self._highlight)
+        self.setTabChangesFocus(True)
 
     def _highlight(self):
         if self.__changing:
@@ -35,6 +36,26 @@ class MarkerHighlighterLineEdit(SingleLineTextEdit):
             self.setTextCursor(cursor)
         finally:
             self.__changing = False
+
+    def focusNextPrevChild(self, forward):
+        cursor = self.textCursor()
+        if forward:
+            marker = str(self.toPlainText()).find(
+                    '<?>',
+                    cursor.selectionEnd())
+        else:
+            marker = str(self.toPlainText()).rfind(
+                    '<?>',
+                    0, cursor.selectionStart())
+        if marker != -1:
+            self.setSelection(marker, 3)
+            return True
+        else:
+            if forward:
+                self.setSelection(cursor.selectionEnd())
+            else:
+                self.setSelection(cursor.selectionStart())
+            return super(MarkerHighlighterLineEdit, self).focusNextPrevChild(forward)
 
 
 class OperationPanel(QtGui.QWidget):
