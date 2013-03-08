@@ -7,7 +7,9 @@ from dat.gui.variables import VariablePanel
 from dat.vistrail_data import VistrailManager
 
 from vistrails.core.application import get_vistrails_application
-from vistrails.packages.spreadsheet.spreadsheet_controller import spreadsheetController
+from vistrails.packages.spreadsheet.spreadsheet_controller import \
+    spreadsheetController
+from vistrails.packages.spreadsheet import spreadsheet_flags
 
 
 class MainWindow(QtGui.QMainWindow):
@@ -47,7 +49,8 @@ class MainWindow(QtGui.QMainWindow):
         # Embed the spreadsheet window as the central widget
         self.spreadsheetWindow = spreadsheetController.findSpreadsheetWindow(
                 show=False,
-                swflags=0)
+                swflags=spreadsheet_flags.TAB_CLOSE_SHEET,
+                close_tab_action=self.close_current_controller)
         self.setCentralWidget(self.spreadsheetWindow)
         self.spreadsheetWindow.setVisible(True)
 
@@ -80,6 +83,10 @@ class MainWindow(QtGui.QMainWindow):
         self._variables.unregister_notifications()
         self._variables = VariablePanel(VistrailManager(controller))
         self._variables_dock.setWidget(self._variables)
+
+    def close_current_controller(self, tab):
+        get_vistrails_application().builderWindow.close_vistrail()
+        return False
 
     def openFile(self):
         get_vistrails_application().builderWindow.open_vistrail_default()
