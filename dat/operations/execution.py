@@ -95,6 +95,8 @@ def perform_operation(expression, controller=None):
     controller, root_version, output_module_id = (
             Variable._get_variables_root(controller))
     vistraildata = VistrailManager(controller)
+    if vistraildata.get_variable(target) is not None:
+        raise InvalidOperation("Target variable %r already exists" % target)
     op_tree = resolve_symbols(vistraildata, expr_tree)
 
     # Build the new variable
