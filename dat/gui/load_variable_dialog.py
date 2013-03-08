@@ -80,6 +80,7 @@ class FileLoaderPanel(QtGui.QWidget):
         _ = translate(LoadVariableDialog)
 
         self._file_loaders = set()
+        self.default_variable_name_observer = None
 
         main_layout = QtGui.QVBoxLayout()
 
@@ -162,6 +163,9 @@ class FileLoaderPanel(QtGui.QWidget):
         if index is None:
             index = self._loader_list.currentIndex()
         if index == -1:
+            if self.default_variable_name_observer is not None:
+                self.default_variable_name_observer(self,
+                                                    DEFAULT_VARIABLE_NAME)
             return
         self._loader_stack.setCurrentIndex(index)
 
@@ -198,7 +202,8 @@ class FileLoaderPanel(QtGui.QWidget):
         if self._loader_list.currentIndex() == -1:
             return None
         current_loader = self._loader_stack.currentWidget()
-        if current_loader is loader:
+        if (current_loader is loader and 
+                self.default_variable_name_observer is not None):
             self.default_variable_name_observer(self, new_default_name)
 
     def get_default_variable_name(self):
@@ -246,8 +251,8 @@ class LoadVariableDialog(QtGui.QDialog):
         varname_layout = QtGui.QHBoxLayout()
         varname_layout.addWidget(QtGui.QLabel(_("Variable name:")))
         self._varname_edit = AdvancedLineEdit(
-                "variable",
-                default="variable",
+                DEFAULT_VARIABLE_NAME,
+                default=DEFAULT_VARIABLE_NAME,
                 validate=self._validator,
                 flags=(AdvancedLineEdit.COLOR_VALIDITY |
                        AdvancedLineEdit.COLOR_DEFAULTVALUE |
