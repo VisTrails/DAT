@@ -177,7 +177,8 @@ class Application(QtGui.QApplication, NotificationDispatcher, VistrailsApplicati
         vistrails.gui.theme.initializeCurrentTheme()
 
         ui_hooks = dict(
-                version_node_theme=self._color_version_nodes)
+                version_node_theme=self._color_version_nodes,
+                version_prop_panels=self._get_custom_version_panels)
 
         VistrailsApplicationInterface.init(self)
         from vistrails.gui.vistrails_window import QVistrailsWindow
@@ -254,6 +255,30 @@ class Application(QtGui.QApplication, NotificationDispatcher, VistrailsApplicati
                     VERSION_OTHER_BRUSH=QtGui.QBrush(QtGui.QColor(219, 198, 179)))
         else:
             return dict()
+
+    def _get_custom_version_panels(self, controller, version):
+        if VistrailManager.initialized:
+            pipelineInfo = VistrailManager(controller).get_pipeline(version)
+            if pipelineInfo is not None:
+                recipe = pipelineInfo.recipe
+                text_widget = QtGui.QTextEdit(
+                        "DAT Plot<br/>"
+                        "%s<br/>"
+                        "Variables:<br/>"
+                        "%s" % (
+                        recipe.plot.name,
+                        '<br/>'.join(recipe.variables)))
+                text_widget.setMaximumHeight(
+                        text_widget.fontMetrics().height() * (
+                                3 + len(recipe.variables)) +
+                        text_widget.contentsMargins().top() +
+                        text_widget.contentsMargins().bottom())
+                return (
+                        [(-1, QtGui.QLabel("DAT Plot %r" % recipe.plot.name)),
+                         (-1, QtGui.QLabel("Variables:"))] +
+                        [(-1, QtGui.QLabel("  %s" % v.name))
+                         for v in recipe.variables.itervalues()])
+        return []
 
     def _controller_changed(self, controller, new=False):
         vistraildata = VistrailManager(controller)
