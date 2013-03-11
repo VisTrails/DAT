@@ -176,9 +176,12 @@ class Application(QtGui.QApplication, NotificationDispatcher, VistrailsApplicati
 
         vistrails.gui.theme.initializeCurrentTheme()
 
+        ui_hooks = dict(
+                version_node_theme=self._color_version_nodes)
+
         VistrailsApplicationInterface.init(self)
         from vistrails.gui.vistrails_window import QVistrailsWindow
-        self.builderWindow = QVistrailsWindow()
+        self.builderWindow = QVistrailsWindow(ui_hooks=ui_hooks)
         self.builderWindow.closeEvent = lambda e: None
         self.vistrailsStartup.set_needed_packages(['spreadsheet'])
         self.vistrailsStartup.init()
@@ -219,6 +222,16 @@ class Application(QtGui.QApplication, NotificationDispatcher, VistrailsApplicati
         self.register_notification(
                 'vistrail_saved',
                 self._vistrail_saved)
+
+    def _color_version_nodes(self, node, action, tag, description):
+        if tag is not None and (tag.startswith('dat-var-') or
+                tag == 'dat-vars'):
+            return dict(
+                    VERSION_USER_BRUSH=QtGui.QBrush(QtGui.QColor(226, 208, 167)),
+                    VERSION_OTHER_BRUSH=QtGui.QBrush(QtGui.QColor(232, 186, 192)),
+                    VERSION_SHAPE='rectangle')
+        else:
+            return dict()
 
     def _controller_changed(self, controller, new=False):
         vistraildata = VistrailManager(controller)
