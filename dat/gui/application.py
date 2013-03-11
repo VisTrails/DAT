@@ -205,7 +205,7 @@ class Application(QtGui.QApplication, NotificationDispatcher, VistrailsApplicati
         mw.setVisible(True)
 
         # Create the spreadsheet for the first project
-        VistrailManager().spreadsheet_tab
+        self._controller_changed(VistrailManager().controller, new=True)
 
         # Create a spreadsheet and execute the visualizations when a new
         # controller is selected
