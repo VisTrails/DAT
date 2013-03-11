@@ -463,6 +463,7 @@ class VistrailManager(object):
         self._vistrails = dict() # Controller -> VistrailData
         self._tabs = dict() # SpreadsheetTab -> VistrailData
         self._current_controller = None
+        self.initialized = False
 
     def init(self):
         """Initialization function, called when the application is created.
@@ -479,6 +480,7 @@ class VistrailManager(object):
                 self.forget_controller)
         bw = get_vistrails_application().builderWindow
         self.set_controller(bw.get_current_controller())
+        self.initialized = True
 
     def set_controller(self, controller):
         """Called through the notification mechanism.
@@ -510,6 +512,8 @@ class VistrailManager(object):
         """
         if controller is None:
             controller = self._current_controller
+        if controller is None:
+            return None
         try:
             return self._vistrails[controller]
         except KeyError:
@@ -541,5 +545,8 @@ class VistrailManager(object):
             spreadsheet_tab.tabWidget.deleteSheet(spreadsheet_tab)
 
             del self._vistrails[controller]
+
+        if self._current_controller == controller:
+            self._current_controller = None
 
 VistrailManager = VistrailManager()

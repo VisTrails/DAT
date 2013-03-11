@@ -224,12 +224,34 @@ class Application(QtGui.QApplication, NotificationDispatcher, VistrailsApplicati
                 self._vistrail_saved)
 
     def _color_version_nodes(self, node, action, tag, description):
-        if tag is not None and (tag.startswith('dat-var-') or
-                tag == 'dat-vars'):
+        pipelineInfo = None
+        if action is not None and VistrailManager.initialized:
+            vistraildata = VistrailManager()
+            # Warning: the first scene might get created before the
+            # VistrailManager gets the 'controller_changed' signal, thus
+            # VistrailManager() might be None
+            if vistraildata is not None:
+                pipelineInfo = vistraildata.get_pipeline(action.id)
+
+        if tag == 'dat-vars':
+            # Variable root
+            brush = QtGui.QBrush(QtGui.QColor(0, 0, 0))
             return dict(
-                    VERSION_USER_BRUSH=QtGui.QBrush(QtGui.QColor(226, 208, 167)),
-                    VERSION_OTHER_BRUSH=QtGui.QBrush(QtGui.QColor(232, 186, 192)),
+                    VERSION_USER_BRUSH=brush,
+                    VERSION_OTHER_BRUSH=brush,
+                    VERSION_LABEL_COLOR=QtGui.QColor(255, 255, 255),
                     VERSION_SHAPE='rectangle')
+        elif tag is not None and tag.startswith('dat-var-'):
+            # Variables
+            return dict(
+                    VERSION_USER_BRUSH=QtGui.QBrush(QtGui.QColor(27, 27, 75)),
+                    VERSION_OTHER_BRUSH=QtGui.QBrush(QtGui.QColor(72, 50, 25)),
+                    VERSION_LABEL_COLOR=QtGui.QColor(255, 255, 255),
+                    VERSION_SHAPE='rectangle')
+        elif pipelineInfo is not None:
+            return dict(
+                    VERSION_USER_BRUSH=QtGui.QBrush(QtGui.QColor(171, 169, 214)),
+                    VERSION_OTHER_BRUSH=QtGui.QBrush(QtGui.QColor(219, 198, 179)))
         else:
             return dict()
 
