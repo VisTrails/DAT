@@ -13,8 +13,9 @@ class PlotItem(QtGui.QTreeWidgetItem):
 
     Displays the 'name' field of the plot.
     """
-    def __init__(self, plot, category):
+    def __init__(self, plot, category, description):
         QtGui.QListWidgetItem.__init__(self, [plot.name])
+        self.setToolTip(0, description)
         self.plot = plot
         self.category = category
 
@@ -22,7 +23,6 @@ class PlotItem(QtGui.QTreeWidgetItem):
 class PlotPanel(QtGui.QWidget):
     """The panel showing all the known plots.
     """
-    # TODO-dat : should display a plot's description somewhere
     def __init__(self):
         QtGui.QWidget.__init__(self)
 
@@ -47,7 +47,7 @@ class PlotPanel(QtGui.QWidget):
     def plot_added(self, plot):
         pm = get_package_manager()
         package = pm.get_package_by_identifier(plot.package_identifier)
-        item = PlotItem(plot, package.name)
+        item = PlotItem(plot, package.name, plot.description)
         self._plots[plot] = item
         self._list_widget.addItem(item, package.name)
 
