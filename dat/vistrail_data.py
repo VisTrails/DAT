@@ -1,5 +1,6 @@
 import urllib2
 import warnings
+import weakref
 
 from dat import DATRecipe, PipelineInformation
 from dat.global_data import GlobalManager
@@ -464,6 +465,8 @@ class VistrailManager(object):
         self._tabs = dict() # SpreadsheetTab -> VistrailData
         self._current_controller = None
         self.initialized = False
+        self._forgotten = weakref.WeakKeyDictionary()
+                # WeakSet only appeared in Python 2.7
 
     def init(self):
         """Initialization function, called when the application is created.
@@ -489,7 +492,11 @@ class VistrailManager(object):
         necessary.
         """
         if controller == self._current_controller:
-            # VisTrails lets this happen
+            # VisTrails sends 'controller_changed' a lot
+            return
+        if self._forgotten.get(controller, False):
+            # Yes, 'controller_changed' can happen after 'controller_closed'
+            # This is unfortunate
             return
 
         self._current_controller = controller
@@ -545,6 +552,8 @@ class VistrailManager(object):
             spreadsheet_tab.tabWidget.deleteSheet(spreadsheet_tab)
 
             del self._vistrails[controller]
+
+            self._forgotten[controller] = True
 
         if self._current_controller == controller:
             self._current_controller = None
