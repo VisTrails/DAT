@@ -1,4 +1,5 @@
-from dat.vistrails_interface import Variable, CustomVariableLoader, Plot, Port
+from dat.packages import Variable, CustomVariableLoader, Plot, \
+    DataPort, ConstantPort
 
 import vistrails.core.modules.basic_modules as basic
 from vistrails.core.modules.vistrails_module import Module, NotCacheable
@@ -33,7 +34,8 @@ concat_plot = Plot(
         subworkflow='{package_dir}/concat.xml',
         description="Plot used internally to perform tests",
         ports=[
-                Port(name='param1', type=basic.String, optional=False),
-                Port(name='param2', type=basic.String, optional=True)])
+                DataPort(name='param1', type=basic.String),
+                DataPort(name='param2', type=basic.String, optional=True),
+                ConstantPort(name='param3', type=basic.String)])
 
 _plots = [concat_plot]

@@ -3,6 +3,7 @@ import sys
 import warnings
 from PyQt4 import QtGui
 
+from dat.gui import vt_hooks
 from dat.gui.window import MainWindow
 from dat.global_data import GlobalManager
 from dat.vistrail_data import VistrailManager
@@ -178,7 +179,7 @@ class Application(QtGui.QApplication, NotificationDispatcher, VistrailsApplicati
 
         VistrailsApplicationInterface.init(self)
         from vistrails.gui.vistrails_window import QVistrailsWindow
-        self.builderWindow = QVistrailsWindow()
+        self.builderWindow = QVistrailsWindow(ui_hooks=vt_hooks.hooks)
         self.builderWindow.closeEvent = lambda e: None
         self.vistrailsStartup.set_needed_packages(['spreadsheet'])
         self.vistrailsStartup.init()
@@ -186,8 +187,6 @@ class Application(QtGui.QApplication, NotificationDispatcher, VistrailsApplicati
         self.builderWindow.create_first_vistrail()
 
         # Set our own spreadsheet cell container class
-        from vistrails.packages.spreadsheet.spreadsheet_controller import (
-                spreadsheetController)
         from dat.gui.cellcontainer import DATCellContainer
         spreadsheetController.setCellContainerClass(DATCellContainer)
 
@@ -204,7 +203,7 @@ class Application(QtGui.QApplication, NotificationDispatcher, VistrailsApplicati
         mw.setVisible(True)
 
         # Create the spreadsheet for the first project
-        VistrailManager().spreadsheet_tab
+        self._controller_changed(VistrailManager().controller, new=True)
 
         # Create a spreadsheet and execute the visualizations when a new
         # controller is selected

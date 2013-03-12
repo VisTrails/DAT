@@ -3,6 +3,7 @@
 """
 
 
+import os
 import unittest
 
 from dat import DATRecipe
@@ -19,8 +20,6 @@ from vistrails.core.modules.sub_module import OutputPort
 from vistrails.core.packagemanager import get_package_manager, PackageManager
 from vistrails.core.utils import DummyView
 from dat.vistrails_interface import Variable
-import os
-import sys
 
 
 class Test_generation(unittest.TestCase):
@@ -31,26 +30,26 @@ class Test_generation(unittest.TestCase):
         Test_generation._loaders[loader.loader_tab_name] = loader()
 
     @classmethod
-    def setUp(cls):
+    def setUpClass(cls):
         cls._application = dat.tests.setup_application()
         if cls._application is None:
-            cls.skipTest("No Application is available")
+            raise unittest.SkipTest("No Application is available")
 
-        if not Test_generation._loaders:
-            cls._application.register_notification(
-                    'dat_new_loader', cls._new_loader)
+        cls._application.register_notification(
+                'dat_new_loader', cls._new_loader)
 
-            pm = get_package_manager()
+        pm = get_package_manager()
 
-            pm.late_enable_package(
-                'pkg_test_variables',
-                {'pkg_test_variables': 'dat.tests.'})
+        pm.late_enable_package(
+            'pkg_test_variables',
+            {'pkg_test_variables': 'dat.tests.'})
 
-            pm.late_enable_package(
-                'pkg_test_plots',
-                {'pkg_test_plots': 'dat.tests.'})
+        pm.late_enable_package(
+            'pkg_test_plots',
+            {'pkg_test_plots': 'dat.tests.'})
 
-    def tearDown(self):
+    @classmethod
+    def tearDownClass(cls):
         pm = get_package_manager()
         def disable(codepath):
             try:
@@ -120,7 +119,9 @@ class Test_generation(unittest.TestCase):
                 pkg_test_plots.concat_plot,
                 dict(
                         param1=vistraildata.get_variable('var1'),
-                        param2=vistraildata.get_variable('var2')))
+                        param2=vistraildata.get_variable('var2')),
+                dict(
+                        param3="!"))
 
         pipelineInfo = vistrails_interface.create_pipeline(
                 controller,
@@ -139,7 +140,7 @@ class Test_generation(unittest.TestCase):
                 locator=controller.locator,
                 current_version=pipelineInfo.version)
 
-        call = (['Hello, world'], dict())
+        call = (['Hello, world!'], dict())
         self.assertEqual(result.calls, [call])
 
 

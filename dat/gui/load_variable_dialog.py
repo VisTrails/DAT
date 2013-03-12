@@ -1,7 +1,7 @@
 import re
 from PyQt4 import QtCore, QtGui
 
-from dat import DEFAULT_VARIABLE_NAME
+from dat import DEFAULT_VARIABLE_NAME, variable_format
 from dat.gui import translate
 from dat.gui.generic import AdvancedLineEdit
 from dat.global_data import GlobalManager
@@ -11,7 +11,7 @@ from dat.vistrails_interface import FileVariableLoader, CustomVariableLoader
 from vistrails.core.application import get_vistrails_application
 
 
-_varname_format = re.compile('^(.+) \(([0-9]+)\)$')
+_unique_varname_format = re.compile('^(.+)_([0-9]+)$')
 
 def unique_varname(varname, vistraildata):
     """Makes a variable name unique.
@@ -20,21 +20,23 @@ def unique_varname(varname, vistraildata):
 
     >>> vistraildata = VistrailManager()
     >>> unique_varname('variable', vistraildata)
-    'variable (2)'
-    >>> unique_varname('variable (4)', vistraildata)
-    'variable (5)'
+    'variable_2'
+    >>> unique_varname('variable_4', vistraildata)
+    'variable_5'
     """
-    match = _varname_format.match(varname)
+    match = _unique_varname_format.match(varname)
     num = 1
     if match is not None:
         varname = match.group(1)
         num = int(match.group(2))
     while True:
         num += 1
-        new_varname = '%s (%d)' % (varname, num)
+        new_varname = '%s_%d' % (varname, num)
         if vistraildata.get_variable(new_varname) is None:
             return new_varname
 
+
+_varname_format = re.compile('^' + variable_format + '$')
 
 class VariableNameValidator(object):
     """Validates variable names according to a given VistrailData.
@@ -53,7 +55,7 @@ class VariableNameValidator(object):
     def format(name):
         """Returns True if this name has an acceptable format.
         """
-        return name and ';' not in name and '=' not in name
+        return bool(name) and bool(_varname_format.match(name))
 
     def __call__(self, name):
         """Returns True if this name can be used for a new variable.
@@ -78,6 +80,7 @@ class FileLoaderPanel(QtGui.QWidget):
         _ = translate(LoadVariableDialog)
 
         self._file_loaders = set()
+        self.default_variable_name_observer = None
 
         main_layout = QtGui.QVBoxLayout()
 
@@ -160,6 +163,9 @@ class FileLoaderPanel(QtGui.QWidget):
         if index is None:
             index = self._loader_list.currentIndex()
         if index == -1:
+            if self.default_variable_name_observer is not None:
+                self.default_variable_name_observer(self,
+                                                    DEFAULT_VARIABLE_NAME)
             return
         self._loader_stack.setCurrentIndex(index)
 
@@ -196,7 +202,8 @@ class FileLoaderPanel(QtGui.QWidget):
         if self._loader_list.currentIndex() == -1:
             return None
         current_loader = self._loader_stack.currentWidget()
-        if current_loader is loader:
+        if (current_loader is loader and 
+                self.default_variable_name_observer is not None):
             self.default_variable_name_observer(self, new_default_name)
 
     def get_default_variable_name(self):
@@ -244,8 +251,8 @@ class LoadVariableDialog(QtGui.QDialog):
         varname_layout = QtGui.QHBoxLayout()
         varname_layout.addWidget(QtGui.QLabel(_("Variable name:")))
         self._varname_edit = AdvancedLineEdit(
-                "variable",
-                default="variable",
+                DEFAULT_VARIABLE_NAME,
+                default=DEFAULT_VARIABLE_NAME,
                 validate=self._validator,
                 flags=(AdvancedLineEdit.COLOR_VALIDITY |
                        AdvancedLineEdit.COLOR_DEFAULTVALUE |

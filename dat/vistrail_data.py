@@ -1,4 +1,6 @@
+import urllib2
 import warnings
+import weakref
 
 from dat import DATRecipe, PipelineInformation
 from dat.global_data import GlobalManager
@@ -30,7 +32,7 @@ class VistrailData(object):
     #   <actionAnnotation
     #           actionId="PIPELINEVERSION"
     #           key="dat-recipe"
-    #           value="PlotName;param1=varname1;param3=varname2" />
+    #           value="PlotName;param1=v:varname1;param3=c:value2" />
     #   <actionAnnotation
     #           actionId="PIPELINEVERSION"
     #           key="dat-ports"
@@ -48,6 +50,7 @@ class VistrailData(object):
     #     input port for the associated parameter
     #   * CONN<M> with the ids of the connections tying the plot input port to
     #     the variable set to this port
+    #   * value<N> is the string representation of a constant
     #
     # This assumes that:
     #   * Plot names don't change (and are not localized)
@@ -64,7 +67,10 @@ class VistrailData(object):
         """
         value = recipe.plot.name
         for param, variable in recipe.variables.iteritems():
-            value += ';%s=%s' % (param, variable.name)
+            value += ';%s=v:%s' % (param, variable.name)
+        for param, constant in recipe.constants.iteritems():
+            encoded = urllib2.quote(constant, safe='')
+            value += ';%s=c:%s' % (param, encoded)
         return value
 
     @staticmethod
@@ -75,10 +81,16 @@ class VistrailData(object):
         try:
             plot = GlobalManager.get_plot(value[0]) # Might raise KeyError
             variables = dict()
+            constants = dict()
             for assignment in value[1:]:
-                param, varname = assignment.split('=') # Might raise ValueError
-                variables[param] = vistraildata.get_variable(varname)
-            return DATRecipe(plot, variables)
+                param, data = assignment.split('=') # Might raise ValueError
+                if data.startswith('v:'):
+                    variables[param] = vistraildata.get_variable(data[2:])
+                elif data.startswith('c:'):
+                    constants[param] = urllib2.unquote(data[2:])
+                else:
+                    raise ValueError
+            return DATRecipe(plot, variables, constants)
         except (KeyError, ValueError):
             return None
 
@@ -251,7 +263,7 @@ class VistrailData(object):
                 tab_controller = sh_window.tabController
                 tab = StandardWidgetSheetTab(
                         tab_controller,
-                        allow_create_sheet=False)
+                        swflags=0)
                 title = self._controller.name
                 if not title:
                     title = "Untitled{ext}".format(
@@ -452,6 +464,9 @@ class VistrailManager(object):
         self._vistrails = dict() # Controller -> VistrailData
         self._tabs = dict() # SpreadsheetTab -> VistrailData
         self._current_controller = None
+        self.initialized = False
+        self._forgotten = weakref.WeakKeyDictionary()
+                # WeakSet only appeared in Python 2.7
 
     def init(self):
         """Initialization function, called when the application is created.
@@ -468,6 +483,7 @@ class VistrailManager(object):
                 self.forget_controller)
         bw = get_vistrails_application().builderWindow
         self.set_controller(bw.get_current_controller())
+        self.initialized = True
 
     def set_controller(self, controller):
         """Called through the notification mechanism.
@@ -476,7 +492,11 @@ class VistrailManager(object):
         necessary.
         """
         if controller == self._current_controller:
-            # VisTrails lets this happen
+            # VisTrails sends 'controller_changed' a lot
+            return
+        if self._forgotten.get(controller, False):
+            # Yes, 'controller_changed' can happen after 'controller_closed'
+            # This is unfortunate
             return
 
         self._current_controller = controller
@@ -499,6 +519,8 @@ class VistrailManager(object):
         """
         if controller is None:
             controller = self._current_controller
+        if controller is None:
+            return None
         try:
             return self._vistrails[controller]
         except KeyError:
@@ -530,5 +552,10 @@ class VistrailManager(object):
             spreadsheet_tab.tabWidget.deleteSheet(spreadsheet_tab)
 
             del self._vistrails[controller]
+
+            self._forgotten[controller] = True
+
+        if self._current_controller == controller:
+            self._current_controller = None
 
 VistrailManager = VistrailManager()

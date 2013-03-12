@@ -1,4 +1,4 @@
-import os, os.path
+import os
 import sys
 import traceback
 

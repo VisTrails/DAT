@@ -1,12 +1,15 @@
 from PyQt4 import QtCore, QtGui
 
 import dat.gui
-from dat.vistrail_data import VistrailManager
+from dat.gui.operations import OperationPanel
 from dat.gui.plots import PlotPanel
 from dat.gui.variables import VariablePanel
+from dat.vistrail_data import VistrailManager
 
 from vistrails.core.application import get_vistrails_application
-from vistrails.packages.spreadsheet.spreadsheet_controller import spreadsheetController
+from vistrails.packages.spreadsheet.spreadsheet_controller import \
+    spreadsheetController
+from vistrails.packages.spreadsheet import spreadsheet_flags
 
 
 class MainWindow(QtGui.QMainWindow):
@@ -46,7 +49,8 @@ class MainWindow(QtGui.QMainWindow):
         # Embed the spreadsheet window as the central widget
         self.spreadsheetWindow = spreadsheetController.findSpreadsheetWindow(
                 show=False,
-                flags=0)
+                swflags=spreadsheet_flags.TAB_CLOSE_SHEET,
+                close_tab_action=self.close_current_controller)
         self.setCentralWidget(self.spreadsheetWindow)
         self.spreadsheetWindow.setVisible(True)
 
@@ -54,17 +58,22 @@ class MainWindow(QtGui.QMainWindow):
         # DockWidgetClosable is not permitted
         self._variables = VariablePanel(VistrailManager())
         self._plots = PlotPanel()
+        self._operations = OperationPanel()
 
-        plots = QtGui.QDockWidget(_("Plots"))
-        plots.setFeatures(QtGui.QDockWidget.DockWidgetMovable |
-                          QtGui.QDockWidget.DockWidgetFloatable)
-        plots.setWidget(self._plots)
-        self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, plots)
-        self._variables_dock = QtGui.QDockWidget(_("Variables"))
-        self._variables_dock.setFeatures(QtGui.QDockWidget.DockWidgetMovable |
-                                         QtGui.QDockWidget.DockWidgetFloatable)
-        self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, self._variables_dock)
-        self._variables_dock.setWidget(self._variables)
+        def dock_panel(title, widget, pos):
+            dock = QtGui.QDockWidget(title)
+            dock.setFeatures(QtGui.QDockWidget.DockWidgetMovable |
+                              QtGui.QDockWidget.DockWidgetFloatable)
+            dock.setWidget(widget)
+            self.addDockWidget(pos, dock)
+            return dock
+
+        dock_panel(_("Plots"), self._plots,
+                   QtCore.Qt.LeftDockWidgetArea)
+        self._variables_dock = dock_panel(_("Variables"), self._variables,
+                                          QtCore.Qt.LeftDockWidgetArea)
+        dock_panel(_("Calculator"), self._operations,
+                   QtCore.Qt.RightDockWidgetArea)
 
         get_vistrails_application().register_notification(
                 'dat_controller_changed',
@@ -74,6 +83,10 @@ class MainWindow(QtGui.QMainWindow):
         self._variables.unregister_notifications()
         self._variables = VariablePanel(VistrailManager(controller))
         self._variables_dock.setWidget(self._variables)
+
+    def close_current_controller(self, tab):
+        get_vistrails_application().builderWindow.close_vistrail()
+        return False
 
     def openFile(self):
         get_vistrails_application().builderWindow.open_vistrail_default()

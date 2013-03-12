@@ -154,4 +154,39 @@
       <parameter alias="" id="7" name="&lt;no description&gt;" pos="0" type="edu.utah.sci.vistrails.basic:String" val="param2" />
     </add>
   </action>
+  <action date="2013-02-26 14:26:39" id="23" prevId="22" session="5" user="Remi">
+    <add id="47" objectId="6" parentObjId="" parentObjType="" what="module">
+      <module cache="1" id="6" name="InputPort" namespace="" package="edu.utah.sci.vistrails.basic" version="1.6" />
+    </add>
+    <add id="48" objectId="8" parentObjId="6" parentObjType="module" what="location">
+      <location id="8" x="265.221269297" y="112.411663808" />
+    </add>
+  </action>
+  <action date="2013-02-26 14:26:44" id="24" prevId="23" session="5" user="Remi">
+    <add id="49" objectId="6" parentObjId="" parentObjType="" what="connection">
+      <connection id="6" />
+    </add>
+    <add id="50" objectId="12" parentObjId="6" parentObjType="connection" what="port">
+      <port id="12" moduleId="6" moduleName="InputPort" name="InternalPipe" signature="(edu.utah.sci.vistrails.basic:Variant)" type="source" />
+    </add>
+    <add id="51" objectId="13" parentObjId="6" parentObjType="connection" what="port">
+      <port id="13" moduleId="0" moduleName="ConcatenateString" name="str4" signature="(edu.utah.sci.vistrails.basic:String)" type="destination" />
+    </add>
+  </action>
+  <action date="2013-02-26 14:26:56" id="25" prevId="24" session="5" user="Remi">
+    <add id="52" objectId="7" parentObjId="6" parentObjType="module" what="function">
+      <function id="7" name="name" pos="0" />
+    </add>
+    <add id="53" objectId="8" parentObjId="7" parentObjType="function" what="parameter">
+      <parameter alias="" id="8" name="&lt;no description&gt;" pos="0" type="edu.utah.sci.vistrails.basic:String" val="param3" />
+    </add>
+  </action>
+  <action date="2013-02-26 14:27:01" id="26" prevId="25" session="5" user="Remi">
+    <add id="54" objectId="8" parentObjId="6" parentObjType="module" what="function">
+      <function id="8" name="spec" pos="1" />
+    </add>
+    <add id="55" objectId="9" parentObjId="8" parentObjType="function" what="parameter">
+      <parameter alias="" id="9" name="&lt;no description&gt;" pos="0" type="edu.utah.sci.vistrails.basic:String" val="edu.utah.sci.vistrails.basic:String" />
+    </add>
+  </action>
 </vistrail>

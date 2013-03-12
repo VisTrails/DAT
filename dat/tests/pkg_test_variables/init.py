@@ -1,14 +1,12 @@
-from dat.vistrails_interface import Variable, CustomVariableLoader
+from dat.packages import Variable, CustomVariableLoader
 
 import vistrails.core.modules.basic_modules as basic
-from vistrails.core.modules.module_registry import get_module_registry
 import vistrails.packages.pythonCalc.init as pythoncalc
 
 
 class MyVariableLoader(CustomVariableLoader):
     def load(self):
         var = Variable(type=basic.Float)
-        reg = get_module_registry()
         calc = var.add_module(pythoncalc.PythonCalc)
         op1 = var.add_module('edu.utah.sci.vistrails.basic:Float')
         op2 = var.add_module(basic.Float)

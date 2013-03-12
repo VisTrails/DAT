@@ -22,6 +22,7 @@ class DATCellContainer(QCellContainer):
     """
     def __init__(self, cellInfo=None, widget=None, parent=None):
         self._variables = dict() # param name -> Variable
+        self._constants = dict() # param name -> value: str
         self._plot = None # dat.vistrails_interface:Plot
 
         app = get_vistrails_application()
@@ -33,6 +34,14 @@ class DATCellContainer(QCellContainer):
 
         self._overlay = None
         self._overlay_scrollarea = QtGui.QScrollArea()
+        self._overlay_scrollarea.setObjectName('overlay_scrollarea')
+        self._overlay_scrollarea.setStyleSheet(
+                'QScrollArea#overlay_scrollarea {'
+                '    background-color: transparent;'
+                '}'
+                'Overlay {'
+                '    background-color: transparent;'
+                '}')
         self._overlay_scrollarea.setWidgetResizable(True)
         self._show_button = QtGui.QPushButton()
         self._show_button.setIcon(get_icon('show_overlay.png'))
@@ -95,6 +104,7 @@ class DATCellContainer(QCellContainer):
                     # exist anymore
                     self._plot = None
                     self._variables = dict()
+                    self._constants = dict()
                 else:
                     # If this cell didn't already contain a result, we just
                     # remove the associated parameters
@@ -149,9 +159,11 @@ class DATCellContainer(QCellContainer):
         if pipeline is not None:
             self._plot = pipeline.recipe.plot
             self._variables = dict(pipeline.recipe.variables)
+            self._constants = dict(pipeline.recipe.constants)
         else:
             self._plot = None
             self._variables = dict()
+            self._constants = dict()
         self._set_overlay(None)
 
     def _set_overlay(self, overlay_class, **kwargs):
@@ -255,6 +267,7 @@ class DATCellContainer(QCellContainer):
             event.accept()
             self._plot = mimeData.plot
             self._variables = dict()
+            self._constants = dict()
             self._parameter_hovered = None
             self.update_pipeline()
 
@@ -273,12 +286,21 @@ class DATCellContainer(QCellContainer):
             self.update_pipeline()
             self._set_overlay(None)
 
+    def change_constant(self, port_name, value):
+        if self._constants.get(port_name) == value:
+            return
+        if value is None:
+            del self._constants[port_name]
+        else:
+            self._constants[port_name] = value
+        self.update_pipeline()
+
     def update_pipeline(self):
         """Updates the recipe and execute the workflow if enough ports are set.
         """
         # Look this recipe up in the VistrailData
         vistraildata = VistrailManager(self._controller)
-        recipe = DATRecipe(self._plot, self._variables)
+        recipe = DATRecipe(self._plot, self._variables, self._constants)
 
         # Try to get an existing pipeline for this cell
         pipeline = vistraildata.get_pipeline(self.cellInfo)
