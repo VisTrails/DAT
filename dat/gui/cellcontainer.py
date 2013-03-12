@@ -221,6 +221,15 @@ class DATCellContainer(QCellContainer):
     def dragEnterEvent(self, event):
         mimeData = event.mimeData()
         if mimeData.hasFormat(MIMETYPE_DAT_VARIABLE):
+            if VistrailManager(self._controller).get_variable(
+                    str(mimeData.data(MIMETYPE_DAT_VARIABLE))) is None:
+                # I can't think of another case for this than someone dragging
+                # a variable from another instance of DAT
+                event.ignore()
+                return
+                # If this doesn't fail, we would still use the variable with
+                # the same name from this instance, not import the variable
+                # from the other instance
             if self._plot is None:
                 # We should ignore the drop here. That would make sense, and
                 # display the correct mouse pointer
@@ -231,6 +240,14 @@ class DATCellContainer(QCellContainer):
             else:
                 self._set_overlay(VariableDroppingOverlay, mimeData=mimeData)
         elif mimeData.hasFormat(MIMETYPE_DAT_PLOT):
+            if GlobalManager.get_plot(
+                    str(mimeData.data(MIMETYPE_DAT_PLOT))) is None:
+                # I can't think of another case for this than someone dragging
+                # a plot from another instance of DAT
+                event.ignore()
+                return
+                # If the plot is available, this operation should work as
+                # expected
             self._set_overlay(PlotDroppingOverlay, mimeData=mimeData)
         else:
             event.ignore()
