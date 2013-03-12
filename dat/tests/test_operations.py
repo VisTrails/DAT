@@ -31,27 +31,6 @@ class Test_operation_parsing(unittest.TestCase):
                     )
                 ))
 
-        with self.assertRaises(InvalidOperation) as cm:
-            parse_expression('t = a . b')
-        self.assertIn("Error while parsing", cm.exception.message)
-
-        with self.assertRaises(InvalidOperation) as cm:
-            parse_expression('42 = 3 + 3')
-        self.assertIn("Invalid target ", cm.exception.message)
-        self.assertEqual(cm.exception.select, (0, 2)) # target selected
-
-        with self.assertRaises(InvalidOperation) as cm:
-            parse_expression('= 6*7')
-        self.assertIn("Missing target ", cm.exception.message)
-        self.assertEqual(cm.exception.fix, 'new_var = 6*7')
-        self.assertEqual(cm.exception.select, (0, 7))
-
-        with self.assertRaises(InvalidOperation) as cm:
-            parse_expression('6*7')
-        self.assertIn("Missing target ", cm.exception.message)
-        self.assertEqual(cm.exception.fix, 'new_var = 6*7')
-        self.assertEqual(cm.exception.select, (0, 7))
-
         self.assertEqual(parse_expression('a = 3 + 3')[0], 'a')
 
         self.assertEqual(
@@ -79,7 +58,29 @@ class Test_operation_parsing(unittest.TestCase):
                     )
                 ))
 
-    @unittest.skip("Bug in tdparser, pending request")
+    def test_parser_errors(self):
+        with self.assertRaises(InvalidOperation) as cm:
+            parse_expression('t = a . b')
+        self.assertIn("Error while parsing", cm.exception.message)
+        self.assertEqual(cm.exception.select[0], 6) # error at '.'
+
+        with self.assertRaises(InvalidOperation) as cm:
+            parse_expression('42 = 3 + 3')
+        self.assertIn("Invalid target ", cm.exception.message)
+        self.assertEqual(cm.exception.select, (0, 2)) # target selected
+
+        with self.assertRaises(InvalidOperation) as cm:
+            parse_expression('= 6*7')
+        self.assertIn("Missing target ", cm.exception.message)
+        self.assertEqual(cm.exception.fix, 'new_var = 6*7')
+        self.assertEqual(cm.exception.select, (0, 7))
+
+        with self.assertRaises(InvalidOperation) as cm:
+            parse_expression('6*7')
+        self.assertIn("Missing target ", cm.exception.message)
+        self.assertEqual(cm.exception.fix, 'new_var = 6*7')
+        self.assertEqual(cm.exception.select, (0, 7))
+
     def test_invalid_parens(self):
         with self.assertRaises(InvalidOperation):
             parse_expression('new_var = 3 + (5*7')

@@ -1,5 +1,5 @@
 import re
-from tdparser import Lexer, Token, ParserError
+from tdparser import Lexer, Token, LexerError, Error
 
 from dat import variable_format
 from dat.utils import iswhitespace
@@ -150,5 +150,10 @@ def parse_expression(expression):
         expression = expression[equal+1:]
     try:
         return target, lexer.parse(expression)
-    except (ParserError, ValueError):
+    except LexerError, e:
+        raise InvalidOperation("Error while parsing expression",
+                               None,
+                               select=(equal+1 + e.position,
+                                       equal+1 + len(expression)))
+    except Error:
         raise InvalidOperation("Error while parsing expression")
