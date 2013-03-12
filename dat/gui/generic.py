@@ -253,7 +253,7 @@ class SingleLineTextEdit(QtGui.QTextEdit):
         self.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
 
     def keyPressEvent(self, event):
-        if event.key() == QtCore.Qt.Key_Enter:
+        if event.key() in (QtCore.Qt.Key_Enter, QtCore.Qt.Key_Return):
             self.emit(self.returnPressed)
             event.accept()
         else:
