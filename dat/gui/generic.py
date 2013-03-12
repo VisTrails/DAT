@@ -90,6 +90,31 @@ class CategorizedListWidget(QtGui.QTreeWidget):
                     break
 
 
+class DraggableCategorizedListWidget(CategorizedListWidget):
+    def __init__(self, parent=None, mimetype='text/plain'):
+        CategorizedListWidget.__init__(self, parent)
+        self._mime_type = mimetype
+        self.setDragEnabled(True)
+        self.setDragDropMode(QtGui.QAbstractItemView.DragOnly)
+
+    def buildData(self, item):
+        """Builds the data for a draggable item.
+        """
+        data = QtCore.QMimeData()
+        data.setData(self._mime_type, item.text(0).toAscii())
+        return data
+
+    def startDrag(self, actions):
+        items = self.selectedItems()
+        if len(items) == 1:
+            data = self.buildData(items[0])
+
+            drag = QtGui.QDrag(self)
+            drag.setMimeData(data)
+            with dragging_to_overlays():
+                drag.start(QtCore.Qt.CopyAction)
+
+
 class AdvancedLineEdit(QtGui.QLineEdit):
     """A modified QLineEdit that can be validated and reset.
 

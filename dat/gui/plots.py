@@ -1,20 +1,22 @@
 from PyQt4 import QtGui
 
 from dat import MIMETYPE_DAT_PLOT
-from dat.gui.generic import DraggableListWidget
+from dat.gui.generic import DraggableCategorizedListWidget
 from dat.global_data import GlobalManager
 
 from vistrails.core.application import get_vistrails_application
+from vistrails.core.packagemanager import get_package_manager
 
 
-class PlotItem(QtGui.QListWidgetItem):
+class PlotItem(QtGui.QTreeWidgetItem):
     """An item in the list of plots.
 
     Displays the 'name' field of the plot.
     """
-    def __init__(self, plot):
-        QtGui.QListWidgetItem.__init__(self, plot.name)
+    def __init__(self, plot, category):
+        QtGui.QListWidgetItem.__init__(self, [plot.name])
         self.plot = plot
+        self.category = category
 
 
 class PlotPanel(QtGui.QWidget):
@@ -24,9 +26,13 @@ class PlotPanel(QtGui.QWidget):
     def __init__(self):
         super(PlotPanel, self).__init__()
 
+        self._plots = dict() # Plot -> PlotItem
+
         layout = QtGui.QVBoxLayout()
 
-        self._list_widget = DraggableListWidget(self, MIMETYPE_DAT_PLOT)
+        self._list_widget = DraggableCategorizedListWidget(
+                self,
+                MIMETYPE_DAT_PLOT)
         layout.addWidget(self._list_widget)
 
         self.setLayout(layout)
@@ -39,12 +45,12 @@ class PlotPanel(QtGui.QWidget):
             self.plot_added(plot)
 
     def plot_added(self, plot):
-        self._list_widget.addItem(PlotItem(plot))
+        pm = get_package_manager()
+        package = pm.get_package_by_identifier(plot.package_identifier)
+        item = PlotItem(plot, package.name)
+        self._plots[plot] = item
+        self._list_widget.addItem(item, package.name)
 
     def plot_removed(self, plot):
-        item = 0
-        while item < self._list_widget.count():
-            if self._list_widget.item(item).plot is plot:
-                self._list_widget.takeItem(item)
-            else:
-                item += 1
+        item = self._plots.pop(plot)
+        self._list_widget.removeItem(item, item.category)
