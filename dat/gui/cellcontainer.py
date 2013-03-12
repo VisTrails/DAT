@@ -267,6 +267,7 @@ class DATCellContainer(QCellContainer):
             event.accept()
             self._plot = mimeData.plot
             self._variables = dict()
+            self._constants = dict()
             self._parameter_hovered = None
             self.update_pipeline()
 
