@@ -1,22 +1,10 @@
-from PyQt4 import QtCore, QtGui
+from PyQt4 import QtGui
 
 from dat import MIMETYPE_DAT_PLOT
 from dat.gui.generic import DraggableListWidget
 from dat.global_data import GlobalManager
 
 from vistrails.core.application import get_vistrails_application
-
-
-class PlotList(DraggableListWidget):
-    """The custom list used for plots.
-
-    Overrides buildData() to build the DAT plot data.
-    """
-    def buildData(self, element):
-        data = QtCore.QMimeData()
-        data.setData(self._mime_type, '')
-        data.plot = element.plot
-        return data
 
 
 class PlotItem(QtGui.QListWidgetItem):
@@ -38,7 +26,7 @@ class PlotPanel(QtGui.QWidget):
 
         layout = QtGui.QVBoxLayout()
 
-        self._list_widget = PlotList(self, MIMETYPE_DAT_PLOT)
+        self._list_widget = DraggableListWidget(self, MIMETYPE_DAT_PLOT)
         layout.addWidget(self._list_widget)
 
         self.setLayout(layout)

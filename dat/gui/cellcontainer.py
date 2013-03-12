@@ -4,6 +4,7 @@ from PyQt4 import QtCore, QtGui
 
 from dat import MIMETYPE_DAT_VARIABLE, MIMETYPE_DAT_PLOT, DATRecipe
 from dat.gui import get_icon
+from dat.global_data import GlobalManager
 from dat.vistrail_data import VistrailManager
 from dat import vistrails_interface
 from dat.gui.overlays import PlotPromptOverlay, VariableDropEmptyCell, \
@@ -265,7 +266,8 @@ class DATCellContainer(QCellContainer):
 
         elif mimeData.hasFormat(MIMETYPE_DAT_PLOT):
             event.accept()
-            self._plot = mimeData.plot
+            plotname = str(mimeData.data(MIMETYPE_DAT_PLOT))
+            self._plot = GlobalManager.get_plot(plotname)
             self._variables = dict()
             self._constants = dict()
             self._parameter_hovered = None
