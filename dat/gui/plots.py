@@ -24,7 +24,7 @@ class PlotPanel(QtGui.QWidget):
     """
     # TODO-dat : should display a plot's description somewhere
     def __init__(self):
-        super(PlotPanel, self).__init__()
+        QtGui.QWidget.__init__(self)
 
         self._plots = dict() # Plot -> PlotItem
 

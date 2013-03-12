@@ -18,7 +18,7 @@ class MainWindow(QtGui.QMainWindow):
     Embeds the VisTrails spreadsheet.
     """
     def __init__(self):
-        super(MainWindow, self).__init__()
+        QtGui.QMainWindow.__init__(self)
 
         self.setWindowTitle("DAT")
 

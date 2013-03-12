@@ -18,7 +18,7 @@ class VariablePanel(QtGui.QWidget):
     deleted, else it will still be referenced from the NotificationDispatcher.
     """
     def __init__(self, vistraildata):
-        super(VariablePanel, self).__init__()
+        QtGui.QWidget.__init__(self)
 
         self._vistraildata = vistraildata
 
