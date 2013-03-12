@@ -2,7 +2,7 @@ import string
 import warnings
 
 
-def bisect(count, getter, element, lo=0, comp=lambda x, y: x<y):
+def bisect(count, getter, element, lo=0, comp=lambda x, y: x < y):
     """Version of bisect.bisect_right that uses lambdas.
 
     Contrary to bisect.bisect_right which takes a list, this version accepts a

@@ -2,12 +2,14 @@ from PyQt4 import QtCore, QtGui
 
 from dat.global_data import GlobalManager
 from dat.gui import translate
-from dat.gui.generic import ConsoleWidget, SingleLineTextEdit
+from dat.gui.generic import CategorizedListWidget, ConsoleWidget, \
+    SingleLineTextEdit
 from dat.operations import is_operator, perform_operation, \
     InvalidOperation, OperationWarning
-from dat.utils import bisect, catch_warning
+from dat.utils import catch_warning
 
 from vistrails.core.application import get_vistrails_application
+from vistrails.core.packagemanager import get_package_manager
 
 
 class MarkerHighlighterLineEdit(SingleLineTextEdit):
@@ -58,13 +60,25 @@ class MarkerHighlighterLineEdit(SingleLineTextEdit):
             return super(MarkerHighlighterLineEdit, self).focusNextPrevChild(forward)
 
 
+class OperationItem(QtGui.QTreeWidgetItem):
+    def __init__(self, operation, category):
+        if is_operator(operation.name):
+            _ = translate(OperationItem)
+            name = _("operator {op}").format(op=operation.name)
+        else:
+            name = operation.name
+        QtGui.QTreeWidgetItem.__init__(self, [name])
+        self.operation = operation
+        self.category = category
+
+
 class OperationPanel(QtGui.QWidget):
     def __init__(self):
         QtGui.QWidget.__init__(self)
 
         _ = translate(OperationPanel)
 
-        self._operations = dict() # name -> set([operations])
+        self._operations = dict() # VariableOperation -> OperationItem
 
         layout = QtGui.QVBoxLayout()
 
@@ -80,11 +94,11 @@ class OperationPanel(QtGui.QWidget):
 
         layout.addWidget(QtGui.QLabel(_("Available operations:")))
 
-        self._list = QtGui.QListWidget()
+        self._list = CategorizedListWidget()
         self._list.setSelectionMode(QtGui.QAbstractItemView.NoSelection)
         self.connect(
                 self._list,
-                QtCore.SIGNAL('itemClicked(QListWidgetItem*)'),
+                QtCore.SIGNAL('itemClicked(QTreeWidgetItem*, int)'),
                 self.operation_clicked)
         layout.addWidget(self._list)
 
@@ -99,33 +113,18 @@ class OperationPanel(QtGui.QWidget):
             self.operation_added(operation)
 
     def operation_added(self, operation):
-        try:
-            self._operations[operation.name].add(operation)
-        except KeyError:
-            self._operations[operation.name] = set([operation])
-
-            pos = bisect(
-                    self._list.count(),
-                    lambda i: str(self._list.item(i).text()),
-                    operation.name)
-            if pos >= 1 and pos - 1 < self._list.count():
-                if str(self._list.item(pos-1).text()) == operation.name:
-                    return
-            self._list.insertItem(pos, operation.name)
+        pm = get_package_manager()
+        package = pm.get_package_by_identifier(operation.package_identifier)
+        item = OperationItem(operation, package.name)
+        self._operations[operation] = item
+        self._list.addItem(item, package.name)
 
     def operation_removed(self, operation):
-        ops = self._operations[operation.name]
-        ops.remove(operation)
-        if not ops:
-            del self._operations[operation.name]
-            pos = bisect(
-                    self._list.count(),
-                    lambda i: str(self._list.item(i).text()),
-                    operation.name)
-            self._list.takeItem(pos-1)
+        item = self._operations.pop(operation)
+        self._list.removeItem(item, item.category)
 
-    def operation_clicked(self, item):
-        text = str(item.text())
+    def operation_clicked(self, item, column=0):
+        text = item.operation.name
         if is_operator(text):
             append = '<?> ' + text + ' <?>'
             pos = (-10, 3)

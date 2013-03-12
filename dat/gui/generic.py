@@ -1,6 +1,7 @@
 from PyQt4 import QtCore, QtGui
 
 from dat.gui import dragging_to_overlays, get_icon, translate
+from dat.utils import bisect
 
 
 class DraggableListWidget(QtGui.QListWidget):
@@ -39,6 +40,54 @@ class DraggableListWidget(QtGui.QListWidget):
             drag.setMimeData(data)
             with dragging_to_overlays():
                 drag.start(QtCore.Qt.CopyAction)
+
+
+class CategorizedListWidget(QtGui.QTreeWidget):
+    def __init__(self, parent=None):
+        QtGui.QTreeWidget.__init__(self, parent)
+        self.setHeaderHidden(True)
+        self._categories = dict()
+                # category: str -> (
+                #     top_level_widget: QTreeWidgetItem,
+                #     {text: str OR item -> item: QTreeWidgetItem})
+
+    def addItem(self, item, category):
+        if isinstance(item, (str, unicode)):
+            w = QtGui.QTreeWidgetItem([item])
+        elif isinstance(item, QtGui.QTreeWidgetItem):
+            w = item
+        else:
+            raise TypeError
+        try:
+            top_level, items = self._categories[category]
+        except KeyError:
+            top_level = QtGui.QTreeWidgetItem([category])
+            pos = bisect(
+                    self.topLevelItemCount(),
+                    lambda i: str(self.topLevelItem(i).text(0)),
+                    category,
+                    comp=lambda x, y: x.lower() < y.lower())
+            self.insertTopLevelItem(pos, top_level)
+            self._categories[category] = top_level, {item: w}
+        else:
+            items[item] = w
+        top_level.addChild(w)
+
+    def removeItem(self, item, category):
+        top_level, items = self._categories[category]
+        if isinstance(item, (str, unicode)):
+            w = items.pop(item)
+        elif isinstance(item, QtGui.QTreeWidgetItem):
+            w = items.pop(item) # w == item
+        else:
+            raise TypeError
+        top_level.removeChild(w)
+        if not items:
+            del self._categories[category]
+            for i in xrange(self.topLevelItemCount()):
+                if self.topLevelItem(i) is top_level:
+                    self.takeTopLevelItem(i)
+                    break
 
 
 class AdvancedLineEdit(QtGui.QLineEdit):
