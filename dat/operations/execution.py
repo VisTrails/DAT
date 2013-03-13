@@ -2,7 +2,7 @@ import sys
 
 from dat.global_data import GlobalManager
 from dat.operations import InvalidOperation, OperationWarning
-from dat.operations.parsing import SYMBOL, NUMBER, OP, parse_expression
+from dat.operations.parsing import SYMBOL, NUMBER, STRING, OP, parse_expression
 from dat.vistrail_data import VistrailManager
 from dat import vistrails_interface
 from dat.vistrails_interface import Variable, PipelineGenerator
@@ -32,18 +32,22 @@ class GetExistingVariable(ComputeVariable):
 class BuildConstant(ComputeVariable):
     def __init__(self, value):
         self.value = value
-        self.type = get_module_registry().get_descriptor_by_name(
-                'edu.utah.sci.vistrails.basic',
-                'Float')
+        if isinstance(value, basestring):
+            self.type = get_module_registry().get_descriptor_by_name(
+                    'edu.utah.sci.vistrails.basic',
+                    'String')
+        else: # isinstance(value, float):
+            self.type = get_module_registry().get_descriptor_by_name(
+                    'edu.utah.sci.vistrails.basic',
+                    'Float')
 
     def execute(self, controller):
         generator = PipelineGenerator(controller)
-        Float_desc = get_module_registry().get_descriptor(Float)
-        module = generator.controller.create_module_from_descriptor(Float_desc)
+        module = generator.controller.create_module_from_descriptor(self.type)
         generator.add_module(module)
         generator.update_function(module, 'value', [self.value])
         return Variable(
-                type=Float_desc,
+                type=self.type,
                 controller=controller,
                 generator=generator,
                 output=(module, 'value'))
@@ -66,7 +70,7 @@ def resolve_symbols(vistraildata, expr):
     if expr[0] == SYMBOL:
         # Get an existing variable
         return GetExistingVariable(vistraildata, expr[1])
-    elif expr[0] == NUMBER:
+    elif expr[0] == NUMBER or expr[0] == STRING:
         # Build a constant module
         return BuildConstant(expr[1])
     elif expr[0] == OP:
@@ -138,10 +142,16 @@ def find_operation(name, args):
     operations = set([
             op
             for op in GlobalManager.variable_operations
-            if (op.name == name and
-                    len(op.parameters) == len(args))])
+            if op.name == name])
     if not operations:
         raise InvalidOperation("There is no operation %r" % name)
+    operations = set([
+            op
+            for op in operations
+            if len(op.parameters) == len(args)])
+    if not operations:
+        raise InvalidOperation("There is no operation %r with %d arguments" % (
+                               name, len(args)))
 
     # Loop on arguments
     for i, actual in enumerate(args):

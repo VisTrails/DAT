@@ -3,11 +3,12 @@
 """
 
 
+import re
 import unittest
 
 from dat.operations.execution import parent_modules, find_operation
 from dat.operations.parsing import InvalidOperation, parse_expression, \
-    SYMBOL, NUMBER, OP
+    SYMBOL, NUMBER, STRING, OP, String
 import dat.tests
 
 from vistrails.core.modules.module_registry import get_module_registry
@@ -15,6 +16,17 @@ from vistrails.core.packagemanager import get_package_manager
 
 
 class Test_operation_parsing(unittest.TestCase):
+    def test_string_regexp(self):
+        """Tests the regexp for the String token.
+        """
+        reg = re.compile(String.regexp + r'$')
+        self.assertIsNotNone(reg.match(r'"this is a test"'))
+        self.assertIsNone(reg.match(r'"this is a test'))
+        self.assertIsNotNone(reg.match(r'"this \"is\" a test"'))
+        self.assertIsNone(reg.match(r'"this \\"is\" a test"'))
+        self.assertIsNotNone(reg.match(r'"this \\is\" a test"'))
+        self.assertIsNotNone(reg.match('"test\\"\\\\"'))
+
     def test_parser(self):
         """Tests the parse_expression function.
         """
@@ -34,7 +46,7 @@ class Test_operation_parsing(unittest.TestCase):
         self.assertEqual(parse_expression('a = 3 + 3')[0], 'a')
 
         self.assertEqual(
-                parse_expression('b = 4 *cd(2+ 5, ac) + (1-4)/7'),
+                parse_expression('b = 4 *cd(2+ 5, "test\\"\\\\") + (1-4)/7'),
                 (
                     'b',
                     (OP, '+',
@@ -45,7 +57,7 @@ class Test_operation_parsing(unittest.TestCase):
                                 (NUMBER, 2),
                                 (NUMBER, 5)
                                 ),
-                                (SYMBOL, 'ac'),
+                                (STRING, 'test"\\'),
                              ),
                         ),
                         (OP, '/',

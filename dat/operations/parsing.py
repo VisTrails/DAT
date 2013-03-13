@@ -9,7 +9,8 @@ from dat.operations import InvalidOperation
 
 SYMBOL = 1
 NUMBER = 2
-OP = 3
+STRING = 3
+OP = 4
 
 
 class Symbol(Token):
@@ -31,6 +32,16 @@ class Integer(Token):
 
     def nud(self, context):
         return (NUMBER, self.value)
+
+
+class String(Token):
+    regexp = r'"(?:[^\\"]|\\\\|\\")*"'
+
+    def __init__(self, text):
+        self.value = text[1:-1].replace('\\"', '"').replace('\\\\', '\\')
+
+    def nud(self, context):
+        return (STRING, self.value)
 
 
 class Addition(Token):
@@ -120,7 +131,7 @@ class Comma(Token):
 
 lexer = Lexer()
 lexer.register_tokens(
-        Symbol, Integer,
+        Symbol, Integer, String,
         Addition, Substraction, Multiplication, Division,
         LeftParen, RightParen, Comma)
 
