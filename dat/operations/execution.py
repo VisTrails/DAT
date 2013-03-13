@@ -194,10 +194,14 @@ def apply_operation(controller, op, args):
     if op.callback is not None:
         # FIXME : controller is ignored here...
         assert controller == VistrailManager().controller
-        return vistrails_interface.call_operation_callback(
+        result = vistrails_interface.call_operation_callback(
                 op,
                 op.callback,
                 args)
+        if result is None:
+            raise InvalidOperation("Package error: operation callback "
+                                   "returned None")
+        return result
     else: # op.subworkflow is not None:
         return vistrails_interface.apply_operation_subworkflow(
                 controller,
