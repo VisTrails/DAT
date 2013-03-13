@@ -1,3 +1,4 @@
+import itertools
 from PyQt4 import QtCore, QtGui
 
 from dat.global_data import GlobalManager
@@ -131,8 +132,17 @@ class OperationPanel(QtGui.QWidget):
             append = '<?> ' + text + ' <?>'
             pos = (-10, 3)
         else:
-            append = text + '()'
-            pos = (-2, 0)
+            if item.operation.parameters:
+                argstr = (
+                        ', '.join(itertools.repeat(
+                                '<?>',
+                                len(item.operation.parameters))) +
+                        ')')
+                append = text + '(' + argstr
+                pos = (-1 - len(argstr), 3)
+            else:
+                append = text + '()'
+                pos = (-2, 0)
         self._input_line.setText(self._input_line.text() + append)
         if pos[0] < 0:
             pos = (len(str(self._input_line.text())) + pos[0] + 1, pos[1])
