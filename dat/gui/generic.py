@@ -107,7 +107,14 @@ class DraggableCategorizedListWidget(CategorizedListWidget):
     def startDrag(self, actions):
         items = self.selectedItems()
         if len(items) == 1:
-            data = self.buildData(items[0])
+            item = items[0]
+            try:
+                if self._categories[str(item.text(0))][0] == item:
+                    return
+            except KeyError:
+                pass
+
+            data = self.buildData(item)
 
             drag = QtGui.QDrag(self)
             drag.setMimeData(data)

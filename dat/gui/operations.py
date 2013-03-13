@@ -124,6 +124,8 @@ class OperationPanel(QtGui.QWidget):
         self._list.removeItem(item, item.category)
 
     def operation_clicked(self, item, column=0):
+        if not isinstance(item, OperationItem):
+            return
         text = item.operation.name
         if is_operator(text):
             append = '<?> ' + text + ' <?>'
