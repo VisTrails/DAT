@@ -1,6 +1,7 @@
-import itertools
+import re
 from PyQt4 import QtCore, QtGui
 
+from dat import variable_format
 from dat.global_data import GlobalManager
 from dat.gui import translate
 from dat.gui.generic import CategorizedListWidget, ConsoleWidget, \
@@ -21,6 +22,9 @@ class MarkerHighlighterLineEdit(SingleLineTextEdit):
         self.connect(self, QtCore.SIGNAL('textChanged()'), self._highlight)
         self.setTabChangesFocus(True)
 
+    _marker_pattern = re.compile(r'<(%s)>' % variable_format)
+    _html_marker_pattern = re.compile(r'&lt;(%s)&gt;' % variable_format)
+
     def _highlight(self):
         if self.__changing:
             return
@@ -28,11 +32,12 @@ class MarkerHighlighterLineEdit(SingleLineTextEdit):
         try:
             pos = self.textCursor().position()
             text = str(self.toPlainText())
+            text = text.replace('&', '&amp;')
             text = text.replace('<', '&lt;')
             text = text.replace('>', '&gt;')
-            text = text.replace(
-                    '&lt;?&gt;',
-                    '<span style="background-color: #99F;">&lt;?&gt;</span>')
+            text = MarkerHighlighterLineEdit._html_marker_pattern.sub(
+                    '<span style="background-color: #99F;">&lt;\\1&gt;</span>',
+                    text)
             self.setHtml(text)
             cursor = self.textCursor()
             cursor.setPosition(pos)
@@ -42,16 +47,27 @@ class MarkerHighlighterLineEdit(SingleLineTextEdit):
 
     def focusNextPrevChild(self, forward):
         cursor = self.textCursor()
+        text = str(self.toPlainText())
         if forward:
-            marker = str(self.toPlainText()).find(
-                    '<?>',
-                    cursor.selectionEnd())
+            marker = MarkerHighlighterLineEdit._marker_pattern.search(
+                    text, cursor.selectionEnd())
+            if marker is not None:
+                marker = marker.span()
         else:
-            marker = str(self.toPlainText()).rfind(
-                    '<?>',
-                    0, cursor.selectionStart())
-        if marker != -1:
-            self.setSelection(marker, 3)
+            # Find last match
+            marker = None
+            pos = 0
+            while True:
+                m = MarkerHighlighterLineEdit._marker_pattern.search(
+                        text, pos, cursor.selectionStart())
+                if m is not None:
+                    marker = m.span()
+                    pos = marker[1]
+                else:
+                    break
+
+        if marker is not None:
+            self.setSelection(marker[0], marker[1] - marker[0])
             return True
         else:
             if forward:
@@ -129,25 +145,26 @@ class OperationPanel(QtGui.QWidget):
             return
         text = item.operation.name
         if is_operator(text):
-            append = '<?> ' + text + ' <?>'
-            pos = (-10, 3)
+            append = '\0<%s>\0 %s <%s>' % (
+                    item.operation.parameters[0].name,
+                    text,
+                    item.operation.parameters[1].name)
         else:
+            append = text + '('
             if item.operation.parameters:
-                argstr = (
-                        ', '.join(itertools.repeat(
-                                '<?>',
-                                len(item.operation.parameters))) +
-                        ')')
-                append = text + '(' + argstr
-                pos = (-1 - len(argstr), 3)
+                append += '\0<%s>\0' % item.operation.parameters[0].name
+                for param in item.operation.parameters[1:]:
+                    append += ', <%s>' % param.name
+                append += ')'
             else:
-                append = text + '()'
-                pos = (-2, 0)
-        self._input_line.setText(self._input_line.text() + append)
-        if pos[0] < 0:
-            pos = (len(str(self._input_line.text())) + pos[0] + 1, pos[1])
+                append += '\0\0)'
+        text = str(self._input_line.text()) + append
+        pos = text.find('\0')
+        pos = pos, text.find('\0', pos + 1) - 1
+        text = text[:pos[0]] + text[pos[0] + 1:pos[1] + 1] + text[pos[1] + 2:]
+        self._input_line.setText(text)
         self._input_line.setFocus()
-        self._input_line.setSelection(*pos)
+        self._input_line.setSelection(pos[0], pos[1] - pos[0])
 
     def _show_error(self, message, category, filename, lineno,
             file=None, line=None):
