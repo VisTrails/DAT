@@ -15,4 +15,5 @@ def is_operator(op_name):
     return op_name in iter('+-*/')
 
 
-from dat.operations.execution import perform_operation
+from dat.operations.execution import perform_operation, apply_operation
+from dat.operations.typecasting import get_typecast_operations

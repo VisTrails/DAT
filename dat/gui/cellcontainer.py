@@ -4,7 +4,9 @@ from PyQt4 import QtCore, QtGui
 
 from dat import MIMETYPE_DAT_VARIABLE, MIMETYPE_DAT_PLOT, DATRecipe
 from dat.gui import get_icon
+from dat.gui import typecast_dialog
 from dat.global_data import GlobalManager
+from dat.operations import apply_operation, get_typecast_operations
 from dat.vistrail_data import VistrailManager
 from dat import vistrails_interface
 from dat.gui.overlays import PlotPromptOverlay, VariableDropEmptyCell, \
@@ -12,6 +14,7 @@ from dat.gui.overlays import PlotPromptOverlay, VariableDropEmptyCell, \
 
 from vistrails.core.application import get_vistrails_application
 from vistrails.packages.spreadsheet.spreadsheet_cell import QCellContainer
+from dat.vistrails_interface import CancelExecution
 
 class DATCellContainer(QCellContainer):
     """Cell container used in the spreadsheet.
@@ -324,39 +327,57 @@ class DATCellContainer(QCellContainer):
         # Try to get an existing pipeline for this cell
         pipeline = vistraildata.get_pipeline(self.cellInfo)
 
-        # No pipeline: build one
-        if pipeline is None:
-            pipeline = vistrails_interface.create_pipeline(
-                    self._controller,
-                    recipe,
-                    self.cellInfo)
-            vistraildata.created_pipeline(self.cellInfo, pipeline)
-
-        # Pipeline with a different content: update it
-        elif pipeline.recipe != recipe:
-            try:
-                pipeline = vistrails_interface.update_pipeline(
-                        self._controller,
-                        pipeline,
-                        recipe)
-            except vistrails_interface.UpdateError, e:
-                warnings.warn("Could not update pipeline, creating new one:\n"
-                              "%s" % e)
+        try:
+            # No pipeline: build one
+            if pipeline is None:
                 pipeline = vistrails_interface.create_pipeline(
                         self._controller,
                         recipe,
-                        self.cellInfo)
-            vistraildata.created_pipeline(self.cellInfo, pipeline)
+                        self.cellInfo,
+                        typecast=self._typecast)
+                vistraildata.created_pipeline(self.cellInfo, pipeline)
 
-        # Execute the new pipeline if possible
-        spreadsheet_tab = vistraildata.spreadsheet_tab
-        tabWidget = spreadsheet_tab.tabWidget
-        sheetname = tabWidget.tabText(tabWidget.indexOf(spreadsheet_tab))
-        if not vistrails_interface.try_execute(
-                self._controller,
-                pipeline,
-                sheetname,
-                recipe) and self.widget() is not None:
-            # Clear the cell
-            self.cellInfo.tab.deleteCell(self.cellInfo.row,
-                                         self.cellInfo.column)
+            # Pipeline with a different content: update it
+            elif pipeline.recipe != recipe:
+                try:
+                    pipeline = vistrails_interface.update_pipeline(
+                            self._controller,
+                            pipeline,
+                            recipe,
+                            typecast=self._typecast)
+                except vistrails_interface.UpdateError, e:
+                    warnings.warn("Could not update pipeline, creating new "
+                                  "one:\n"
+                                  "%s" % e)
+                    pipeline = vistrails_interface.create_pipeline(
+                            self._controller,
+                            recipe,
+                            self.cellInfo,
+                            typecast=self._typecast)
+                vistraildata.created_pipeline(self.cellInfo, pipeline)
+
+            # Execute the new pipeline if possible
+            spreadsheet_tab = vistraildata.spreadsheet_tab
+            tabWidget = spreadsheet_tab.tabWidget
+            sheetname = tabWidget.tabText(tabWidget.indexOf(spreadsheet_tab))
+            if not vistrails_interface.try_execute(
+                    self._controller,
+                    pipeline,
+                    sheetname,
+                    recipe) and self.widget() is not None:
+                # Clear the cell
+                self.cellInfo.tab.deleteCell(self.cellInfo.row,
+                                             self.cellInfo.column)
+        except CancelExecution:
+            pass
+
+    def _typecast(self, controller, variable,
+            source_descriptor, expected_descriptor):
+        typecasts = get_typecast_operations(
+                source_descriptor,
+                expected_descriptor)
+        choice = typecast_dialog.choose_operation(
+                typecasts,
+                source_descriptor, expected_descriptor,
+                self)
+        return apply_operation(controller, choice, [variable])
