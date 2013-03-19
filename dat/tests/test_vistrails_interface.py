@@ -163,3 +163,64 @@ class Test_vistrails_interface(unittest.TestCase):
                         controller.current_pipeline,
                         [Float]),
                 [])
+
+    def test_describe_update(self):
+        """Tests the describe_dat_update() function.
+        """
+        from dat.vistrails_interface import describe_dat_update
+
+        self.assertEqual(
+                describe_dat_update(
+                        ['port'],
+                        []),
+                "Added DAT parameter to port")
+        self.assertEqual(
+                describe_dat_update(
+                        ['port', 'port'],
+                        []),
+                "Added DAT parameters to port")
+        self.assertEqual(
+                describe_dat_update(
+                        ['port', 'port'],
+                        ['port']),
+                "Changed DAT parameters on port")
+        self.assertEqual(
+                describe_dat_update(
+                        ['port'],
+                        ['port']),
+                "Changed DAT parameter on port")
+        self.assertEqual(
+                describe_dat_update(
+                        [],
+                        ['port']),
+                "Removed DAT parameter from port")
+        self.assertEqual(
+                describe_dat_update(
+                        [],
+                        ['port', 'port']),
+                "Removed DAT parameters from port")
+        self.assertEqual(
+                describe_dat_update(
+                        ['a', 'b'],
+                        []),
+                "Added DAT parameters")
+        self.assertEqual(
+                describe_dat_update(
+                        [],
+                        ['a', 'b']),
+                "Removed DAT parameters")
+        self.assertEqual(
+                describe_dat_update(
+                        ['port', 'port'],
+                        ['port']),
+                "Changed DAT parameters on port")
+        self.assertEqual(
+                describe_dat_update(
+                        ['a', 'b'],
+                        ['a']),
+                "Changed DAT parameters")
+        self.assertEqual(
+                describe_dat_update(
+                        ['a'],
+                        ['b']),
+                "Changed DAT parameters")

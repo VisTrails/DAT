@@ -34,15 +34,9 @@ class NotificationDispatcher(object):
 
     def _get_notification_dict(self, window=None, view=None):
         if view is not None:
-            try:
-                notifications = self._view_notifications[view]
-            except KeyError:
-                notifications = self._view_notifications[view] = {}
+            notifications = self._view_notifications.setdefault(view, {})
         elif window is not None:
-            try:
-                notifications = self._window_notifications[window]
-            except KeyError:
-                notifications = self._window_notifications[window] = {}
+            notifications = self._window_notifications.setdefault(window, {})
         else:
             notifications = self._global_notifications
 
@@ -166,15 +160,6 @@ class Application(QtGui.QApplication, NotificationDispatcher, VistrailsApplicati
         self.builderWindow = None
         set_vistrails_application(self)
 
-        # Track view creation/removal to be able to switch to one
-        self._views = dict()
-        self.register_notification(
-                'view_created',
-                self._view_created)
-        self.register_notification(
-                'controller_closed',
-                self._controller_closed)
-
         vistrails.gui.theme.initializeCurrentTheme()
 
         VistrailsApplicationInterface.init(self)
@@ -270,30 +255,15 @@ class Application(QtGui.QApplication, NotificationDispatcher, VistrailsApplicati
             tab_controller.setCurrentIndex(tabidx)
 
     def _sheet_changed(self, tab):
-        try:
-            vistraildata = VistrailManager.from_spreadsheet_tab(tab)
-            if vistraildata is None:
-                raise KeyError
-            view = self._views[vistraildata.controller]
-        except KeyError:
-            pass
-        else:
-            self.builderWindow.change_view(view)
+        vistraildata = VistrailManager.from_spreadsheet_tab(tab)
+        if vistraildata is not None:
+            self.builderWindow.ensureController(vistraildata.controller)
 
     def _vistrail_saved(self):
         # The saved controller is not passed in the notification
         # It should be the current one
         controller = self.builderWindow.get_current_controller()
         VistrailManager(controller).update_spreadsheet_tab()
-
-    def _view_created(self, controller, view):
-        self._views[controller] = view
-
-    def _controller_closed(self, controller):
-        try:
-            del self._views[controller]
-        except KeyError:
-            pass
 
     def try_quit(self):
         return self.builderWindow.quit()

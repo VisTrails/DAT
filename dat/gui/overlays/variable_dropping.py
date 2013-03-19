@@ -3,6 +3,7 @@ from PyQt4 import QtCore, QtGui
 from dat.gui.overlays import Overlay
 
 from dat import MIMETYPE_DAT_VARIABLE
+from dat.gui import translate
 from dat.operations.typecasting import get_typecast_operations
 from dat.vistrail_data import VistrailManager
 from dat.vistrails_interface import DataPort
@@ -62,7 +63,7 @@ DataParameter[targeted="no"][compatible="no"] {
 
 
 class DataParameter(QtGui.QPushButton):
-    def __init__(self, overlay, port_name, variable):
+    def __init__(self, overlay, port_name, pos, variable, append=False):
         QtGui.QPushButton.__init__(self)
 
         self.setSizePolicy(QtGui.QSizePolicy.Minimum,
@@ -76,7 +77,12 @@ class DataParameter(QtGui.QPushButton):
             self.connect(
                     self,
                     QtCore.SIGNAL('clicked()'),
-                    lambda: overlay.remove_parameter(port_name))
+                    lambda: overlay.remove_parameter(port_name, pos))
+        elif append:
+            self.setText('+')
+        else:
+            _ = translate(DataParameter)
+            self.setText(_("(not set)"))
 
     def update(self):
         if self._variable is not None:
@@ -131,42 +137,55 @@ class VariableDroppingOverlay(Overlay):
         spacing_layout.addSpacing(20)
         ports_layout = QtGui.QGridLayout()
 
-        self._parameters = []
+        self._parameters = [] # [[widget]]
         self._constant_widgets = dict() # widget -> port
         for i, port in enumerate(self._cell._plot.ports):
+            widgets = []
             if isinstance(port, DataPort):
+                param_panel = QtGui.QWidget()
+                param_panel.setLayout(QtGui.QVBoxLayout())
                 # Style changes according to the compatibility of the port with
                 # the variable being dragged
                 if self._compatible_ports is not None:
                     compatible = self._compatible_ports[i]
                 else:
                     compatible = ''
-                variable = self._cell._variables.get(port.name)
-                targeted = self._cell._parameter_hovered == i and 'yes' or 'no'
-                param = DataParameter(self, port.name, variable)
-                param.setProperty('compatible', compatible)
-                param.setProperty('optional', port.optional)
-                param.setProperty('targeted', targeted)
-            else: # isinstance(port, InputPort):
+                pos = 0
+                for pos, variable in enumerate(
+                        self._cell._parameters.get(port.name, [])):
+                    param = DataParameter(self, port.name, pos,
+                                          variable=variable.variable)
+                    param.setProperty('compatible', compatible)
+                    param.setProperty('optional', port.optional)
+                    param.setProperty('targeted', 'no')
+                    widgets.append(param)
+                    param_panel.layout().addWidget(param)
+                if (compatible == 'yes' or
+                        not self._cell._parameters.get(port.name)):
+                    param = DataParameter(self, port.name, pos, None,
+                                          append=compatible == 'yes')
+                    param.setProperty('compatible', compatible)
+                    param.setProperty('optional', port.optional)
+                    param.setProperty('targeted', 'no')
+                    widgets.append(param)
+                    param_panel.layout().addWidget(param)
+            else: # isinstance(port, ConstantPort):
                 gp = GuiParameter(port.type)
                 try:
-                    gp.strValue = self._cell._constants[port.name]
+                    gp.strValue = self._cell._parameters[port.name][0].constant
                 except KeyError:
                     pass
                 param = port.widget_class(gp)
                 self._constant_widgets[param] = port.name
                 self.connect(param, QtCore.SIGNAL('contentsChanged'),
                              self.constant_changed)
+                param_panel = param
             label = QtGui.QLabel(port.name)
-            label.setObjectName('port_name')
-            label.setProperty('compatible', compatible)
-            label.setProperty('optional', port.optional)
-            label.setProperty('targeted', targeted)
-            label.setBuddy(param)
-            self._parameters.append(param)
-            label.setBuddy(param)
+            label.setBuddy(param_panel)
+            self._parameters.append(widgets)
+            label.setBuddy(param_panel)
             ports_layout.addWidget(label, i, 0)
-            ports_layout.addWidget(param, i, 1)
+            ports_layout.addWidget(param_panel, i, 1)
 
         # Closing parenthesis
         paren_label = QtGui.QLabel(")")
@@ -191,39 +210,44 @@ class VariableDroppingOverlay(Overlay):
             return # Nothing to target
 
         targeted, mindist = None, None
-        for i, param in enumerate(self._parameters):
-            if self._compatible_ports[i] != INCOMPATIBLE:
-                wy = param.pos().y()
-                wh = param.height()
-                if y < wy:
-                    dist = wy - y
-                elif y > wy + wh:
-                    dist = y - (wy + wh)
-                else:
-                    targeted = i
-                    break
-                if mindist is None or dist < mindist:
-                    mindist = dist
-                    targeted = i
+        for i, params in enumerate(self._parameters):
+            for j, param in enumerate(params):
+                if self._compatible_ports[i] != INCOMPATIBLE:
+                    wy = param.pos().y()
+                    wh = param.height()
+                    if y < wy:
+                        dist = wy - y
+                    elif y > wy + wh:
+                        dist = y - (wy + wh)
+                    else:
+                        targeted = i
+                        break
+                    if mindist is None or dist < mindist:
+                        mindist = dist
+                        targeted = i
+                        pos = j
 
-        if self._cell._parameter_hovered != targeted:
+        if (self._cell._parameter_hovered != targeted or
+                self._cell._insert_pos != pos):
             def refresh(widget):
                 style = self.style()
                 style.unpolish(widget)
                 style.polish(widget)
             if self._cell._parameter_hovered is not None:
-                old = self._parameters[self._cell._parameter_hovered]
+                old = (self._parameters[self._cell._parameter_hovered]
+                                       [self._cell._insert_pos])
                 old.setProperty('targeted', 'no')
                 refresh(old)
 
-            new = self._parameters[targeted]
+            new = self._parameters[targeted][pos]
             new.setProperty('targeted', 'yes')
             refresh(new)
 
             self._cell._parameter_hovered = targeted
+            self._cell._insert_pos = pos
 
-    def remove_parameter(self, port_name):
-        self._cell.remove_parameter(port_name)
+    def remove_parameter(self, port_name, pos):
+        self._cell.remove_parameter(port_name, pos)
 
     def constant_changed(self, args):
         widget, contents = args # params are packed as a tuple for some reason

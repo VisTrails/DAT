@@ -1,4 +1,5 @@
 import sys
+import warnings
 
 from dat.global_data import GlobalManager
 from dat.operations import InvalidOperation, OperationWarning
@@ -7,10 +8,8 @@ from dat.vistrail_data import VistrailManager
 from dat import vistrails_interface
 from dat.vistrails_interface import Variable, PipelineGenerator
 
-from vistrails.core.modules.basic_modules import Float
 from vistrails.core.modules.module_registry import get_module_registry
 from vistrails.core.modules.vistrails_module import Module
-import warnings
 
 
 class ComputeVariable(object):

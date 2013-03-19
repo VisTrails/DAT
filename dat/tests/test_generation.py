@@ -6,11 +6,12 @@
 import os
 import unittest
 
-from dat import DATRecipe
+from dat import DATRecipe, RecipeParameterValue
 import dat.tests
 from dat.tests import CallRecorder, FakeObj
 from dat.vistrail_data import VistrailManager
 from dat import vistrails_interface
+from dat.vistrails_interface import Variable
 
 from vistrails.core import get_vistrails_application
 from vistrails.core.db.locator import XMLFileLocator
@@ -19,7 +20,6 @@ import vistrails.core.modules.basic_modules as basic
 from vistrails.core.modules.sub_module import OutputPort
 from vistrails.core.packagemanager import get_package_manager, PackageManager
 from vistrails.core.utils import DummyView
-from dat.vistrails_interface import Variable
 
 
 class Test_generation(unittest.TestCase):
@@ -117,11 +117,20 @@ class Test_generation(unittest.TestCase):
 
         recipe = DATRecipe(
                 pkg_test_plots.concat_plot,
-                dict(
-                        param1=vistraildata.get_variable('var1'),
-                        param2=vistraildata.get_variable('var2')),
-                dict(
-                        param3="!"))
+                {
+                    'param1': (
+                        RecipeParameterValue(
+                                variable=vistraildata.get_variable('var1')),
+                    ),
+                    'param2': (
+                        RecipeParameterValue(
+                                variable=vistraildata.get_variable('var2')),
+                    ),
+                    'param3': (
+                        RecipeParameterValue(
+                                constant="!"),
+                    ),
+                })
 
         pipelineInfo = vistrails_interface.create_pipeline(
                 controller,
