@@ -56,7 +56,8 @@ class DATRecipe(object):
         self.plot = plot
         # str -> [RecipeParameterValue]
         self.parameters = {param: tuple(values)
-                           for param, values in parameters.iteritems()}
+                           for param, values in parameters.iteritems()
+                           if values}
         self._hash = hash((
                 self.plot,
                 frozenset(self.parameters.iteritems())))
@@ -64,8 +65,7 @@ class DATRecipe(object):
     def __eq__(self, other):
         if not isinstance(other, DATRecipe):
             return False
-        return (self.plot, self.parameters) == (
-                other.plot, other.parameters)
+        return (self.plot, self.parameters) == (other.plot, other.parameters)
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -89,11 +89,15 @@ class PipelineInformation(object):
         self.recipe = recipe
         # str -> [[conn_id]]
         self.conn_map = {param: tuple(tuple(conns) for conns in values)
-                         for param, values in conn_map.iteritems()}
+                         for param, values in conn_map.iteritems()
+                         if values}
         # str -> [(mod_id, port_name)]
-        self.port_map = {param: tuple((mod_id, port_name)
-                                      for mod_id, port_name in ports)
-                         for param, ports in port_map.iteritems()}
+        if port_map is None:
+            self.port_map = None
+        else:
+            self.port_map = {param: tuple((mod_id, port_name)
+                                          for mod_id, port_name in ports)
+                             for param, ports in port_map.iteritems()}
 
 
 class BaseVariableLoader(object):
