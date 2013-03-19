@@ -1,7 +1,3 @@
-import inspect
-import os, os.path
-
-
 # Default variable name, if a variable loader can't provide a more specific one
 DEFAULT_VARIABLE_NAME = "variable"
 
@@ -19,33 +15,68 @@ variable_format = r'%s%s*' % (
         variable_format_other_chars)
 
 
+class RecipeParameterValue(object):
+    VARIABLE = 1
+    CONSTANT = 2
+
+    def __init__(self, variable=None, constant=None):
+        if variable is not None and constant is None:
+            self.type = self.VARIABLE
+            self.variable = variable
+        elif constant is not None and variable is None:
+            self.type = self.CONSTANT
+            self.constant = constant
+        else:
+            raise ValueError
+
+    def __eq__(self, other):
+        if not isinstance(other, RecipeParameterValue):
+            return False
+        if self.type != other.type:
+            return False
+        elif self.type == self.VARIABLE:
+            return self.variable is other.variable
+        else: # self.type == self.CONSTANT:
+            return self.constant == other.constant
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __hash__(self):
+        if self.type == self.VARIABLE:
+            return hash((self.type, self.variable.name))
+        else: # self.type == self.CONSTANT:
+            return hash((self.type, self.constant))
+
+
 class DATRecipe(object):
     """Just a simple class holding a Plot and its parameters.
     """
-    def __init__(self, plot, variables, constants):
+    def __init__(self, plot, parameters):
         self.plot = plot
-        self.variables = dict(variables)
-        self.constants = dict(constants)
+        # str -> [RecipeParameterValue]
+        self.parameters = {param: tuple(values)
+                           for param, values in parameters.iteritems()}
         self._hash = hash((
                 self.plot,
-                frozenset(self.variables.iteritems()),
-                frozenset(self.constants.iteritems())))
+                frozenset(self.parameters.iteritems())))
 
     def __eq__(self, other):
         if not isinstance(other, DATRecipe):
-            raise TypeError
-        return (self.plot, self.variables, self.constants) == (
-                other.plot, other.variables, other.constants)
-    
+            return False
+        return (self.plot, self.parameters) == (
+                other.plot, other.parameters)
+
     def __ne__(self, other):
         return not self.__eq__(other)
 
     def __hash__(self):
         return self._hash
-    
+
     def get_plot_modules(self, plot, pipeline):
         #TODO: implement
         return pipeline.module_list
+
 
 class PipelineInformation(object):
     """All the information DAT has on a plot.
@@ -53,13 +84,16 @@ class PipelineInformation(object):
     This is stored in VistrailsData. If an object doesn't exist for a version/
     cell, it is assumed not to be a DAT visualization.
     """
-    def __init__(self, version, recipe, port_map=None, var_map=None):
+    def __init__(self, version, recipe, conn_map, port_map):
         self.version = version
         self.recipe = recipe
-        # {param: [(mod_id, port_name)]}
-        self.port_map = dict(port_map) if port_map is not None else None
-        # {param: [conn_id: int]}
-        self.var_map = dict(var_map) if var_map is not None else None
+        # str -> [[conn_id]]
+        self.conn_map = {param: tuple(tuple(conns) for conns in values)
+                         for param, values in conn_map.iteritems()}
+        # str -> [(mod_id, port_name)]
+        self.port_map = {param: tuple((mod_id, port_name)
+                                      for mod_id, port_name in ports)
+                         for param, ports in port_map.iteritems()}
 
 
 class BaseVariableLoader(object):

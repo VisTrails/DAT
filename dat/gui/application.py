@@ -34,15 +34,9 @@ class NotificationDispatcher(object):
 
     def _get_notification_dict(self, window=None, view=None):
         if view is not None:
-            try:
-                notifications = self._view_notifications[view]
-            except KeyError:
-                notifications = self._view_notifications[view] = {}
+            notifications = self._view_notifications.setdefault(view, {})
         elif window is not None:
-            try:
-                notifications = self._window_notifications[window]
-            except KeyError:
-                notifications = self._window_notifications[window] = {}
+            notifications = self._window_notifications.setdefault(window, {})
         else:
             notifications = self._global_notifications
 

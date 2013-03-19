@@ -3,127 +3,123 @@
 """
 
 
-from itertools import count
 import unittest
 
+from dat import RecipeParameterValue, DATRecipe
+from dat.global_data import GlobalManager
+from dat.tests import FakeObj
 from dat.vistrail_data import VistrailData
-from dat.tests import CallRecorder, FakeObj, odict
 
 
-class Test_VistrailData(unittest.TestCase):
-    def test_build_annotation_recipe(self):
-        """Tests the _build_annotation_recipe() method.
-        """
-        recipe1 = FakeObj(
-                plot=FakeObj(name='My Plot'),
-                variables=odict(
-                        ('param1', FakeObj(name='var1')),
-                        ('param3', FakeObj(name='var2'))),
-                constants=odict(
-                        ('param2', 'test\'"'),
-                        ('param4', 'a;b=c,d'),
-                        ('param5', 'r\xC3\xA9mi'),
-                        ))
-        self.assertEqual(
-                VistrailData._build_annotation_recipe(recipe1),
-                'My Plot;'
-                'param1=v:var1;'
-                'param3=v:var2;'
-                'param2=c:test%27%22;'
-                'param4=c:a%3Bb%3Dc%2Cd;'
-                'param5=c:r%C3%A9mi')
-
-        recipe2 = FakeObj(
-                plot=FakeObj(name='My Plot'),
-                variables=dict(),
-                constants=dict())
-        self.assertEqual(
-                VistrailData._build_annotation_recipe(recipe2),
-                'My Plot')
-
-    def test_read_annotation_recipe(self):
-        """Tests the _read_annotation_recipe() method.
-        """
-        from dat.global_data import GlobalManager
-
+class Test_annotations(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
         class FakeVariable(object):
-            def __init__(self, nb):
-                self.name = nb
+            def __init__(self, name):
+                self.name = name
             def __eq__(self, other):
                 return self.name == other.name
 
-        plot = object()
-        get_variable = CallRecorder(
-                lambda name, c=count(1): FakeVariable(next(c)))
-        vistraildata = FakeObj(get_variable=get_variable)
+        cls.plot = FakeObj(name='My Plot')
+        cls.var1 = FakeVariable('var1')
+        cls.var2 = FakeVariable('var2')
+        cls.var3 = FakeVariable('var3')
+        all_vars = dict(var1=cls.var1, var2=cls.var2, var3=cls.var3)
+        def get_variable(name):
+            return all_vars.get(name)
+        cls.vistraildata = FakeObj(get_variable=get_variable)
 
+        cls.recipe = DATRecipe(
+                cls.plot,
+                {
+                    'param1': (
+                        RecipeParameterValue(
+                            variable=cls.var1),
+                        RecipeParameterValue(
+                            variable=cls.var2),
+                    ),
+                    'param2': (
+                        RecipeParameterValue(
+                            constant='test\'";b=c,r\xC3\xA9mi'),
+                    ),
+                    'param3': (
+                        RecipeParameterValue(
+                            variable=cls.var3),
+                    ),
+                })
+        cls.conn_map = {
+                'param1': (
+                    (1, 2),
+                    (5,),
+                ),
+                'param2': (
+                    (4,),
+                ),
+                'param3': (
+                    (3,),
+                ),
+            }
+        cls.port_map = {
+                'param1': (
+                    (1, 'port1'), (2, 'port2'),
+                ),
+                'param2': (
+                ),
+                'param3': (
+                    (3, 'port3'),
+                ),
+            }
+
+    def test_build_recipe(self):
+        """Tests the _build_annotation() method.
+        """
+        self.assertEqual(
+                VistrailData._build_recipe_annotation(
+                        self.recipe,
+                        self.conn_map),
+                'My Plot'
+                ';param1=v='
+                    'var1:1,2|'
+                    'var2:5'
+                ';param2=c='
+                    'test%27%22%3Bb%3Dc%2Cr%C3%A9mi:4'
+                ';param3=v='
+                    'var3:3')
+
+    def test_read_recipe(self):
+        """Tests the _read_annotation() method.
+        """
         # Patch GlobalManager
         old_get_plot = GlobalManager.get_plot
-        GlobalManager.get_plot = CallRecorder(lambda name: plot)
+        def get_plot(name):
+            if name != 'My Plot':
+                self.fail()
+            return self.plot
+        GlobalManager.get_plot = get_plot
         try:
-            recipe = VistrailData._read_annotation_recipe(
-                    vistraildata,
-                    'My Plot;'
-                    'param1=v:var1;'
-                    'param3=v:var2;'
-                    'param2=c:test%27%22;'
-                    'param4=c:a%3Bb%3Dc%2Cd;'
-                    'param5=c:r%C3%A9mi')
-            self.assertIs(recipe.plot, plot)
             self.assertEqual(
-                    recipe.variables,
-                    dict(param1=FakeVariable(1), param3=FakeVariable(2)))
-            self.assertEqual(
-                    get_variable.calls,
-                    [(['var1'], dict()), (['var2'], dict())])
-            self.assertEqual(
-                    recipe.constants,
-                    dict(
-                            param2='test\'"',
-                            param4='a;b=c,d',
-                            param5='r\xC3\xA9mi'))
+                    VistrailData._read_recipe_annotation(
+                            self.vistraildata,
+                            'My Plot'
+                            ';param1=v='
+                                'var1:1,2|'
+                                'var2:5'
+                            ';param2=c='
+                                'test%27%22%3Bb%3Dc%2Cr%C3%A9mi:4'
+                            ';param3=v='
+                                'var3:3'),
+                     (self.recipe, self.conn_map))
         finally:
             # Restore GlobalManager
             GlobalManager.get_plot = old_get_plot
 
-    def test_build_annotation_portmap(self):
-        """Tests the _build_annotation_portmap() method.
+    def test_build_portmap(self):
+        """Tests the _build_annotation() method.
         """
         self.assertEqual(
-                VistrailData._build_annotation_portmap(odict(
-                        ('param1', [(1, 'port1'), (2, 'port2')]),
-                        ('param2', []),
-                        ('param3', [(3, 'port3')]))),
-                'param1=1:port1,2:port2;param2=;param3=3:port3')
-
-    def test_read_annotation_portmap(self):
-        """Tests the _read_annotation_portmap() method.
-        """
-        self.assertEqual(
-                VistrailData._read_annotation_portmap(
-                        'param1=1:port1,2:port2;param2=;param3=3:port3'),
-                dict(
-                        param1=[(1, 'port1'), (2, 'port2')],
-                        param2=[],
-                        param3=[(3, 'port3')]))
-
-    def test_build_annotation_varmap(self):
-        """Tests the _build_annotation_varmap() method.
-        """
-        self.assertEqual(
-                VistrailData._build_annotation_varmap(odict(
-                        ('param1', [1, 2]),
-                        ('param2', []),
-                        ('param3', [3]))),
-                'param1=1,2;param2=;param3=3')
-
-    def test_read_annotation_varmap(self):
-        """Tests the _read_annotation_varmap() method.
-        """
-        self.assertEqual(
-                VistrailData._read_annotation_varmap(
-                        'param1=1,2;param2=;param3=3'),
-                dict(
-                        param1=[1, 2],
-                        param2=[],
-                        param3=[3]))
+                VistrailData._build_portmap_annotation(
+                        self.port_map),
+                'param1='
+                    '1,port1:2,port2'
+                ';param3='
+                    '3,port3')

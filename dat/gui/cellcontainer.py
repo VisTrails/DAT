@@ -2,7 +2,8 @@ import warnings
 
 from PyQt4 import QtCore, QtGui
 
-from dat import MIMETYPE_DAT_VARIABLE, MIMETYPE_DAT_PLOT, DATRecipe
+from dat import MIMETYPE_DAT_VARIABLE, MIMETYPE_DAT_PLOT, DATRecipe, \
+    RecipeParameterValue
 from dat.gui import get_icon
 from dat.global_data import GlobalManager
 from dat.vistrail_data import VistrailManager
@@ -13,6 +14,7 @@ from dat.gui.overlays import PlotPromptOverlay, VariableDropEmptyCell, \
 from vistrails.core.application import get_vistrails_application
 from vistrails.packages.spreadsheet.spreadsheet_cell import QCellContainer
 
+
 class DATCellContainer(QCellContainer):
     """Cell container used in the spreadsheet.
 
@@ -22,8 +24,7 @@ class DATCellContainer(QCellContainer):
     variables and plots.
     """
     def __init__(self, cellInfo=None, widget=None, parent=None):
-        self._variables = dict() # param name -> Variable
-        self._constants = dict() # param name -> value: str
+        self._parameters = dict() # param name -> [RecipeParameterValue]
         self._plot = None # dat.vistrails_interface:Plot
 
         app = get_vistrails_application()
@@ -32,6 +33,9 @@ class DATCellContainer(QCellContainer):
         app.register_notification(
                 'dragging_to_overlays', self._set_dragging)
         self._controller = app.get_controller()
+
+        self._parameter_hovered = None
+        self._insert_pos = None
 
         self._overlay = None
         self._overlay_scrollarea = QtGui.QScrollArea()
@@ -94,8 +98,10 @@ class DATCellContainer(QCellContainer):
         if self._plot is None:
             return
         if any(
-                variable.name == varname
-                for variable in self._variables.itervalues()):
+                param.type == RecipeParameterValue.VARIABLE and
+                        param.variable.name == varname
+                for params in self._parameters.itervalues()
+                for param in params):
             if renamed_to is None:
                 # A variable was removed!
                 # Two cases here:
@@ -104,18 +110,22 @@ class DATCellContainer(QCellContainer):
                     # into a dumb VisTrails cell, as the DAT recipe doesn't
                     # exist anymore
                     self._plot = None
-                    self._variables = dict()
-                    self._constants = dict()
+                    self._parameters = dict()
                 else:
                     # If this cell didn't already contain a result, we just
                     # remove the associated parameters
                     # The user will just have to drop something else
                     to_remove = []
-                    for param, variable in self._variables.iteritems():
-                        if variable.name == varname:
-                            to_remove.append(param)
-                    for param in to_remove:
-                        del self._variables[param]
+                    for param, values in self._parameters.iteritems():
+                        for i, value in enumerate(values):
+                            if (value.type == RecipeParameterValue.VARIABLE and
+                                    value.variable.name == varname):
+                                to_remove.append((param, i))
+                    for param, i in to_remove:
+                        del self._parameters[param][i]
+                    for param in set(param for param, i in to_remove):
+                        if not self._parameters[param]:
+                            del self._parameters[param]
 
                 self._set_overlay(None)
             elif self._overlay is not None:
@@ -159,12 +169,12 @@ class DATCellContainer(QCellContainer):
 
         if pipeline is not None:
             self._plot = pipeline.recipe.plot
-            self._variables = dict(pipeline.recipe.variables)
-            self._constants = dict(pipeline.recipe.constants)
+            parameters = pipeline.recipe.parameters
+            self._parameters = {param: list(values)
+                                for param, values in parameters.iteritems()}
         else:
             self._plot = None
-            self._variables = dict()
-            self._constants = dict()
+            self._parameters = dict()
         self._set_overlay(None)
 
     def _set_overlay(self, overlay_class, **kwargs):
@@ -205,6 +215,7 @@ class DATCellContainer(QCellContainer):
         """
         if self._plot is None:
             # Shouldn't happen
+            warnings.warn("show_overlay() while cell is empty!")
             return
         self._set_overlay(VariableDroppingOverlay, overlayed=False)
         self._hide_button.setVisible(True)
@@ -275,8 +286,20 @@ class DATCellContainer(QCellContainer):
                 event.accept()
                 port_name = self._plot.ports[self._parameter_hovered].name
                 varname = str(mimeData.data(MIMETYPE_DAT_VARIABLE))
-                self._variables[port_name] = (VistrailManager(self._controller)
-                                              .get_variable(varname))
+                values = self._parameters.setdefault(port_name, [])
+                if values and values[0].type == RecipeParameterValue.CONSTANT:
+                    # The overlay shouldn't allow this
+                    warnings.warn("a variable was dropped on a port where a "
+                                  "constant is set")
+                    event.ignore()
+                    return
+                variable = (VistrailManager(self._controller)
+                            .get_variable(varname))
+                param = RecipeParameterValue(variable=variable)
+                if self._insert_pos < len(values):
+                    values[self._insert_pos] = param
+                else:
+                    values.append(param)
                 self.update_pipeline()
             else:
                 event.ignore()
@@ -285,8 +308,7 @@ class DATCellContainer(QCellContainer):
             event.accept()
             plotname = str(mimeData.data(MIMETYPE_DAT_PLOT))
             self._plot = GlobalManager.get_plot(plotname)
-            self._variables = dict()
-            self._constants = dict()
+            self._parameters = dict()
             self._parameter_hovered = None
             self.update_pipeline()
 
@@ -295,23 +317,34 @@ class DATCellContainer(QCellContainer):
 
         self._set_overlay(None)
 
-    def remove_parameter(self, port_name):
+    def remove_parameter(self, port_name, num):
         """Clear a parameter.
 
         Called from the overlay when a 'remove' button is clicked.
         """
         if self._plot is not None:
-            del self._variables[port_name]
+            values = self._parameters[port_name]
+            del values[num]
+            if not values:
+                del self._parameters[port_name]
             self.update_pipeline()
             self._set_overlay(None)
 
     def change_constant(self, port_name, value):
-        if self._constants.get(port_name) == value:
+        constant = self._parameters.get(port_name)
+        if constant and constant[0].type != RecipeParameterValue.CONSTANT:
+            # The overlay shouldn't do this
+            warnings.warn("change_constant() on port where variables are set")
             return
-        if value is None:
-            del self._constants[port_name]
-        else:
-            self._constants[port_name] = value
+        elif constant is not None:
+            constant = constant[0]
+            if value is None:
+                del self._parameters[port_name]
+                return
+            elif constant.constant == value:
+                return
+        self._parameters[port_name] = [
+                RecipeParameterValue(constant=value)]
         self.update_pipeline()
 
     def update_pipeline(self):
@@ -319,7 +352,7 @@ class DATCellContainer(QCellContainer):
         """
         # Look this recipe up in the VistrailData
         vistraildata = VistrailManager(self._controller)
-        recipe = DATRecipe(self._plot, self._variables, self._constants)
+        recipe = DATRecipe(self._plot, self._parameters)
 
         # Try to get an existing pipeline for this cell
         pipeline = vistraildata.get_pipeline(self.cellInfo)
@@ -347,6 +380,10 @@ class DATCellContainer(QCellContainer):
                         recipe,
                         self.cellInfo)
             vistraildata.created_pipeline(self.cellInfo, pipeline)
+
+        # Nothing changed
+        else:
+            return
 
         # Execute the new pipeline if possible
         spreadsheet_tab = vistraildata.spreadsheet_tab
