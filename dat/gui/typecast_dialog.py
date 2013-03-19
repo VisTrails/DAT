@@ -17,8 +17,11 @@ def choose_operation(typecasts, source_descriptor, expected_descriptor,
     layout = QtGui.QVBoxLayout()
 
     layout.addWidget(QtGui.QLabel(_(
-            "A %s variable was put in a %s port. These are not compatible, "
-            "but the following operations can do the conversion:")))
+            "A {actual} variable was put in a {expected} port. These are not "
+            "compatible, but the following operations can do the "
+            "conversion:").format(
+                    actual=source_descriptor.module,
+                    expected=expected_descriptor.module)))
     list_widget = CategorizedListWidget()
     list_widget.setSelectionMode(QtGui.QAbstractItemView.SingleSelection)
     pm = get_package_manager()
@@ -38,6 +41,19 @@ def choose_operation(typecasts, source_descriptor, expected_descriptor,
                            dialog, QtCore.SLOT('reject()'))
     buttons.addWidget(cancel)
     layout.addLayout(buttons)
+
+    def check_selection():
+        selection = list_widget.selectedItems()
+        if selection:
+            item = selection[0]
+            if isinstance(item, OperationItem):
+                ok.setEnabled(True)
+                return
+        ok.setEnabled(False)
+    QtCore.QObject.connect(
+            list_widget, QtCore.SIGNAL('itemSelectionChanged()'),
+            check_selection)
+    check_selection()
 
     dialog.setLayout(layout)
     if dialog.exec_() == QtGui.QDialog.Accepted:

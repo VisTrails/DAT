@@ -288,6 +288,13 @@ class DATCellContainer(QCellContainer):
                 event.accept()
                 port_name = self._plot.ports[self._parameter_hovered].name
                 varname = str(mimeData.data(MIMETYPE_DAT_VARIABLE))
+                # Here we keep the old values around, and we revert if
+                # update_pipeline() returns False
+                old_values = self._parameters.get(port_name)
+                if old_values is not None:
+                    old_values = list(old_values)
+
+                # Try to update
                 values = self._parameters.setdefault(port_name, [])
                 if values and values[0].type == RecipeParameterValue.CONSTANT:
                     # The overlay shouldn't allow this
@@ -302,7 +309,14 @@ class DATCellContainer(QCellContainer):
                     values[self._insert_pos] = param
                 else:
                     values.append(param)
-                self.update_pipeline()
+
+                if not self.update_pipeline():
+                    # This is wrong somehow (ex: typecasting failed)
+                    # Revert to previous values
+                    if old_values is None:
+                        del self._parameters[port_name]
+                    else:
+                        self._parameters[port_name] = old_values
             else:
                 event.ignore()
 
@@ -390,7 +404,7 @@ class DATCellContainer(QCellContainer):
 
             # Nothing changed
             else:
-                return
+                return True
 
             # Execute the new pipeline if possible
             spreadsheet_tab = vistraildata.spreadsheet_tab
@@ -404,8 +418,10 @@ class DATCellContainer(QCellContainer):
                 # Clear the cell
                 self.cellInfo.tab.deleteCell(self.cellInfo.row,
                                              self.cellInfo.column)
+
+            return True
         except vistrails_interface.CancelExecution:
-            pass
+            return False
 
     def _typecast(self, controller, variable,
             source_descriptor, expected_descriptor):
