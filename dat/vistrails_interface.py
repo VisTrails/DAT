@@ -1181,9 +1181,9 @@ def create_pipeline(controller, recipe, cell_info):
         if location_module:
             row, col = cell_info.row, cell_info.column
             generator.update_function(
-                    location_module, 'Row', [row + 1])
+                    location_module, 'Row', [str(row + 1)])
             generator.update_function(
-                    location_module, 'Column', [col + 1])
+                    location_module, 'Column', [str(col + 1)])
 
             if len(cell_modules) > 1:
                 warnings.warn("Plot subworkflow '%s' contains more than "
