@@ -49,6 +49,8 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
 
         self._parameter_hovered = None
         self._insert_pos = None
+        self._saved_widget = None
+        self._fake_widget = None
 
         # Notifications
         app = get_vistrails_application()
@@ -145,15 +147,53 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
                 'dragging_to_overlays', self._set_dragging)
 
     def _set_dragging(self, dragging):
-        """This is a hack to avoid an issue with Qt's mouse event propagation.
-
-        If we don't set TransparentForMouseEvents on the overlay, when the drag
-        enters, the overlay will receive the mouse event and propagate it to
-        us. Thus it is on the call stack and we can't replace it with another
-        overlay... It would cause a segmentation fault on Mac OS.
+        """This is a hack to workaround issues related to dragging.
         """
+        # Issue with Qt's mouse event propagation.
+        #
+        # If we don't set TransparentForMouseEvents on the overlay, when the
+        # drag enters, the overlay will receive the mouse event and propagate
+        # it to us. Thus it is on the call stack and we can't replace it with
+        # another overlay... It would cause a segmentation fault on Mac OS.
         self._overlay_scrollarea.setAttribute(
             QtCore.Qt.WA_TransparentForMouseEvents, dragging)
+
+        # Issue with some non-Qt widgets, such as VTK's (that use direct
+        # rendering)
+        # We can just replace the cell with an image of the previous content,
+        # like the spreadsheet does with QCellPresenter
+        if dragging:
+            widget = self.containedWidget
+            if widget is not None:
+                widget.setParent(None)
+                self._saved_widget = widget
+
+                if hasattr(widget, 'grabWindowPixmap'):
+                    pixmap = widget.grabWindowPixmap()
+                else:
+                    pixmap = QtGui.QPixmap.grabWidget(widget)
+                painter = QtGui.QPainter(pixmap)
+                painter.setPen(QtGui.QPen(QtGui.QColor(255, 0, 0), 5))
+                painter.drawLine(
+                    5, 5,
+                    pixmap.width() - 10, pixmap.height() - 10)
+                painter.drawLine(
+                    pixmap.width() - 10, 5,
+                    5, pixmap.height() - 10)
+                painter.end()
+                painter = None
+                self._fake_widget = QtGui.QLabel()
+                self._fake_widget.setPixmap(pixmap)
+                self._fake_widget.setParent(self)
+                self._fake_widget.raise_()
+        else:
+            if self._saved_widget is not None:
+                self._saved_widget.setParent(self)
+                self._saved_widget.raise_()
+                self._saved_widget = None
+                self._fake_widget.setParent(None)
+                self._fake_widget.deleteLater()
+            self._fake_widget = None
 
     def _variable_added(self, controller, varname, renamed_from=None):
         if (renamed_from is None or
