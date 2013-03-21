@@ -1,5 +1,6 @@
 from PyQt4 import QtCore, QtGui
 
+from dat import RecipeParameterValue
 from dat.gui import translate
 from dat.vistrail_data import VistrailManager
 
@@ -68,9 +69,13 @@ def _get_custom_version_panels(controller, version):
             variable_list.setFont(monospace)
             variable_list.setLineWrapMode(QtGui.QTextEdit.NoWrap)
             variable_list.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
-            variable_list.setPlainText(
-                    '\n'.join(v.name
-                              for v in recipe.variables.itervalues()))
+            text = []
+            for p_values in recipe.parameters.itervalues():
+                for value in p_values:
+                    if value.type == RecipeParameterValue.VARIABLE:
+                        text.append(value.variable.name)
+            text = '\n'.join(text)
+            variable_list.setPlainText(text)
             variable_list.setFixedHeight(
                     variable_list.document().size().height())
             layout.addWidget(variable_list)
