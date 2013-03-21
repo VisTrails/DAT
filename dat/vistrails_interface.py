@@ -989,13 +989,13 @@ class PipelineGenerator(object):
         center_out[1] /= float(len(self.all_modules))
 
         pipeline = self.controller.current_pipeline
-        existing_modules = set(pipeline.module_list)
+        existing_modules = set(m.id for m in pipeline.module_list)
         for wf_mod in wf.modules:
             module = wf_mod._actual_module
             x = wf_mod.layout_pos.x - center_out[0]
             y = wf_mod.layout_pos.y - center_out[1]
             y = -y # Yes, it's backwards in VisTrails
-            if module in existing_modules:
+            if module.id in existing_modules:
                 # This module already exists in the workflow, we have to emit a
                 # move operation
                 # See vistrails.core.vistrail.controller:
