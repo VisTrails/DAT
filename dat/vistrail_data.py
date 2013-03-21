@@ -130,7 +130,6 @@ class VistrailData(object):
                 conn_map[param] = tuple(cplist)
             return DATRecipe(plot, parameters), conn_map
         except (KeyError, ValueError, TypeError):
-            raise
             return None, None
 
     @staticmethod
