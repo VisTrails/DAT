@@ -184,6 +184,8 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
                 painter = None
                 self._fake_widget = QtGui.QLabel()
                 self._fake_widget.setPixmap(pixmap)
+                self._fake_widget.setAttribute(
+                    QtCore.Qt.WA_TransparentForMouseEvents, True)
                 self._fake_widget.setParent(self)
                 self._fake_widget.raise_()
         else:
