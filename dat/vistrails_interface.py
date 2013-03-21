@@ -39,6 +39,10 @@ from vistrails.packages.spreadsheet.basic_widgets import CellLocation, \
     SpreadsheetCell, SheetReference
 
 
+class CancelExecution(RuntimeError):
+    pass
+
+
 def resolve_descriptor(param, package_identifier=None):
     """Resolve a type specifier to a ModuleDescriptor.
 
@@ -354,13 +358,14 @@ class Variable(object):
         return None
 
     @staticmethod
-    def from_pipeline(controller, varname):
+    def from_pipeline(controller, varname, type=None):
         pipeline = controller.vistrail.getPipeline('dat-var-%s' % varname)
-        var_type = Variable.read_type(pipeline)
+        if type is None:
+            type = Variable.read_type(pipeline)
         generator = PipelineGenerator(controller)
         output = add_variable_subworkflow(generator, pipeline)
         return Variable(
-                type=var_type,
+                type=type,
                 controller=controller,
                 generator=generator,
                 output=output)
@@ -378,8 +383,10 @@ class ArgumentWrapper(object):
             generator.append_operations(self._variable._generator.operations)
             self._copied = True
         generator.connect_modules(
-                self._variable._output_module, self._variable._outputport_name,
-                module._module, inputport_name)
+                self._variable._output_module,
+                self._variable._outputport_name,
+                module._module,
+                inputport_name)
 
 
 def call_operation_callback(op, callback, args):
@@ -982,13 +989,13 @@ class PipelineGenerator(object):
         center_out[1] /= float(len(self.all_modules))
 
         pipeline = self.controller.current_pipeline
-        existing_modules = set(pipeline.module_list)
+        existing_modules = set(m.id for m in pipeline.module_list)
         for wf_mod in wf.modules:
             module = wf_mod._actual_module
             x = wf_mod.layout_pos.x - center_out[0]
             y = wf_mod.layout_pos.y - center_out[1]
             y = -y # Yes, it's backwards in VisTrails
-            if module in existing_modules:
+            if module.id in existing_modules:
                 # This module already exists in the workflow, we have to emit a
                 # move operation
                 # See vistrails.core.vistrail.controller:
@@ -1084,6 +1091,37 @@ def add_variable_subworkflow(generator, variable, plot_ports=None):
         assert False
 
 
+def add_variable_subworkflow_typecast(generator, variable, plot_ports,
+                                       expected_type, typecast):
+    if issubclass(variable.type.module, expected_type.module):
+        return add_variable_subworkflow(
+                generator,
+                variable.name,
+                plot_ports)
+    else:
+        # Load the variable from the workflow
+        var_pipeline = Variable.from_pipeline(
+                generator.controller, variable.name)
+
+        # Apply the operation
+        var_pipeline = typecast(
+                generator.controller, var_pipeline,
+                variable.type, expected_type)
+
+        generator.append_operations(var_pipeline._generator.operations)
+        if plot_ports:
+            connection_ids = []
+            for var_output_mod, var_output_port in plot_ports:
+                connection_ids.append(generator.connect_modules(
+                        var_pipeline._output_module,
+                        var_pipeline._outputport_name,
+                        var_output_mod,
+                        var_output_port))
+            return connection_ids
+        else:
+            return (var_pipeline._output_module, var_pipeline._outputport_name)
+
+
 def add_constant_module(generator, descriptor, constant, plot_ports):
     module = generator.controller.create_module_from_descriptor(descriptor)
     generator.add_module(module)
@@ -1100,7 +1138,7 @@ def add_constant_module(generator, descriptor, constant, plot_ports):
     return connection_ids
 
 
-def create_pipeline(controller, recipe, cell_info):
+def create_pipeline(controller, recipe, cell_info, typecast=None):
     """Create a pipeline from a recipe and return its information.
     """
     # Build from the root version
@@ -1198,15 +1236,18 @@ def create_pipeline(controller, recipe, cell_info):
     conn_map = dict() # param: str -> [[conn_id: int]]
 
     name_to_port = {port.name: port for port in recipe.plot.ports}
+
     for port_name, parameters in recipe.parameters.iteritems():
         plot_ports = plot_params.get(port_name, [])
         p_conns = conn_map[port_name] = []
         for parameter in parameters:
             if parameter.type == RecipeParameterValue.VARIABLE:
-                p_conns.append(add_variable_subworkflow(
+                p_conns.append(add_variable_subworkflow_typecast(
                         generator,
-                        parameter.variable.name,
-                        plot_ports))
+                        parameter.variable,
+                        plot_ports,
+                        name_to_port[port_name].type,
+                        typecast=typecast))
             else: # parameter.type == RecipeParameterValue.CONSTANT
                 desc = name_to_port[port_name].type
                 p_conns.append(add_constant_module(
@@ -1215,6 +1256,8 @@ def create_pipeline(controller, recipe, cell_info):
                         parameter.constant,
                         plot_ports))
 
+    if controller.current_version != 0:
+        controller.change_selected_version(0)
     pipeline_version = generator.perform_action()
     controller.vistrail.change_description(
             "Created DAT plot %s" % recipe.plot.name,
@@ -1239,7 +1282,7 @@ class UpdateError(ValueError):
     """
 
 
-def update_pipeline(controller, pipelineInfo, new_recipe):
+def update_pipeline(controller, pipelineInfo, new_recipe, typecast=None):
     """Update a pipeline to a new recipe.
 
     This takes a similar pipeline and turns it into the new recipe by adding/
@@ -1296,10 +1339,12 @@ def update_pipeline(controller, pipelineInfo, new_recipe):
                           for mod_id, port in (
                                   pipelineInfo.port_map[port_name])]
             if param.type == RecipeParameterValue.VARIABLE:
-                conn_lists.append(add_variable_subworkflow(
+                conn_lists.append(add_variable_subworkflow_typecast(
                         generator,
-                        param.variable.name,
-                        plot_ports))
+                        param.variable,
+                        plot_ports,
+                        name_to_port[port_name].type,
+                        typecast=typecast))
             else: #param.type == RecipeParameterValue.CONSTANT:
                 desc = name_to_port[port_name].type
                 conn_lists.append(add_constant_module(
@@ -1331,13 +1376,15 @@ def update_pipeline(controller, pipelineInfo, new_recipe):
     if not (added_params or removed_params):
         return pipelineInfo
 
+    if controller.current_version != pipelineInfo.version:
+        controller.change_selected_version(pipelineInfo.version)
     pipeline_version = generator.perform_action()
 
     controller.vistrail.change_description(
             describe_dat_update(added_params, removed_params),
             pipeline_version)
 
-    controller.change_selected_version(pipeline_version)
+    controller.change_selected_version(pipeline_version, from_root=True)
 
     return PipelineInformation(pipeline_version, new_recipe,
                                conn_map, pipelineInfo.port_map)

@@ -5,7 +5,9 @@ from PyQt4 import QtCore, QtGui
 from dat import MIMETYPE_DAT_VARIABLE, MIMETYPE_DAT_PLOT, DATRecipe, \
     RecipeParameterValue
 from dat.gui import get_icon
+from dat.gui import typecast_dialog
 from dat.global_data import GlobalManager
+from dat.operations import apply_operation, get_typecast_operations
 from dat.vistrail_data import VistrailManager
 from dat import vistrails_interface
 from dat.gui.overlays import PlotPromptOverlay, VariableDropEmptyCell, \
@@ -286,6 +288,13 @@ class DATCellContainer(QCellContainer):
                 event.accept()
                 port_name = self._plot.ports[self._parameter_hovered].name
                 varname = str(mimeData.data(MIMETYPE_DAT_VARIABLE))
+                # Here we keep the old values around, and we revert if
+                # update_pipeline() returns False
+                old_values = self._parameters.get(port_name)
+                if old_values is not None:
+                    old_values = list(old_values)
+
+                # Try to update
                 values = self._parameters.setdefault(port_name, [])
                 if values and values[0].type == RecipeParameterValue.CONSTANT:
                     # The overlay shouldn't allow this
@@ -300,7 +309,14 @@ class DATCellContainer(QCellContainer):
                     values[self._insert_pos] = param
                 else:
                     values.append(param)
-                self.update_pipeline()
+
+                if not self.update_pipeline():
+                    # This is wrong somehow (ex: typecasting failed)
+                    # Revert to previous values
+                    if old_values is None:
+                        del self._parameters[port_name]
+                    else:
+                        self._parameters[port_name] = old_values
             else:
                 event.ignore()
 
@@ -357,43 +373,63 @@ class DATCellContainer(QCellContainer):
         # Try to get an existing pipeline for this cell
         pipeline = vistraildata.get_pipeline(self.cellInfo)
 
-        # No pipeline: build one
-        if pipeline is None:
-            pipeline = vistrails_interface.create_pipeline(
-                    self._controller,
-                    recipe,
-                    self.cellInfo)
-            vistraildata.created_pipeline(self.cellInfo, pipeline)
-
-        # Pipeline with a different content: update it
-        elif pipeline.recipe != recipe:
-            try:
-                pipeline = vistrails_interface.update_pipeline(
-                        self._controller,
-                        pipeline,
-                        recipe)
-            except vistrails_interface.UpdateError, e:
-                warnings.warn("Could not update pipeline, creating new one:\n"
-                              "%s" % e)
+        try:
+            # No pipeline: build one
+            if pipeline is None:
                 pipeline = vistrails_interface.create_pipeline(
                         self._controller,
                         recipe,
-                        self.cellInfo)
-            vistraildata.created_pipeline(self.cellInfo, pipeline)
+                        self.cellInfo,
+                        typecast=self._typecast)
+                vistraildata.created_pipeline(self.cellInfo, pipeline)
 
-        # Nothing changed
-        else:
-            return
+            # Pipeline with a different content: update it
+            elif pipeline.recipe != recipe:
+                try:
+                    pipeline = vistrails_interface.update_pipeline(
+                            self._controller,
+                            pipeline,
+                            recipe,
+                            typecast=self._typecast)
+                except vistrails_interface.UpdateError, e:
+                    warnings.warn("Could not update pipeline, creating new "
+                                  "one:\n"
+                                  "%s" % e)
+                    pipeline = vistrails_interface.create_pipeline(
+                            self._controller,
+                            recipe,
+                            self.cellInfo,
+                            typecast=self._typecast)
+                vistraildata.created_pipeline(self.cellInfo, pipeline)
 
-        # Execute the new pipeline if possible
-        spreadsheet_tab = vistraildata.spreadsheet_tab
-        tabWidget = spreadsheet_tab.tabWidget
-        sheetname = tabWidget.tabText(tabWidget.indexOf(spreadsheet_tab))
-        if not vistrails_interface.try_execute(
-                self._controller,
-                pipeline,
-                sheetname,
-                recipe) and self.widget() is not None:
-            # Clear the cell
-            self.cellInfo.tab.deleteCell(self.cellInfo.row,
-                                         self.cellInfo.column)
+            # Nothing changed
+            else:
+                return True
+
+            # Execute the new pipeline if possible
+            spreadsheet_tab = vistraildata.spreadsheet_tab
+            tabWidget = spreadsheet_tab.tabWidget
+            sheetname = tabWidget.tabText(tabWidget.indexOf(spreadsheet_tab))
+            if not vistrails_interface.try_execute(
+                    self._controller,
+                    pipeline,
+                    sheetname,
+                    recipe) and self.widget() is not None:
+                # Clear the cell
+                self.cellInfo.tab.deleteCell(self.cellInfo.row,
+                                             self.cellInfo.column)
+
+            return True
+        except vistrails_interface.CancelExecution:
+            return False
+
+    def _typecast(self, controller, variable,
+            source_descriptor, expected_descriptor):
+        typecasts = get_typecast_operations(
+                source_descriptor,
+                expected_descriptor)
+        choice = typecast_dialog.choose_operation(
+                typecasts,
+                source_descriptor, expected_descriptor,
+                self)
+        return apply_operation(controller, choice, [variable])

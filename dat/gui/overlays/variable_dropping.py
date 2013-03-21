@@ -4,10 +4,16 @@ from dat.gui.overlays import Overlay
 
 from dat import MIMETYPE_DAT_VARIABLE
 from dat.gui import translate
+from dat.operations.typecasting import get_typecast_operations
 from dat.vistrail_data import VistrailManager
 from dat.vistrails_interface import DataPort
 
 from vistrails.gui.ports_pane import Parameter as GuiParameter
+
+
+COMPATIBLE = 'yes'
+TYPECASTABLE = 'cast'
+INCOMPATIBLE = 'no'
 
 
 stylesheet = """
@@ -29,7 +35,7 @@ DataParameter[assigned="no"] {
     font-style: oblique;
 }
 
-DataParameter[targeted="yes"] {
+DataParameter[targeted="yes"][compatible="yes"] {
     background-color: rgb(187, 204, 255);
     border: 2px solid rgb(102, 153, 255);
     padding: 2px;
@@ -37,6 +43,16 @@ DataParameter[targeted="yes"] {
 
 DataParameter[targeted="no"][compatible="yes"] {
     background-color: rgb(187, 204, 255);
+}
+
+DataParameter[targeted="yes"][compatible="cast"] {
+    background-color: rgb(255, 238, 170);
+    border: 2px solid rgb(255, 208, 0);
+    padding: 2px;
+}
+
+DataParameter[targeted="no"][compatible="cast"] {
+    background-color: rgb(255, 238, 170);
 }
 
 DataParameter[targeted="no"][compatible="no"] {
@@ -80,7 +96,6 @@ class VariableDroppingOverlay(Overlay):
     Displays targets for each parameter, according to the current plot, and
     type-checks them.
     """
-
     def __init__(self, cellcontainer, **kwargs):
         Overlay.__init__(self, cellcontainer, **kwargs)
 
@@ -95,10 +110,17 @@ class VariableDroppingOverlay(Overlay):
             varname = str(mimeData.data(MIMETYPE_DAT_VARIABLE))
             variable = (VistrailManager(self._cell._controller)
                         .get_variable(varname))
-            self._compatible_ports = [
-                    port is None or issubclass(variable.type.module,
-                                               port.type.module)
-                    for port in self._cell._plot.ports]
+            self._compatible_ports = []
+            for port in self._cell._plot.ports:
+                if issubclass(variable.type.module, port.type.module):
+                    self._compatible_ports.append(COMPATIBLE)
+                else:
+                    if get_typecast_operations(
+                            variable.type,
+                            port.type):
+                        self._compatible_ports.append(TYPECASTABLE)
+                    else:
+                        self._compatible_ports.append(INCOMPATIBLE)
 
         self._cell._parameter_hovered = None
 
@@ -124,11 +146,8 @@ class VariableDroppingOverlay(Overlay):
                 param_panel.setLayout(QtGui.QVBoxLayout())
                 # Style changes according to the compatibility of the port with
                 # the variable being dragged
-                if self._compatible_ports:
-                    if self._compatible_ports[i]:
-                        compatible = 'yes'
-                    else:
-                        compatible = 'no'
+                if self._compatible_ports is not None:
+                    compatible = self._compatible_ports[i]
                 else:
                     compatible = ''
                 pos = 0
@@ -193,7 +212,7 @@ class VariableDroppingOverlay(Overlay):
         targeted, mindist = None, None
         for i, params in enumerate(self._parameters):
             for j, param in enumerate(params):
-                if self._compatible_ports[i]:
+                if self._compatible_ports[i] != INCOMPATIBLE:
                     wy = param.pos().y()
                     wh = param.height()
                     if y < wy:
