@@ -938,17 +938,6 @@ class PipelineGenerator(object):
     def perform_action(self):
         """Layout all the modules and create the action.
         """
-        def get_visible_ports(port_list, visible_ports):
-            output_list = []
-            visible_list = []
-            for p in port_list:
-                if not p.optional:
-                    output_list.append(p)
-                elif p.name in visible_ports:
-                    visible_list.append(p)
-            output_list.extend(visible_list)
-            return output_list
-
         wf = LayoutPipeline()
         wf_iport_map = {}
         wf_oport_map = {}
@@ -959,10 +948,8 @@ class PipelineGenerator(object):
                     len(module.destinationPorts()),
                     len(module.sourcePorts()))
             wf_mod._actual_module = module
-            input_ports = get_visible_ports(module.destinationPorts(),
-                                            module.visible_input_ports)
-            output_ports = get_visible_ports(module.sourcePorts(),
-                                             module.visible_output_ports)
+            input_ports = module.destinationPorts()
+            output_ports = module.sourcePorts()
 
             for i, p in enumerate(input_ports):
                 if module.id not in wf_iport_map:
@@ -1213,9 +1200,9 @@ def create_pipeline(controller, recipe, cell_info, typecast=None):
         if location_module:
             row, col = cell_info.row, cell_info.column
             generator.update_function(
-                    location_module, 'Row', [row + 1])
+                    location_module, 'Row', [str(row + 1)])
             generator.update_function(
-                    location_module, 'Column', [col + 1])
+                    location_module, 'Column', [str(col + 1)])
 
             if len(cell_modules) > 1:
                 warnings.warn("Plot subworkflow '%s' contains more than "

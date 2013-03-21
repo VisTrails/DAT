@@ -27,6 +27,9 @@ class MainWindow(QtGui.QMainWindow):
         menubar = self.menuBar()
 
         fileMenu = menubar.addMenu(_("&File"))
+        newAction = fileMenu.addAction(_("&New..."))
+        self.connect(newAction, QtCore.SIGNAL('triggered()'),
+                     self.newFile)
         openAction = fileMenu.addAction(_("&Open..."))
         self.connect(openAction, QtCore.SIGNAL('triggered()'),
                      self.openFile)
@@ -83,6 +86,9 @@ class MainWindow(QtGui.QMainWindow):
         self._variables.unregister_notifications()
         self._variables = VariablePanel(VistrailManager(controller))
         self._variables_dock.setWidget(self._variables)
+
+    def newFile(self):
+        get_vistrails_application().builderWindow.new_vistrail()
 
     def close_current_controller(self, tab):
         get_vistrails_application().builderWindow.close_vistrail()

@@ -31,14 +31,14 @@ class Test_operation_parsing(unittest.TestCase):
         """Tests the parse_expression function.
         """
         self.assertEqual(
-                parse_expression('myvar= bb\t+ aa4b*2'),
+                parse_expression('myvar= bb\t+ aa4b*2.1'),
                 (
                     'myvar',
                     (OP, '+',
                         (SYMBOL, 'bb'),
                         (OP, '*',
                             (SYMBOL, 'aa4b'),
-                            (NUMBER, 2)
+                            (NUMBER, 2.1)
                         )
                     )
                 ))
@@ -92,6 +92,11 @@ class Test_operation_parsing(unittest.TestCase):
         self.assertIn("Missing target ", cm.exception.message)
         self.assertEqual(cm.exception.fix, 'new_var = 6*7')
         self.assertEqual(cm.exception.select, (0, 7))
+
+        with self.assertRaises(InvalidOperation) as cm:
+            parse_expression('a = 3.2.1')
+        self.assertIn("Error while parsing", cm.exception.message)
+        self.assertEqual(cm.exception.select, (7, 9))
 
     def test_invalid_parens(self):
         with self.assertRaises(InvalidOperation):

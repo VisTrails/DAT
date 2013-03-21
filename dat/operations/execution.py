@@ -44,7 +44,7 @@ class BuildConstant(ComputeVariable):
         generator = PipelineGenerator(controller)
         module = generator.controller.create_module_from_descriptor(self.type)
         generator.add_module(module)
-        generator.update_function(module, 'value', [self.value])
+        generator.update_function(module, 'value', [str(self.value)])
         return Variable(
                 type=self.type,
                 controller=controller,
