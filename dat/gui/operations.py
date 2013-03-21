@@ -181,5 +181,6 @@ class OperationPanel(QtGui.QWidget):
             if e.fix is not None:
                 self._input_line.setText(e.fix)
             if e.select is not None:
-                self._input_line.setSelection(*e.select)
+                self._input_line.setSelection(e.select[0],
+                                              e.select[1] - e.select[0])
             self._console.add_error(e.message)
