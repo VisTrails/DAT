@@ -239,7 +239,7 @@ class VistrailData(object):
                             an.key,
                             None)
                 else:
-                    port_map = self._read_annotation_portmap(an.value)
+                    port_map = self._read_portmap_annotation(an.value)
                     if port_map is not None:
                         pipeline.port_map = port_map
 
@@ -302,7 +302,8 @@ class VistrailData(object):
                 if any(
                         p.type == RecipeParameterValue.VARIABLE and
                         p.variable.name == varname
-                        for p in pipeline.recipe.parameters.itervalues()):
+                        for p_values in pipeline.recipe.parameters.itervalues()
+                        for p in p_values):
                     self._controller.vistrail.set_action_annotation(
                             pipeline.version,
                             self._RECIPE_KEY,
@@ -331,7 +332,8 @@ class VistrailData(object):
                 if any(
                         p.type == RecipeParameterValue.VARIABLE and
                         p.variable.name == varname
-                        for p in pipeline.recipe.parameters.itervalues()):
+                        for p_values in pipeline.recipe.parameters.itervalues()
+                        for p in p_values):
                     to_remove.add(pipeline.version)
             if to_remove:
                 warnings.warn(

@@ -202,6 +202,7 @@ class VariableDroppingOverlay(Overlay):
                         dist = y - (wy + wh)
                     else:
                         targeted = i
+                        pos = j
                         break
                     if mindist is None or dist < mindist:
                         mindist = dist
