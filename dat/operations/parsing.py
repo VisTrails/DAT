@@ -23,11 +23,11 @@ class Symbol(Token):
         return (SYMBOL, self.value)
 
 
-class Integer(Token):
-    regexp = r'\d+'
+class Number(Token):
+    regexp = r'\d+(?:\.\d+)?'
 
     def __init__(self, text):
-        self.value = int(text)
+        self.value = float(text)
         Token.__init__(self, text)
 
     def nud(self, context):
@@ -131,7 +131,7 @@ class Comma(Token):
 
 lexer = Lexer()
 lexer.register_tokens(
-        Symbol, Integer, String,
+        Symbol, Number, String,
         Addition, Substraction, Multiplication, Division,
         LeftParen, RightParen, Comma)
 
