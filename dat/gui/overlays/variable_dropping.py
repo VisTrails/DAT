@@ -135,7 +135,9 @@ class VariableDroppingOverlay(Overlay):
 
         spacing_layout = QtGui.QHBoxLayout()
         spacing_layout.addSpacing(20)
-        ports_layout = QtGui.QGridLayout()
+        ports_layout = QtGui.QFormLayout()
+        ports_layout.setFieldGrowthPolicy(
+                QtGui.QFormLayout.AllNonFixedFieldsGrow)
 
         self._parameters = [] # [[widget]]
         self._constant_widgets = dict() # widget -> port
@@ -183,14 +185,12 @@ class VariableDroppingOverlay(Overlay):
             label = QtGui.QLabel(port.name)
             label.setBuddy(param_panel)
             self._parameters.append(widgets)
-            label.setBuddy(param_panel)
-            ports_layout.addWidget(label, i, 0)
-            ports_layout.addWidget(param_panel, i, 1)
+            ports_layout.addRow(label, param_panel)
 
         # Closing parenthesis
         paren_label = QtGui.QLabel(")")
         paren_label.setObjectName('closing_paren')
-        ports_layout.addWidget(paren_label, ports_layout.rowCount(), 0)
+        ports_layout.addRow(paren_label)
         spacing_layout.addLayout(ports_layout)
 
         main_layout.addLayout(spacing_layout)
