@@ -253,15 +253,18 @@ class DATCellContainer(QCellContainer):
             else:
                 self._set_overlay(VariableDroppingOverlay, mimeData=mimeData)
         elif mimeData.hasFormat(MIMETYPE_DAT_PLOT):
-            if GlobalManager.get_plot(
-                    str(mimeData.data(MIMETYPE_DAT_PLOT))) is None:
+            try:
+                plot = GlobalManager.get_plot(
+                        str(mimeData.data(MIMETYPE_DAT_PLOT)))
+            except KeyError:
                 # I can't think of another case for this than someone dragging
                 # a plot from another instance of DAT
                 event.ignore()
                 return
                 # If the plot is available, this operation should work as
                 # expected
-            self._set_overlay(PlotDroppingOverlay, mimeData=mimeData)
+            else:
+                self._set_overlay(PlotDroppingOverlay, mimeData=mimeData)
         else:
             event.ignore()
             return
