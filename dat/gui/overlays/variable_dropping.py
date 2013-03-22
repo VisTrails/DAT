@@ -209,11 +209,11 @@ class VariableDroppingOverlay(Overlay):
         if not self._compatible_ports:
             return # Nothing to target
 
-        targeted, mindist = None, None
+        targeted, mindist, pos = None, None, None
         for i, params in enumerate(self._parameters):
             for j, param in enumerate(params):
                 if self._compatible_ports[i] != INCOMPATIBLE:
-                    wy = param.pos().y()
+                    wy = param.pos().y() + param.parentWidget().pos().y()
                     wh = param.height()
                     if y < wy:
                         dist = wy - y
@@ -222,11 +222,14 @@ class VariableDroppingOverlay(Overlay):
                     else:
                         targeted = i
                         pos = j
+                        mindist = 0
                         break
                     if mindist is None or dist < mindist:
                         mindist = dist
                         targeted = i
                         pos = j
+            if mindist == 0:
+                break
 
         if (self._cell._parameter_hovered != targeted or
                 self._cell._insert_pos != pos):
@@ -240,9 +243,10 @@ class VariableDroppingOverlay(Overlay):
                 old.setProperty('targeted', 'no')
                 refresh(old)
 
-            new = self._parameters[targeted][pos]
-            new.setProperty('targeted', 'yes')
-            refresh(new)
+            if targeted is not None:
+                new = self._parameters[targeted][pos]
+                new.setProperty('targeted', 'yes')
+                refresh(new)
 
             self._cell._parameter_hovered = targeted
             self._cell._insert_pos = pos
