@@ -141,6 +141,7 @@ class VariableDroppingOverlay(Overlay):
 
         self._parameters = [] # [[widget]]
         self._constant_widgets = dict() # widget -> port
+        self._unset_constant_labels = dict() # widget -> QtGui.QLabel
         for i, port in enumerate(self._cell._plot.ports):
             widgets = []
             if isinstance(port, DataPort):
@@ -175,13 +176,24 @@ class VariableDroppingOverlay(Overlay):
                 gp = GuiParameter(port.type)
                 try:
                     gp.strValue = self._cell._parameters[port.name][0].constant
+                    isset = True
                 except KeyError:
-                    pass
+                    isset = False
                 param = port.widget_class(gp)
                 self._constant_widgets[param] = port.name
                 self.connect(param, QtCore.SIGNAL('contentsChanged'),
                              self.constant_changed)
-                param_panel = param
+                param_panel = QtGui.QWidget()
+                param_panel.setLayout(QtGui.QHBoxLayout())
+                param_panel.layout().addWidget(param)
+                if not isset:
+                    label = QtGui.QLabel("(not set)")
+                    if not port.optional:
+                        label.setStyleSheet('QLabel { color: red; }')
+                    else:
+                        label.setStyleSheet('QLabel { color: grey; }')
+                    param_panel.layout().addWidget(label)
+                    self._unset_constant_labels[param] = label
             label = QtGui.QLabel(port.name)
             label.setBuddy(param_panel)
             self._parameters.append(widgets)
@@ -257,6 +269,12 @@ class VariableDroppingOverlay(Overlay):
     def constant_changed(self, args):
         widget, contents = args # params are packed as a tuple for some reason
         self._cell.change_constant(self._constant_widgets[widget], contents)
+        try:
+            label = self._unset_constant_labels[widget]
+            label.setParent(None)
+            label.deleteLater()
+        except KeyError:
+            pass
 
     def mouseReleaseEvent(self, event):
         metrics = self.fontMetrics()
