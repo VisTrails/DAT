@@ -558,10 +558,12 @@ class Port(object):
     DATA = 1
     INPUT = 2
 
-    def __init__(self, name, type=None, optional=False, accepts=DATA):
+    def __init__(self, name, type=None, optional=False, multiple_values=False,
+            accepts=DATA):
         self.name = name
         self.type = type
         self.optional = optional
+        self.multiple_values = multiple_values
         self.accepts = accepts
 
 

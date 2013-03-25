@@ -162,7 +162,7 @@ class VariableDroppingOverlay(Overlay):
                     param.setProperty('targeted', 'no')
                     widgets.append(param)
                     param_panel.layout().addWidget(param)
-                if (compatible == 'yes' or
+                if ((port.multiple_values and compatible == 'yes') or
                         not self._cell._parameters.get(port.name)):
                     param = DataParameter(self, port.name, pos, None,
                                           append=compatible == 'yes')
