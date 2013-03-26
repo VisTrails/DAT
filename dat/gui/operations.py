@@ -1,7 +1,7 @@
 import re
 from PyQt4 import QtCore, QtGui
 
-from dat import variable_format
+from dat import MIMETYPE_DAT_VARIABLE, variable_format
 from dat.global_data import GlobalManager
 from dat.gui import translate
 from dat.gui.generic import CategorizedListWidget, ConsoleWidget, \
@@ -9,6 +9,7 @@ from dat.gui.generic import CategorizedListWidget, ConsoleWidget, \
 from dat.operations import is_operator, perform_operation, \
     InvalidOperation, OperationWarning
 from dat.utils import catch_warning
+from dat.vistrail_data import VistrailManager
 
 from vistrails.core.application import get_vistrails_application
 from vistrails.core.packagemanager import get_package_manager
@@ -76,6 +77,26 @@ class MarkerHighlighterLineEdit(SingleLineTextEdit):
                 self.setSelection(cursor.selectionStart())
             return super(MarkerHighlighterLineEdit, self).focusNextPrevChild(forward)
 
+    def focus_first_marker(self):
+        text = str(self.toPlainText())
+        marker = MarkerHighlighterLineEdit._marker_pattern.search(text)
+        if marker is not None:
+            marker = marker.span()
+            self.setSelection(marker[0], marker[1] - marker[0])
+
+    def has_markers(self):
+        text = str(self.toPlainText())
+        match = MarkerHighlighterLineEdit._marker_pattern.search(text)
+        return match is not None
+
+    def replace_first_marker(self, value):
+        text = str(self.toPlainText())
+        text = MarkerHighlighterLineEdit._marker_pattern.sub(
+                value,
+                text,
+                1)
+        self.setText(text)
+
 
 class OperationItem(QtGui.QTreeWidgetItem):
     def __init__(self, operation, category):
@@ -94,6 +115,8 @@ class OperationPanel(QtGui.QWidget):
         QtGui.QWidget.__init__(self)
 
         _ = translate(OperationPanel)
+
+        self.setAcceptDrops(True)
 
         self._operations = dict() # VariableOperation -> OperationItem
 
@@ -140,6 +163,38 @@ class OperationPanel(QtGui.QWidget):
         item = self._operations.pop(operation)
         self._list.removeItem(item, item.category)
 
+    def dragEnterEvent(self, event):
+        mimeData = event.mimeData()
+        if (mimeData.hasFormat(MIMETYPE_DAT_VARIABLE) and
+                self._input_line.has_markers() and
+                VistrailManager().get_variable(
+                    str(mimeData.data(MIMETYPE_DAT_VARIABLE))) is not None):
+            event.accept()
+        else:
+            event.ignore()
+
+    def dragMoveEvent(self, event):
+        mimeData = event.mimeData()
+        if mimeData.hasFormat(MIMETYPE_DAT_VARIABLE):
+            event.setDropAction(QtCore.Qt.CopyAction)
+            event.accept()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event):
+        mimeData = event.mimeData()
+        if (mimeData.hasFormat(MIMETYPE_DAT_VARIABLE) and
+                self._input_line.has_markers()):
+            varname = str(mimeData.data(MIMETYPE_DAT_VARIABLE))
+            variable = VistrailManager().get_variable(varname)
+            if variable is not None:
+                self._input_line.replace_first_marker(varname)
+                event.accept()
+                self._input_line.setFocus(QtCore.Qt.MouseFocusReason)
+                self._input_line.focus_first_marker()
+                return
+        event.ignore()
+
     def operation_clicked(self, item, column=0):
         if not isinstance(item, OperationItem):
             return
@@ -158,7 +213,22 @@ class OperationPanel(QtGui.QWidget):
                 append += ')'
             else:
                 append += '\0\0)'
-        text = str(self._input_line.text()) + append
+
+        text = str(self._input_line.text())
+        cursor = self._input_line.textCursor()
+        # If a placeholder is selected
+        selection = str(cursor.selectedText())
+        marker = MarkerHighlighterLineEdit._marker_pattern.match(selection)
+        if marker is not None and marker.end() == len(selection):
+            # Replace it with the new operation
+            text = (
+                    text[:self._input_line.textCursor().selectionStart()] +
+                    append +
+                    text[self._input_line.textCursor().selectionEnd()])
+        # Else
+        else:
+            # Just append
+            text = text + append
         pos = text.find('\0')
         pos = pos, text.find('\0', pos + 1) - 1
         text = text[:pos[0]] + text[pos[0] + 1:pos[1] + 1] + text[pos[1] + 2:]
