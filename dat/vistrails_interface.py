@@ -893,9 +893,10 @@ def get_plot_modules(pipelineInfo, pipeline):
     """
     # To get all the modules of the plot:
     # We start from the input ports (modules in the port_map) and we follow
-    # edges, without traversing one of the connections from the var_map
+    # edges, without traversing one of the connections from the conn_map
     ignore_edges = set(conn_id
-                       for var in pipelineInfo.var_map.itervalues()
+                       for param in pipelineInfo.conn_map.itervalues()
+                       for var in param
                        for conn_id in var) # set([conn_id: int])
     init_modules = set(pipeline.modules[mod_id]
                        for lp in pipelineInfo.port_map.itervalues()

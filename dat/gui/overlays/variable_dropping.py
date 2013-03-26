@@ -129,9 +129,16 @@ class VariableDroppingOverlay(Overlay):
     def setupUi(self):
         main_layout = QtGui.QVBoxLayout()
 
+        name_layout = QtGui.QHBoxLayout()
         name_label = QtGui.QLabel(self._cell._plot.name + " (")
         name_label.setObjectName('plot_name')
-        main_layout.addWidget(name_label)
+        name_layout.addWidget(name_label)
+        name_layout.addStretch()
+        show_adv_config = QtGui.QPushButton('config')
+        self.connect(show_adv_config, QtCore.SIGNAL('clicked()'),
+                     self.show_advanced_config)
+        name_layout.addWidget(show_adv_config)
+        main_layout.addLayout(name_layout)
 
         spacing_layout = QtGui.QHBoxLayout()
         spacing_layout.addSpacing(20)
@@ -276,17 +283,10 @@ class VariableDroppingOverlay(Overlay):
         except KeyError:
             pass
 
-    def mouseReleaseEvent(self, event):
-        metrics = self.fontMetrics()
-        height = metrics.height()
-        
-        #show advanced plot config
-        if event.y() > self._parameters[-1].height() + self._parameters[-1].y() + height*2:
-            #get pipeline of the cell
-            mngr = VistrailManager(self._cell._controller)
-            pipeline = mngr.get_pipeline(self._cell.cellInfo)
-            self._cell._set_overlay(pipeline.recipe.plot.configWidget)
-            self._cell._overlay.setup(self._cell, pipeline.recipe.plot)
-            return
-        
-        Overlay.mouseReleaseEvent(self, event)
+    def show_advanced_config(self):
+        # Get the pipeline info for the cell
+        vistraildata = VistrailManager(self._cell._controller)
+        pipeline = vistraildata.get_pipeline(self._cell.cellInfo)
+
+        self._cell._set_overlay(pipeline.recipe.plot.configWidget)
+        self._cell._overlay.setup(self._cell, pipeline.recipe.plot)

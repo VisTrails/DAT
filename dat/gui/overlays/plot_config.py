@@ -79,7 +79,6 @@ class DefaultPlotConfigOverlay(PlotConfigOverlay):
                 pipelineInfo,
                 cell._controller.current_pipeline)
 
-
         registry = get_module_registry()
         getter = registry.get_configuration_widget
         for module in plot_modules:
@@ -131,12 +130,12 @@ class DefaultPlotConfigOverlay(PlotConfigOverlay):
     def okClicked(self):
         mngr = VistrailManager(self.cell._controller)
         pipeline = mngr.get_pipeline(self.cell.cellInfo)
-        if(pipeline.version != self.cell._controller.current_version):
+        if pipeline.version != self.cell._controller.current_version:
             new_pipeline = PipelineInformation(
-                self.cell._controller.current_version,
-                pipeline.recipe,
-                pipeline.port_map,
-                pipeline.var_map)
+                    self.cell._controller.current_version,
+                    pipeline.recipe,
+                    pipeline.conn_map,
+                    pipeline.port_map)
             mngr.created_pipeline(self.cell.cellInfo, new_pipeline)
             self.cell.update_pipeline()
         else:
@@ -145,7 +144,7 @@ class DefaultPlotConfigOverlay(PlotConfigOverlay):
     def resetClicked(self):
         mngr = VistrailManager(self.cell._controller)
         pipeline = mngr.get_pipeline(self.cell.cellInfo)
-        if(pipeline.version != self.cell._controller.current_version):
+        if pipeline.version != self.cell._controller.current_version:
             self.cell._controller.change_selected_version(pipeline.version)
             currentTabIndex = self.tabWidget.currentIndex()
             self.setup(self.cell, self.plot)
@@ -155,7 +154,8 @@ class DefaultPlotConfigOverlay(PlotConfigOverlay):
 class DATPortItem(PortItem):
 
     def build_item(self, port_spec, is_connected, is_optional, is_visible):
-        PortItem.build_item(self, port_spec, is_connected, is_optional, is_visible)
+        PortItem.build_item(self, port_spec, is_connected,
+                            is_optional, is_visible)
         self.setIcon(0, PortItem.null_icon)
         self.setIcon(1, PortItem.null_icon)
 
