@@ -13,7 +13,8 @@ import warnings
 
 from PyQt4 import QtCore, QtGui
 
-from dat import BaseVariableLoader, PipelineInformation, RecipeParameterValue
+from dat import BaseVariableLoader, PipelineInformation, \
+    RecipeParameterValue, DEFAULT_VARIABLE_NAME
 from dat.gui import translate
 
 from vistrails.core import get_vistrails_application
@@ -477,6 +478,105 @@ def apply_operation_subworkflow(controller, op, subworkflow, args):
         output=output)
 
 
+class SimpleVariableLoaderMixin(object):
+    def __init__(self, filename=None):
+        super(SimpleVariableLoaderMixin, self).__init__()
+
+        if isinstance(self, CustomVariableLoader) and filename is not None:
+            raise TypeError
+        elif isinstance(self, FileVariableLoader):
+            if filename is None:
+                raise TypeError
+            self.__filename = filename
+
+        self.__parameters = dict()
+        if not self._simple_parameters:
+            _ = translate(SimpleVariableLoaderMixin)
+            layout = QtGui.QVBoxLayout()
+            layout.addWidget(QtGui.QLabel(_("This loader has no parameters.")))
+            self.setLayout(layout)
+            return
+
+        layout = QtGui.QFormLayout()
+        for name, opts in self._simple_parameters:
+            # Unpack options
+            if not isinstance(opts, (tuple, list)):
+                ptype, pdef, pdesc = opts, None, None
+            else:
+                ptype, pdef, pdesc = opts + (None,) * (3 - len(opts))
+
+            # Widgets
+            if issubclass(ptype, basestring):
+                widget = QtGui.QLineEdit()
+                if pdef is not None:
+                    widget.setText(pdef)
+                    resetter = lambda: widget.setText(pdef)
+                else:
+                    resetter = lambda: widget.setText('')
+                getter = lambda: widget.text()
+            elif ptype is int:
+                widget = QtGui.QSpinBox()
+                if pdef is None:
+                    resetter = lambda: widget.setValue(0)
+                elif isinstance(pdef, (tuple, list)):
+                    if len(pdef) != 3:
+                        raise ValueError
+                    widget.setRange(pdef[1], pdef[2])
+                    widget.setValue(pdef[0])
+                    resetter = lambda: widget.setValue(pdef[0])
+                else:
+                    widget.setValue(pdef)
+                    resetter = lambda: widget.setValue(pdef)
+                getter = lambda: widget.value()
+            elif ptype is bool:
+                widget = QtGui.QCheckBox()
+                if pdef:
+                    widget.setChecked(True)
+                    resetter = lambda: widget.setChecked(True)
+                else:
+                    resetter = lambda: widget.setChecked(False)
+                getter = lambda: widget.isChecked()
+            else:
+                raise ValueError("No simple widget type for parameter "
+                                 "type %r" % (ptype,))
+
+            # Store widget in layout and (widget,  getter) in a dict
+            if pdesc is not None:
+                layout.addRow(pdesc, widget)
+            else:
+                layout.addRow(name, widget)
+            self.__parameters[name] = (getter, resetter)
+
+        self.setLayout(layout)
+
+    def reset(self):
+        for name, (getter, resetter) in self.__parameters.iteritems():
+            resetter()
+
+    @classmethod
+    def can_load(cls, filename):
+        if cls._simple_extension is not None:
+            return filename.lower().endswith(cls._simple_extension)
+        else:
+            return True
+
+    def load(self):
+        if isinstance(self, CustomVariableLoader):
+            return self._simple_load()
+        else: # isinstance(self, FileVariableLoader):
+            return self._simple_load(self.__filename)
+
+    def get_default_variable_name(self):
+        if (isinstance(self, FileVariableLoader) and
+                self._simple_get_varname is not None):
+            return self._simple_get_varname(self.__filename)
+        return self._simple_default_varname
+
+    def get_parameter(self, name):
+        getter, resetter = self.__parameters[name]
+        return getter()
+
+
 class CustomVariableLoader(QtGui.QWidget, BaseVariableLoader):
     """Custom variable loading tab.
 
@@ -504,6 +604,38 @@ class CustomVariableLoader(QtGui.QWidget, BaseVariableLoader):
         a Variable object.
         """
         raise NotImplementedError
+
+    @staticmethod
+    def simple(parameters=dict(), default_varname=DEFAULT_VARIABLE_NAME,
+            load=None):
+        """Make a variable loader very simply.
+
+        This function can be used to create a CustomVariableLoader very simply,
+        without having to create a full class or to create a Qt widget.
+        Instead, 'parameters' are defined; the correct widget type will be
+        automatically created and their values will be accessible with
+        get_parameter() from the load callback.
+
+        parameters is a list of tuples with the form:
+            'param name', (type, default, description)
+        It should be thought of as a dict, but ordered, thus list of key-value
+        pairs.
+        Example:
+            [
+            ('url', str),
+            ('user', (str, 'admin')),
+            ('password', (str, '', "Password: (birthdate by default)"));
+            ]
+        load is the callback used to build the variable, it will be given the
+        filename as only argument.
+        """
+        return type(
+                'CustomVariableLoader.simple_',
+                (SimpleVariableLoaderMixin, CustomVariableLoader),
+                dict(
+                        _simple_parameters=parameters,
+                        _simple_default_varname=default_varname,
+                        _simple_load=load))
 
 
 class FileVariableLoader(QtGui.QWidget, BaseVariableLoader):
@@ -542,6 +674,44 @@ class FileVariableLoader(QtGui.QWidget, BaseVariableLoader):
         parameters.
         """
         raise NotImplementedError
+
+    @staticmethod
+    def simple(parameters=dict(), default_varname=DEFAULT_VARIABLE_NAME,
+            extension=None, load=None, get_varname=None):
+        """Make a variable loader very simply.
+
+        This function can be used to create a CustomVariableLoader very simply,
+        without having to create a full class or to create a Qt widget.
+        Instead, 'parameters' are defined; the correct widget type will be
+        automatically created and their values will be accessible with
+        get_parameter() from the load callback.
+
+        parameters is a list of tuples with the form:
+            'param name', (type, default, description)
+        It should be thought of as a dict, but ordered, thus list of key-value
+        pairs.
+        Example:
+            [
+            ('url', str),
+            ('user', (str, 'admin')),
+            ('password', (str, '', "Password: (birthdate by default)"));
+            ]
+        extension is the file extension of the files that will be accepted; if
+        None, every file is accepted.
+        load is the callback used to build the variable, it will be given the
+        filename as only argument.
+        get_varname is an optional callback used to get the new variable's
+        default name, it will be given the filename as only argument.
+        """
+        return type(
+                'CustomVariableLoader.simple_',
+                (SimpleVariableLoaderMixin, FileVariableLoader),
+                dict(
+                        _simple_parameters=parameters,
+                        _simple_default_varname=default_varname,
+                        _simple_extension=extension,
+                        _simple_load=load,
+                        _simple_get_varname=get_varname))
 
 
 class Port(object):
