@@ -1,6 +1,7 @@
 from PyQt4 import QtCore, QtGui
 
 from dat.gui import dragging_to_overlays, get_icon, translate
+from dat.utils import bisect
 
 
 class DraggableListWidget(QtGui.QListWidget):
@@ -34,6 +35,86 @@ class DraggableListWidget(QtGui.QListWidget):
         indexes = self.selectedIndexes()
         if len(indexes) == 1:
             data = self.buildData(self.itemFromIndex(indexes[0]))
+
+            drag = QtGui.QDrag(self)
+            drag.setMimeData(data)
+            with dragging_to_overlays():
+                drag.start(QtCore.Qt.CopyAction)
+
+
+class CategorizedListWidget(QtGui.QTreeWidget):
+    def __init__(self, parent=None):
+        QtGui.QTreeWidget.__init__(self, parent)
+        self.setHeaderHidden(True)
+        self._categories = dict()
+                # category: str -> (
+                #     top_level_widget: QTreeWidgetItem,
+                #     {text: str OR item -> item: QTreeWidgetItem})
+
+    def addItem(self, item, category):
+        if isinstance(item, (str, unicode)):
+            w = QtGui.QTreeWidgetItem([item])
+        elif isinstance(item, QtGui.QTreeWidgetItem):
+            w = item
+        else:
+            raise TypeError
+        try:
+            top_level, items = self._categories[category]
+        except KeyError:
+            top_level = QtGui.QTreeWidgetItem([category])
+            pos = bisect(
+                    self.topLevelItemCount(),
+                    lambda i: str(self.topLevelItem(i).text(0)),
+                    category,
+                    comp=lambda x, y: x.lower() < y.lower())
+            self.insertTopLevelItem(pos, top_level)
+            self._categories[category] = top_level, {item: w}
+        else:
+            items[item] = w
+        top_level.addChild(w)
+
+    def removeItem(self, item, category):
+        top_level, items = self._categories[category]
+        if isinstance(item, (str, unicode)):
+            w = items.pop(item)
+        elif isinstance(item, QtGui.QTreeWidgetItem):
+            w = items.pop(item) # w == item
+        else:
+            raise TypeError
+        top_level.removeChild(w)
+        if not items:
+            del self._categories[category]
+            for i in xrange(self.topLevelItemCount()):
+                if self.topLevelItem(i) is top_level:
+                    self.takeTopLevelItem(i)
+                    break
+
+
+class DraggableCategorizedListWidget(CategorizedListWidget):
+    def __init__(self, parent=None, mimetype='text/plain'):
+        CategorizedListWidget.__init__(self, parent)
+        self._mime_type = mimetype
+        self.setDragEnabled(True)
+        self.setDragDropMode(QtGui.QAbstractItemView.DragOnly)
+
+    def buildData(self, item):
+        """Builds the data for a draggable item.
+        """
+        data = QtCore.QMimeData()
+        data.setData(self._mime_type, item.text(0).toAscii())
+        return data
+
+    def startDrag(self, actions):
+        items = self.selectedItems()
+        if len(items) == 1:
+            item = items[0]
+            try:
+                if self._categories[str(item.text(0))][0] == item:
+                    return
+            except KeyError:
+                pass
+
+            data = self.buildData(item)
 
             drag = QtGui.QDrag(self)
             drag.setMimeData(data)

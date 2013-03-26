@@ -6,14 +6,14 @@ This module contains most of the code that deals with VisTrails pipelines.
 import copy
 import importlib
 import inspect
-from itertools import izip
+from itertools import chain, izip
 import os
 import sys
 import warnings
 
 from PyQt4 import QtCore, QtGui
 
-from dat import BaseVariableLoader, PipelineInformation
+from dat import BaseVariableLoader, PipelineInformation, RecipeParameterValue
 from dat.gui import translate
 
 from vistrails.core import get_vistrails_application
@@ -37,6 +37,10 @@ from vistrails.gui.theme import CurrentTheme
 from vistrails.gui.modules import get_widget_class
 from vistrails.packages.spreadsheet.basic_widgets import CellLocation, \
     SpreadsheetCell, SheetReference
+
+
+class CancelExecution(RuntimeError):
+    pass
 
 
 def resolve_descriptor(param, package_identifier=None):
@@ -354,13 +358,14 @@ class Variable(object):
         return None
 
     @staticmethod
-    def from_pipeline(controller, varname):
+    def from_pipeline(controller, varname, type=None):
         pipeline = controller.vistrail.getPipeline('dat-var-%s' % varname)
-        var_type = Variable.read_type(pipeline)
+        if type is None:
+            type = Variable.read_type(pipeline)
         generator = PipelineGenerator(controller)
         output = add_variable_subworkflow(generator, pipeline)
         return Variable(
-                type=var_type,
+                type=type,
                 controller=controller,
                 generator=generator,
                 output=output)
@@ -378,8 +383,10 @@ class ArgumentWrapper(object):
             generator.append_operations(self._variable._generator.operations)
             self._copied = True
         generator.connect_modules(
-                self._variable._output_module, self._variable._outputport_name,
-                module._module, inputport_name)
+                self._variable._output_module,
+                self._variable._outputport_name,
+                module._module,
+                inputport_name)
 
 
 def call_operation_callback(op, callback, args):
@@ -439,10 +446,7 @@ def apply_operation_subworkflow(controller, op, subworkflow, args):
         dest = operation_pipeline.modules[connection.destination.moduleId]
         if src.module_descriptor is inputport_desc:
             param = get_function(src, 'name')
-            try:
-                ports = operation_params[param]
-            except KeyError:
-                ports = operation_params[param] = []
+            ports = operation_params.setdefault(param, [])
             ports.append((
                     operation_modules_map[connection.destination.moduleId],
                     connection.destination.name))
@@ -554,10 +558,12 @@ class Port(object):
     DATA = 1
     INPUT = 2
 
-    def __init__(self, name, type=None, optional=False, accepts=DATA):
+    def __init__(self, name, type=None, optional=False, multiple_values=False,
+            accepts=DATA):
         self.name = name
         self.type = type
         self.optional = optional
+        self.multiple_values = multiple_values
         self.accepts = accepts
 
 
@@ -785,10 +791,7 @@ def walk_modules(pipeline, modules,
     for connection in pipeline.connection_list:
         for mod in (connection.source.moduleId,
                     connection.destination.moduleId):
-            try:
-                conns = module_connections[mod]
-            except KeyError:
-                conns = module_connections[mod] = set()
+            conns = module_connections.setdefault(mod, set())
             conns.add(connection)
 
     visited_connections = set()
@@ -978,17 +981,6 @@ class PipelineGenerator(object):
     def perform_action(self):
         """Layout all the modules and create the action.
         """
-        def get_visible_ports(port_list, visible_ports):
-            output_list = []
-            visible_list = []
-            for p in port_list:
-                if not p.optional:
-                    output_list.append(p)
-                elif p.name in visible_ports:
-                    visible_list.append(p)
-            output_list.extend(visible_list)
-            return output_list
-
         wf = LayoutPipeline()
         wf_iport_map = {}
         wf_oport_map = {}
@@ -999,10 +991,8 @@ class PipelineGenerator(object):
                     len(module.destinationPorts()),
                     len(module.sourcePorts()))
             wf_mod._actual_module = module
-            input_ports = get_visible_ports(module.destinationPorts(),
-                                            module.visible_input_ports)
-            output_ports = get_visible_ports(module.sourcePorts(),
-                                             module.visible_output_ports)
+            input_ports = module.destinationPorts()
+            output_ports = module.sourcePorts()
 
             for i, p in enumerate(input_ports):
                 if module.id not in wf_iport_map:
@@ -1042,13 +1032,13 @@ class PipelineGenerator(object):
         center_out[1] /= float(len(self.all_modules))
 
         pipeline = self.controller.current_pipeline
-        existing_modules = set(pipeline.module_list)
+        existing_modules = set(m.id for m in pipeline.module_list)
         for wf_mod in wf.modules:
             module = wf_mod._actual_module
             x = wf_mod.layout_pos.x - center_out[0]
             y = wf_mod.layout_pos.y - center_out[1]
             y = -y # Yes, it's backwards in VisTrails
-            if module in existing_modules:
+            if module.id in existing_modules:
                 # This module already exists in the workflow, we have to emit a
                 # move operation
                 # See vistrails.core.vistrail.controller:
@@ -1082,7 +1072,7 @@ def add_variable_subworkflow(generator, variable, plot_ports=None):
 
     If plot_ports is given, connects the pipeline to the ports in plot_ports,
     and returns the ids of the connections tying this variable to the plot,
-    which are used to build the pipeline's var_map.
+    which are used to build the pipeline's conn_map.
 
     If plot_ports is None, just returns the (module, port_name) of the output
     port.
@@ -1144,6 +1134,37 @@ def add_variable_subworkflow(generator, variable, plot_ports=None):
         assert False
 
 
+def add_variable_subworkflow_typecast(generator, variable, plot_ports,
+                                       expected_type, typecast):
+    if issubclass(variable.type.module, expected_type.module):
+        return add_variable_subworkflow(
+                generator,
+                variable.name,
+                plot_ports)
+    else:
+        # Load the variable from the workflow
+        var_pipeline = Variable.from_pipeline(
+                generator.controller, variable.name)
+
+        # Apply the operation
+        var_pipeline = typecast(
+                generator.controller, var_pipeline,
+                variable.type, expected_type)
+
+        generator.append_operations(var_pipeline._generator.operations)
+        if plot_ports:
+            connection_ids = []
+            for var_output_mod, var_output_port in plot_ports:
+                connection_ids.append(generator.connect_modules(
+                        var_pipeline._output_module,
+                        var_pipeline._outputport_name,
+                        var_output_mod,
+                        var_output_port))
+            return connection_ids
+        else:
+            return (var_pipeline._output_module, var_pipeline._outputport_name)
+
+
 def add_constant_module(generator, descriptor, constant, plot_ports):
     module = generator.controller.create_module_from_descriptor(descriptor)
     generator.add_module(module)
@@ -1160,7 +1181,7 @@ def add_constant_module(generator, descriptor, constant, plot_ports):
     return connection_ids
 
 
-def create_pipeline(controller, recipe, cell_info):
+def create_pipeline(controller, recipe, cell_info, typecast=None):
     """Create a pipeline from a recipe and return its information.
     """
     # Build from the root version
@@ -1222,9 +1243,9 @@ def create_pipeline(controller, recipe, cell_info):
         if location_module:
             row, col = cell_info.row, cell_info.column
             generator.update_function(
-                    location_module, 'Row', [row + 1])
+                    location_module, 'Row', [str(row + 1)])
             generator.update_function(
-                    location_module, 'Column', [col + 1])
+                    location_module, 'Column', [str(col + 1)])
 
             if len(cell_modules) > 1:
                 warnings.warn("Plot subworkflow '%s' contains more than "
@@ -1241,10 +1262,7 @@ def create_pipeline(controller, recipe, cell_info):
         src = plot_pipeline.modules[connection.source.moduleId]
         if src.module_descriptor is inputport_desc:
             param = get_function(src, 'name')
-            try:
-                ports = plot_params[param]
-            except KeyError:
-                ports = plot_params[param] = []
+            ports = plot_params.setdefault(param, [])
             ports.append((
                     plot_modules_map[connection.destination.moduleId],
                     connection.destination.name))
@@ -1255,29 +1273,34 @@ def create_pipeline(controller, recipe, cell_info):
                     plot_modules_map[connection.destination.moduleId],
                     connection.destination.name)
 
-    # Maps a parameter name to the list of connections tying the variable to
-    # modules of the plot
-    var_map = dict() # param: str -> [conn_id: int]
+    # Maps a port name to the list of parameters
+    # for each parameter, we have a list of connections tying it to modules of
+    # the plot
+    conn_map = dict() # param: str -> [[conn_id: int]]
 
-    # Add the Variable subworkflows, but 'inline' them
-    for param, variable in recipe.variables.iteritems():
-        plot_ports = plot_params.get(param, [])
-        var_map[param] = add_variable_subworkflow(
-                generator,
-                variable.name,
-                plot_ports)
-
-    # Add the constants
     name_to_port = {port.name: port for port in recipe.plot.ports}
-    for param, constant in recipe.constants.iteritems():
-        plot_ports = plot_params.get(param, [])
-        desc = name_to_port[param].type
-        var_map[param] = add_constant_module(
-                generator,
-                desc,
-                constant,
-                plot_ports)
 
+    for port_name, parameters in recipe.parameters.iteritems():
+        plot_ports = plot_params.get(port_name, [])
+        p_conns = conn_map[port_name] = []
+        for parameter in parameters:
+            if parameter.type == RecipeParameterValue.VARIABLE:
+                p_conns.append(add_variable_subworkflow_typecast(
+                        generator,
+                        parameter.variable,
+                        plot_ports,
+                        name_to_port[port_name].type,
+                        typecast=typecast))
+            else: # parameter.type == RecipeParameterValue.CONSTANT
+                desc = name_to_port[port_name].type
+                p_conns.append(add_constant_module(
+                        generator,
+                        desc,
+                        parameter.constant,
+                        plot_ports))
+
+    if controller.current_version != 0:
+        controller.change_selected_version(0)
     pipeline_version = generator.perform_action()
     controller.vistrail.change_description(
             "Created DAT plot %s" % recipe.plot.name,
@@ -1290,7 +1313,7 @@ def create_pipeline(controller, recipe, cell_info):
     for param, portlist in plot_params.iteritems():
         port_map[param] = [(module.id, port) for module, port in portlist]
 
-    return PipelineInformation(pipeline_version, recipe, port_map, var_map)
+    return PipelineInformation(pipeline_version, recipe, conn_map, port_map)
 
 
 class UpdateError(ValueError):
@@ -1302,7 +1325,7 @@ class UpdateError(ValueError):
     """
 
 
-def update_pipeline(controller, pipelineInfo, new_recipe):
+def update_pipeline(controller, pipelineInfo, new_recipe, typecast=None):
     """Update a pipeline to a new recipe.
 
     This takes a similar pipeline and turns it into the new recipe by adding/
@@ -1322,134 +1345,140 @@ def update_pipeline(controller, pipelineInfo, new_recipe):
 
     generator = PipelineGenerator(controller)
 
-    var_map = dict()
+    conn_map = dict()
 
     # Used to build the description
     added_params = []
     removed_params = []
-    updated_params = []
-
-    # Check variables
-    for param in (set(old_recipe.variables.keys()) |
-                  set(new_recipe.variables.keys())):
-        old_var = old_recipe.variables.get(param)
-        new_var = new_recipe.variables.get(param)
-
-        if old_var == new_var:
-            try:
-                var_map[param] = pipelineInfo.var_map[param]
-            except KeyError:
-                pass
-            continue
-
-        # If the parameter existed (but was removed or changed)
-        if old_var is not None:
-            connections = [pipeline.connections[c]
-                           for c in pipelineInfo.var_map.get(param, [])]
-            if not connections:
-                raise UpdateError("Couldn't find the connections for "
-                                  "variable param '%s' in update data" % param)
-
-            # Remove the variable subworkflow
-            modules = set(pipeline.modules[c.source.moduleId]
-                          for c in connections)
-            generator.delete_linked(
-                    modules,
-                    connection_filter=lambda c: c not in connections)
-
-        # If the parameter exists (but didn't exist or was different)
-        if new_var is not None:
-            plot_ports = [(pipeline.modules[mod_id], port)
-                          for mod_id, port in pipelineInfo.port_map[param]]
-            var_map[param] = add_variable_subworkflow(
-                    generator,
-                    new_var.name,
-                    plot_ports)
-
-        if old_var is not None and new_var is not None:
-            updated_params.append(param)
-        elif old_var is not None:
-            removed_params.append(param)
-        else: # new_var is not None
-            added_params.append(param)
 
     name_to_port = {port.name: port for port in new_recipe.plot.ports}
 
-    # Check constants
-    for param in (set(old_recipe.constants.keys()) |
-                  set(new_recipe.constants.keys())):
-        old_constant = old_recipe.constants.get(param)
-        new_constant = new_recipe.constants.get(param)
+    for port_name in (set(old_recipe.parameters.iterkeys()) |
+                             set(new_recipe.parameters.iterkeys())):
+        # param -> [[conn_id]]
+        old_params = dict()
+        for i, param in enumerate(old_recipe.parameters.get(port_name, [])):
+            conns = old_params.setdefault(param, [])
+            conns.append(list(pipelineInfo.conn_map[port_name][i]))
+        new_params = list(new_recipe.parameters.get(port_name, []))
+        conn_lists = conn_map.setdefault(port_name, [])
 
-        if old_constant == new_constant:
-            try:
-                var_map[param] = pipelineInfo.var_map[param]
-            except KeyError:
-                pass
-            continue
+        # Loop on new parameters
+        for param in new_params:
+            # Remove one from old_params
+            old = old_params.get(param)
+            if old:
+                old_conns = old.pop(0)
+                if not old:
+                    del old_params[param]
 
-        # If the constant existed (but was removed or changed)
-        if old_constant is not None:
-            connections = [pipeline.connections[c]
-                           for c in pipelineInfo.var_map.get(param, [])]
-            if not connections:
-                raise UpdateError("Couldn't find the connections for "
-                                  "constant param '%s' in update data" % param)
+                conn_lists.append(old_conns)
+                continue
 
-            # Remove the constant module
-            modules = set(pipeline.modules[c.source.moduleId]
-                          for c in connections)
-            if len(modules) != 1:
-                raise UpdateError("%d modules were found for the "
-                                  "constant param '%s'" % (
-                                  len(modules), param))
-            generator.delete_modules(modules)
-
-        # If the constant exists (but didn't exist or was different)
-        if new_constant is not None:
+            # Can't remove, meaning that there is more of this param than there
+            # was before
+            # Add this param on this port
             plot_ports = [(pipeline.modules[mod_id], port)
-                          for mod_id, port in pipelineInfo.port_map[param]]
-            desc = name_to_port[param].type
-            var_map[param] = add_constant_module(
-                    generator,
-                    desc,
-                    new_constant,
-                    plot_ports)
+                          for mod_id, port in (
+                                  pipelineInfo.port_map[port_name])]
+            if param.type == RecipeParameterValue.VARIABLE:
+                conn_lists.append(add_variable_subworkflow_typecast(
+                        generator,
+                        param.variable,
+                        plot_ports,
+                        name_to_port[port_name].type,
+                        typecast=typecast))
+            else: #param.type == RecipeParameterValue.CONSTANT:
+                desc = name_to_port[port_name].type
+                conn_lists.append(add_constant_module(
+                        generator,
+                        desc,
+                        param.constant,
+                        plot_ports))
 
-        if old_constant is not None and new_constant is not None:
-            updated_params.append(param)
-        elif old_constant is not None:
-            removed_params.append(param)
-        else: # new_constant is not None
-            added_params.append(param)
+            added_params.append(port_name)
 
+        # Now loop on the remaining old parameters
+        # If they haven't been removed by the previous loop, that means that
+        # there were more of them in the old recipe
+        for conn_lists in old_params.itervalues():
+            for connections in conn_lists:
+                connections = set(pipeline.connections[c]
+                                  for c in connections)
+
+                # Remove the variable subworkflow
+                modules = set(pipeline.modules[c.source.moduleId]
+                              for c in connections)
+                generator.delete_linked(
+                        modules,
+                        connection_filter=lambda c: c not in connections)
+
+                removed_params.append(port_name)
+
+    # We didn't find anything to change
+    if not (added_params or removed_params):
+        return pipelineInfo
+
+    if controller.current_version != pipelineInfo.version:
+        controller.change_selected_version(pipelineInfo.version)
     pipeline_version = generator.perform_action()
 
-    if added_params and not removed_params and not updated_params:
-        if len(added_params) == 1:
-            description = "Added DAT parameter %s" % added_params[0]
-        else:
-            description = "Added DAT parameters"
-    elif removed_params and not added_params and not updated_params:
-        if len(removed_params) == 1:
-            description = "Removed DAT parameter %s" % removed_params[0]
-        else:
-            description = "Removed DAT parameters"
-    elif updated_params and not added_params and not removed_params:
-        if len(updated_params) == 1:
-            description = "Updated DAT parameter %s" % updated_params[0]
-        else:
-            description = "Updated DAT parameters"
-    else:
-        description = "Changed DAT parameters"
     controller.vistrail.change_description(
-            description,
+            describe_dat_update(added_params, removed_params),
             pipeline_version)
 
-    controller.change_selected_version(pipeline_version)
+    controller.change_selected_version(pipeline_version, from_root=True)
 
     return PipelineInformation(pipeline_version, new_recipe,
-                               pipelineInfo.port_map, var_map)
+                               conn_map, pipelineInfo.port_map)
+
+
+def describe_dat_update(added_params, removed_params):
+    # We only added parameters
+    if added_params and not removed_params:
+        # We added one
+        if len(added_params) == 1:
+            return "Added DAT parameter to %s" % added_params[0]
+        # We added several, but all on the same port
+        elif all(param == added_params[0]
+                 for param in added_params[1:]):
+            return "Added DAT parameters to %s" % added_params[0]
+        # We added several on different ports
+        else:
+            return "Added DAT parameters"
+    # We only removed parameters
+    elif removed_params and not added_params:
+        # We removed one
+        if len(removed_params) == 1:
+            return "Removed DAT parameter from %s" % (
+                    removed_params[0])
+        # We removed several, but all on the same port
+        elif all(param == removed_params[0]
+                 for param in removed_params[1:]):
+            return "Removed DAT parameters from %s" % (
+                    removed_params[0])
+        # We removed several from different ports
+        else:
+            return "Removed DAT parameters"
+    # Both additions and deletions
+    else:
+        # Replaced a parameter
+        if ((len(added_params), len(removed_params)) == (1, 1) and
+                added_params[0] == removed_params[0]):
+            return "Changed DAT parameter on %s" % added_params[0]
+        # Did all kind of stuff
+        else:
+            if added_params:
+                port = added_params[0]
+            else:
+                port = removed_params[0]
+            # ... to a single port
+            if all(param == port
+                   for param in chain(added_params, removed_params)):
+                return "Changed DAT parameters on %s" % port
+            # ... to different ports
+            else:
+                return "Changed DAT parameters"
 
 
 # We don't use vistrails.packages.spreadsheet.spreadsheet_execute:
@@ -1498,11 +1527,7 @@ def try_execute(controller, pipelineInfo, sheetname, recipe=None):
         recipe = pipelineInfo.recipe
 
     if all(
-            port.optional or (
-                    port.accepts == Port.DATA and
-                    recipe.variables.has_key(port.name)) or (
-                    port.accepts == Port.INPUT and
-                    recipe.constants.has_key(port.name))
+            port.optional or recipe.parameters.has_key(port.name)
             for port in recipe.plot.ports):
         # Create a copy of that pipeline so we can change it
         controller.change_selected_version(pipelineInfo.version)

@@ -1,8 +1,9 @@
+import itertools
 import urllib2
 import warnings
 import weakref
 
-from dat import DATRecipe, PipelineInformation
+from dat import RecipeParameterValue, DATRecipe, PipelineInformation
 from dat.global_data import GlobalManager
 from dat.vistrails_interface import Variable
 
@@ -32,139 +33,143 @@ class VistrailData(object):
     #   <actionAnnotation
     #           actionId="PIPELINEVERSION"
     #           key="dat-recipe"
-    #           value="PlotName;param1=v:varname1;param3=c:value2" />
+    #           value="<recipe>" />
     #   <actionAnnotation
     #           actionId="PIPELINEVERSION"
     #           key="dat-ports"
-    #           value="param1=ID1:PORT1,ID2:PORT2;param2=ID2:PORT2" />
-    #   <actionAnnotation
-    #           actionId="PIPELINEVERSION"
-    #           key="dat-vars"
-    #           value="param1=CONN1,CONN2;param2=CONN2" />
+    #           value="<portmap>" />
+    #
+    # Where <recipe> has the format (with added whitespace for clarity):
+    #   PlotName;
+    #       param1=v=
+    #           varname1:CONN1,CONN2|
+    #           varname2:CONN3;
+    #       param2=c=value2
+    #
+    # And <portmap>:
+    #   param1=
+    #       ID1,PORT1:ID2,PORT2|
+    #       ID3,PORT3;
+    #   param2=ID4,PORT4
+    #
     # replacing:
     #   * PIPELINEVERSION with the version number
     #   * PlotName with the 'name' field of the plot
     #   * param<N> with the name of an input port of the plot
-    #   * varname with the current name of a variable
+    #   * varname with the name of a variable
     #   * ID<P> and PORT<P> with the module id and port name of the plot's
     #     input port for the associated parameter
-    #   * CONN<M> with the ids of the connections tying the plot input port to
-    #     the variable set to this port
+    #   * CONN<M> with the id of a connection tying the plot input port to one
+    #     of the parameters set to this port
     #   * value<N> is the string representation of a constant
-    #
-    # This assumes that:
-    #   * Plot names don't change (and are not localized)
-    #   * Plot, port and variable names don't contain ';' or '='
     #
     # Parameters which are not set are simply omitted from the list
     _RECIPE_KEY = 'dat-recipe'
     _PORTMAP_KEY = 'dat-ports'
-    _VARMAP_KEY = 'dat-vars'
 
     @staticmethod
-    def _build_annotation_recipe(recipe):
-        """Builds the annotation value representation of a recipe.
+    def _build_recipe_annotation(recipe, conn_map):
+        """Builds the recipe annotation value from the recipe and conn_map.
         """
         value = recipe.plot.name
-        for param, variable in recipe.variables.iteritems():
-            value += ';%s=v:%s' % (param, variable.name)
-        for param, constant in recipe.constants.iteritems():
-            encoded = urllib2.quote(constant, safe='')
-            value += ';%s=c:%s' % (param, encoded)
+        for param, param_values in sorted(recipe.parameters.iteritems(),
+                                          key=lambda (k, v): k):
+            if not param_values:
+                continue
+            value += ';%s=' % param
+            if param_values[0].type == RecipeParameterValue.CONSTANT:
+                if len(param_values) != 1:
+                    raise ValueError
+                value += 'c='
+            else: # param_values[0].type == RecipeParameterValue.VARIABLE:
+                value += 'v='
+
+            for i, param_val, conn_list in itertools.izip(
+                    itertools.count(), param_values, conn_map[param]):
+                if i != 0:
+                    value += '|'
+                if param_val.type == RecipeParameterValue.CONSTANT:
+                    value += urllib2.quote(param_val.constant, safe='')
+                else: # param_val.type == RecipeParameterValue.VARIABLE
+                    value += param_val.variable.name
+                value += ':' + ','.join(
+                        '%d' % conn_id
+                        for conn_id in conn_list)
         return value
 
     @staticmethod
-    def _read_annotation_recipe(vistraildata, value):
-        """Reads a recipe from its annotation value representation.
+    def _read_recipe_annotation(vistraildata, value):
+        """Reads (recipe, conn_map) from an annotation value.
         """
-        value = value.split(';')
+        def read_connlist(connlist):
+            return tuple(int(conn_id) for conn_id in connlist.split(','))
+
+        value = iter(value.split(';'))
         try:
-            plot = GlobalManager.get_plot(value[0]) # Might raise KeyError
-            variables = dict()
-            constants = dict()
-            for assignment in value[1:]:
-                param, data = assignment.split('=') # Might raise ValueError
-                if data.startswith('v:'):
-                    variables[param] = vistraildata.get_variable(data[2:])
-                elif data.startswith('c:'):
-                    constants[param] = urllib2.unquote(data[2:])
-                else:
+            plot = GlobalManager.get_plot(next(value)) # Might raise KeyError
+            parameters = dict()
+            conn_map = dict()
+            for param in value:
+                param, t, pvals = param.split('=') # Might raise ValueError
+                    # or TypeError
+                pvals = pvals.split('|')
+                plist = []
+                cplist = []
+                if t not in ('c', 'v'):
                     raise ValueError
-            return DATRecipe(plot, variables, constants)
-        except (KeyError, ValueError):
-            return None
+                for val in pvals:
+                    val = val.split(':')
+                    if t == 'c':
+                        plist.append(RecipeParameterValue(
+                                constant=urllib2.unquote(val[0])))
+                    else: # t == 'v':
+                        plist.append(RecipeParameterValue(
+                                variable=vistraildata.get_variable(val[0])))
+                    cplist.append(read_connlist(val[1]))
+                parameters[param] = tuple(plist)
+                conn_map[param] = tuple(cplist)
+            return DATRecipe(plot, parameters), conn_map
+        except (KeyError, ValueError, TypeError):
+            return None, None
 
     @staticmethod
-    def _build_annotation_portmap(port_map):
-        """Builds the annotation value representation of a port_map.
+    def _build_portmap_annotation(port_map):
+        """Builds the port_map annotation value.
         """
         value = []
-        for param, portlist in port_map.iteritems():
-            value.append(
-                    "%s=%s" % (
-                            param,
-                            ','.join('%d:%s' % (mod_id, portname)
-                                     for mod_id, portname in portlist)))
+
+        for param, port_list in sorted(port_map.iteritems(),
+                                       key=lambda (k, v): k):
+            if not port_list:
+                continue
+
+            value.append('%s=' % param + ':'.join(
+                    '%d,%s' % (mod_id, portname)
+                    for mod_id, portname in port_list))
+
         return ';'.join(value)
 
     @staticmethod
-    def _read_annotation_portmap(value):
-        """Reads a port_map from its annotation value representation.
+    def _read_portmap_annotation(value):
+        """Reads port_map from an annotation value.
         """
         try:
             port_map = dict()
-            dv = value.split(';')
-            for mapping in dv:
+            value = value.split(';')
+            for mapping in value:
                 param, ports = mapping.split('=')
                 if not ports:
                     port_map[param] = []
                     continue
-                ports = ports.split(',')
+                ports = ports.split(':')
                 portlist = []
                 for port in ports:
-                    port_ = port.split(':')
-                    if len(port_) != 2:
-                        raise ValueError
-                    portlist.append((int(port_[0]), port_[1]))
-                            # Might raise ValueError
+                    port = port.split(',')
+                    mod_id, port_name = port
+                    portlist.append((int(mod_id), port_name))
                 port_map[param] = portlist
             return port_map
-        except ValueError:
-            return None
-
-    @staticmethod
-    def _build_annotation_varmap(var_map):
-        """Builds the annotation value representation of a var_map.
-        """
-        value = []
-        for param, conn_list in var_map.iteritems():
-            value.append(
-                    "%s=%s" % (
-                            param,
-                            ','.join('%d' % conn_id
-                                     for conn_id in conn_list)))
-        return ';'.join(value)
-
-    @staticmethod
-    def _read_annotation_varmap(value):
-        """Reads a var_map from its annotation value representation.
-        """
-        try:
-            var_map = dict()
-            dv = value.split(';')
-            for mapping in dv:
-                param, conns = mapping.split('=')
-                if not conns:
-                    var_map[param] = []
-                    continue
-                ports = conns.split(',')
-                conn_list = []
-                for port in ports:
-                    conn_list.append(int(port))
-                            # Might raise ValueError
-                var_map[param] = conn_list
-            return var_map
-        except ValueError:
+        except (ValueError, TypeError):
             return None
 
     def __init__(self, controller):
@@ -214,9 +219,11 @@ class VistrailData(object):
         for an in annotations:
             if an.key == self._RECIPE_KEY:
                 version = an.action_id
-                recipe = self._read_annotation_recipe(self, an.value)
+                recipe, conn_map = self._read_recipe_annotation(self, an.value)
                 if recipe is not None:
-                    pipeline = PipelineInformation(version, recipe)
+                    pipeline = PipelineInformation(
+                            version, recipe, conn_map,
+                            None) # to be filled by the next block
                     self._version_to_pipeline[version] = pipeline
         # Then, read the port maps
         for an in annotations:
@@ -224,32 +231,16 @@ class VistrailData(object):
                 pipeline = self._version_to_pipeline[an.action_id]
                 if not pipeline:
                     # Purge the lone port map
-                    warnings.warn("Found a DAT port map annotation with not "
+                    warnings.warn("Found a DAT port map annotation with no "
                                   "associated recipe -- removing")
                     self._controller.vistrail.set_action_annotation(
                             an.action_id,
                             an.key,
                             None)
                 else:
-                    port_map = self._read_annotation_portmap(an.value)
+                    port_map = self._read_portmap_annotation(an.value)
                     if port_map is not None:
                         pipeline.port_map = port_map
-        # Finally, read the variable maps
-        for an in annotations:
-            if an.key == self._VARMAP_KEY:
-                pipeline = self._version_to_pipeline[an.action_id]
-                if not pipeline:
-                    # Purge the lone var map
-                    warnings.warn("Found a DAT variable map annotation with "
-                                  "no associated recipe -- removing")
-                    self._controller.vistrail.set_action_annotation(
-                            an.action_id,
-                            an.key,
-                            None)
-                else:
-                    var_map = self._read_annotation_varmap(an.value)
-                    if var_map is not None:
-                        pipeline.varmap = var_map
 
     def _get_controller(self):
         return self._controller
@@ -308,12 +299,16 @@ class VistrailData(object):
             # Variable was renamed -- reflect this change on the annotations
             for pipeline in self._version_to_pipeline.itervalues():
                 if any(
-                        v.name == varname
-                        for v in pipeline.recipe.variables.itervalues()):
+                        p.type == RecipeParameterValue.VARIABLE and
+                        p.variable.name == varname
+                        for p_values in pipeline.recipe.parameters.itervalues()
+                        for p in p_values):
                     self._controller.vistrail.set_action_annotation(
                             pipeline.version,
                             self._RECIPE_KEY,
-                            self._build_annotation_recipe(pipeline.recipe))
+                            self._build_recipe_annotation(
+                                    pipeline.recipe,
+                                    pipeline.conn_map))
 
         get_vistrails_application().send_notification(
                 'dat_new_variable',
@@ -334,8 +329,10 @@ class VistrailData(object):
             to_remove = set([])
             for pipeline in self._version_to_pipeline.itervalues():
                 if any(
-                        v.name == varname
-                        for v in pipeline.recipe.variables.itervalues()):
+                        p.type == RecipeParameterValue.VARIABLE and
+                        p.variable.name == varname
+                        for p_values in pipeline.recipe.parameters.itervalues()
+                        for p in p_values):
                     to_remove.add(pipeline.version)
             if to_remove:
                 warnings.warn(
@@ -427,17 +424,13 @@ class VistrailData(object):
         self._controller.vistrail.set_action_annotation(
                 pipeline.version,
                 self._RECIPE_KEY,
-                self._build_annotation_recipe(pipeline.recipe))
+                self._build_recipe_annotation(pipeline.recipe,
+                                              pipeline.conn_map))
 
         self._controller.vistrail.set_action_annotation(
                 pipeline.version,
                 self._PORTMAP_KEY,
-                self._build_annotation_portmap(pipeline.port_map))
-
-        self._controller.vistrail.set_action_annotation(
-                pipeline.version,
-                self._VARMAP_KEY,
-                self._build_annotation_varmap(pipeline.var_map))
+                self._build_portmap_annotation(pipeline.port_map))
 
     def get_pipeline(self, param):
         """Get the pipeline information for a given cell or version.

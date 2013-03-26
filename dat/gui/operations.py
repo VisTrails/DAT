@@ -1,13 +1,17 @@
+import re
 from PyQt4 import QtCore, QtGui
 
+from dat import variable_format
 from dat.global_data import GlobalManager
 from dat.gui import translate
-from dat.gui.generic import ConsoleWidget, SingleLineTextEdit
+from dat.gui.generic import CategorizedListWidget, ConsoleWidget, \
+    SingleLineTextEdit
 from dat.operations import is_operator, perform_operation, \
     InvalidOperation, OperationWarning
-from dat.utils import bisect, catch_warning
+from dat.utils import catch_warning
 
 from vistrails.core.application import get_vistrails_application
+from vistrails.core.packagemanager import get_package_manager
 
 
 class MarkerHighlighterLineEdit(SingleLineTextEdit):
@@ -18,6 +22,9 @@ class MarkerHighlighterLineEdit(SingleLineTextEdit):
         self.connect(self, QtCore.SIGNAL('textChanged()'), self._highlight)
         self.setTabChangesFocus(True)
 
+    _marker_pattern = re.compile(r'<(%s)>' % variable_format)
+    _html_marker_pattern = re.compile(r'&lt;(%s)&gt;' % variable_format)
+
     def _highlight(self):
         if self.__changing:
             return
@@ -25,11 +32,12 @@ class MarkerHighlighterLineEdit(SingleLineTextEdit):
         try:
             pos = self.textCursor().position()
             text = str(self.toPlainText())
+            text = text.replace('&', '&amp;')
             text = text.replace('<', '&lt;')
             text = text.replace('>', '&gt;')
-            text = text.replace(
-                    '&lt;?&gt;',
-                    '<span style="background-color: #99F;">&lt;?&gt;</span>')
+            text = MarkerHighlighterLineEdit._html_marker_pattern.sub(
+                    '<span style="background-color: #99F;">&lt;\\1&gt;</span>',
+                    text)
             self.setHtml(text)
             cursor = self.textCursor()
             cursor.setPosition(pos)
@@ -39,16 +47,27 @@ class MarkerHighlighterLineEdit(SingleLineTextEdit):
 
     def focusNextPrevChild(self, forward):
         cursor = self.textCursor()
+        text = str(self.toPlainText())
         if forward:
-            marker = str(self.toPlainText()).find(
-                    '<?>',
-                    cursor.selectionEnd())
+            marker = MarkerHighlighterLineEdit._marker_pattern.search(
+                    text, cursor.selectionEnd())
+            if marker is not None:
+                marker = marker.span()
         else:
-            marker = str(self.toPlainText()).rfind(
-                    '<?>',
-                    0, cursor.selectionStart())
-        if marker != -1:
-            self.setSelection(marker, 3)
+            # Find last match
+            marker = None
+            pos = 0
+            while True:
+                m = MarkerHighlighterLineEdit._marker_pattern.search(
+                        text, pos, cursor.selectionStart())
+                if m is not None:
+                    marker = m.span()
+                    pos = marker[1]
+                else:
+                    break
+
+        if marker is not None:
+            self.setSelection(marker[0], marker[1] - marker[0])
             return True
         else:
             if forward:
@@ -58,13 +77,25 @@ class MarkerHighlighterLineEdit(SingleLineTextEdit):
             return super(MarkerHighlighterLineEdit, self).focusNextPrevChild(forward)
 
 
+class OperationItem(QtGui.QTreeWidgetItem):
+    def __init__(self, operation, category):
+        if is_operator(operation.name):
+            _ = translate(OperationItem)
+            name = _("operator {op}").format(op=operation.name)
+        else:
+            name = operation.name
+        QtGui.QTreeWidgetItem.__init__(self, [name])
+        self.operation = operation
+        self.category = category
+
+
 class OperationPanel(QtGui.QWidget):
     def __init__(self):
         QtGui.QWidget.__init__(self)
 
         _ = translate(OperationPanel)
 
-        self._operations = dict() # name -> set([operations])
+        self._operations = dict() # VariableOperation -> OperationItem
 
         layout = QtGui.QVBoxLayout()
 
@@ -80,11 +111,11 @@ class OperationPanel(QtGui.QWidget):
 
         layout.addWidget(QtGui.QLabel(_("Available operations:")))
 
-        self._list = QtGui.QListWidget()
+        self._list = CategorizedListWidget()
         self._list.setSelectionMode(QtGui.QAbstractItemView.NoSelection)
         self.connect(
                 self._list,
-                QtCore.SIGNAL('itemClicked(QListWidgetItem*)'),
+                QtCore.SIGNAL('itemClicked(QTreeWidgetItem*, int)'),
                 self.operation_clicked)
         layout.addWidget(self._list)
 
@@ -99,44 +130,41 @@ class OperationPanel(QtGui.QWidget):
             self.operation_added(operation)
 
     def operation_added(self, operation):
-        try:
-            self._operations[operation.name].add(operation)
-        except KeyError:
-            self._operations[operation.name] = set([operation])
-
-            pos = bisect(
-                    self._list.count(),
-                    lambda i: str(self._list.item(i).text()),
-                    operation.name)
-            if pos >= 1 and pos - 1 < self._list.count():
-                if str(self._list.item(pos-1).text()) == operation.name:
-                    return
-            self._list.insertItem(pos, operation.name)
+        pm = get_package_manager()
+        package = pm.get_package_by_identifier(operation.package_identifier)
+        item = OperationItem(operation, package.name)
+        self._operations[operation] = item
+        self._list.addItem(item, package.name)
 
     def operation_removed(self, operation):
-        ops = self._operations[operation.name]
-        ops.remove(operation)
-        if not ops:
-            del self._operations[operation.name]
-            pos = bisect(
-                    self._list.count(),
-                    lambda i: str(self._list.item(i).text()),
-                    operation.name)
-            self._list.takeItem(pos-1)
+        item = self._operations.pop(operation)
+        self._list.removeItem(item, item.category)
 
-    def operation_clicked(self, item):
-        text = str(item.text())
+    def operation_clicked(self, item, column=0):
+        if not isinstance(item, OperationItem):
+            return
+        text = item.operation.name
         if is_operator(text):
-            append = '<?> ' + text + ' <?>'
-            pos = (-10, 3)
+            append = '\0<%s>\0 %s <%s>' % (
+                    item.operation.parameters[0].name,
+                    text,
+                    item.operation.parameters[1].name)
         else:
-            append = text + '()'
-            pos = (-2, 0)
-        self._input_line.setText(self._input_line.text() + append)
-        if pos[0] < 0:
-            pos = (len(str(self._input_line.text())) + pos[0] + 1, pos[1])
+            append = text + '('
+            if item.operation.parameters:
+                append += '\0<%s>\0' % item.operation.parameters[0].name
+                for param in item.operation.parameters[1:]:
+                    append += ', <%s>' % param.name
+                append += ')'
+            else:
+                append += '\0\0)'
+        text = str(self._input_line.text()) + append
+        pos = text.find('\0')
+        pos = pos, text.find('\0', pos + 1) - 1
+        text = text[:pos[0]] + text[pos[0] + 1:pos[1] + 1] + text[pos[1] + 2:]
+        self._input_line.setText(text)
         self._input_line.setFocus()
-        self._input_line.setSelection(*pos)
+        self._input_line.setSelection(pos[0], pos[1] - pos[0])
 
     def _show_error(self, message, category, filename, lineno,
             file=None, line=None):
@@ -153,5 +181,6 @@ class OperationPanel(QtGui.QWidget):
             if e.fix is not None:
                 self._input_line.setText(e.fix)
             if e.select is not None:
-                self._input_line.setSelection(*e.select)
+                self._input_line.setSelection(e.select[0],
+                                              e.select[1] - e.select[0])
             self._console.add_error(e.message)

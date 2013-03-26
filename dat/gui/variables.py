@@ -4,7 +4,7 @@ from dat import MIMETYPE_DAT_VARIABLE
 import dat.gui
 from dat.gui import get_icon
 from dat.gui.generic import DraggableListWidget, advanced_input_dialog
-from dat.gui.load_variable_dialog import LoadVariableDialog,\
+from dat.gui.load_variable_dialog import LoadVariableDialog, \
     VariableNameValidator
 from dat.utils import bisect
 
@@ -18,7 +18,7 @@ class VariablePanel(QtGui.QWidget):
     deleted, else it will still be referenced from the NotificationDispatcher.
     """
     def __init__(self, vistraildata):
-        super(VariablePanel, self).__init__()
+        QtGui.QWidget.__init__(self)
 
         self._vistraildata = vistraildata
 

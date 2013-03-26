@@ -1,5 +1,6 @@
 from PyQt4 import QtCore
 
+from dat import MIMETYPE_DAT_PLOT
 from dat.gui import translate
 from dat.gui.overlays import Overlay
 
@@ -68,7 +69,7 @@ class PlotDroppingOverlay(Overlay):
         else:
             text = _("Drop here to replace this plot with a new {plotname}")
         self._text = text.format(
-                plotname=kwargs['mimeData'].plot.name)
+                plotname=kwargs['mimeData'].data(MIMETYPE_DAT_PLOT))
 
     def draw(self, qp):
         Overlay.draw(self, qp)
