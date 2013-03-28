@@ -345,7 +345,7 @@ class VistrailData(object):
 
                 # Remove the annotations from the vistrail
                 for key in (
-                        self._RECIPE_KEY, self._PORTMAP_KEY, self._VARMAP_KEY):
+                        self._RECIPE_KEY, self._PORTMAP_KEY):
                     self._controller.vistrail.set_action_annotation(
                             version,
                             key,
