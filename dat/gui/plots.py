@@ -1,4 +1,4 @@
-from PyQt4 import QtGui
+from PyQt4 import QtCore, QtGui
 
 from dat import MIMETYPE_DAT_PLOT
 from dat.gui.generic import DraggableCategorizedListWidget
@@ -8,14 +8,24 @@ from vistrails.core.application import get_vistrails_application
 from vistrails.core.packagemanager import get_package_manager
 
 
+class PlotList(DraggableCategorizedListWidget):
+    def buildData(self, item):
+        data = QtCore.QMimeData()
+        data.setData(
+                self._mime_type,
+                '%s,%s' % (
+                        item.plot.package_identifier, item.plot.name))
+        return data
+
+
 class PlotItem(QtGui.QTreeWidgetItem):
     """An item in the list of plots.
 
     Displays the 'name' field of the plot.
     """
-    def __init__(self, plot, category, description):
+    def __init__(self, plot, category):
         QtGui.QListWidgetItem.__init__(self, [plot.name])
-        self.setToolTip(0, description)
+        self.setToolTip(0, plot.description)
         self.plot = plot
         self.category = category
 
@@ -30,7 +40,7 @@ class PlotPanel(QtGui.QWidget):
 
         layout = QtGui.QVBoxLayout()
 
-        self._list_widget = DraggableCategorizedListWidget(
+        self._list_widget = PlotList(
                 self,
                 MIMETYPE_DAT_PLOT)
         layout.addWidget(self._list_widget)
@@ -47,7 +57,7 @@ class PlotPanel(QtGui.QWidget):
     def plot_added(self, plot):
         pm = get_package_manager()
         package = pm.get_package_by_identifier(plot.package_identifier)
-        item = PlotItem(plot, package.name, plot.description)
+        item = PlotItem(plot, package.name)
         self._plots[plot] = item
         self._list_widget.addItem(item, package.name)
 

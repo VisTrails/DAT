@@ -256,8 +256,11 @@ class DATCellContainer(QCellContainer):
                 self._set_overlay(VariableDroppingOverlay, mimeData=mimeData)
         elif mimeData.hasFormat(MIMETYPE_DAT_PLOT):
             try:
-                plot = GlobalManager.get_plot(
-                        str(mimeData.data(MIMETYPE_DAT_PLOT)))
+                plot = str(mimeData.data(MIMETYPE_DAT_PLOT))
+                plot = plot.split(',')
+                if len(plot) != 2:
+                    raise KeyError
+                plot = GlobalManager.get_plot(*plot)
             except KeyError:
                 # I can't think of another case for this than someone dragging
                 # a plot from another instance of DAT
@@ -328,11 +331,12 @@ class DATCellContainer(QCellContainer):
         elif mimeData.hasFormat(MIMETYPE_DAT_PLOT):
             event.accept()
             plotname = str(mimeData.data(MIMETYPE_DAT_PLOT))
-            self._plot = GlobalManager.get_plot(plotname)
-            self._parameters = dict()
-            self._parameter_hovered = None
-            self.update_pipeline()
-
+            plotname = plotname.split(',')
+            if len(plotname) == 2:
+                self._plot = GlobalManager.get_plot(*plotname)
+                self._parameters = dict()
+                self._parameter_hovered = None
+                self.update_pipeline()
         else:
             event.ignore()
 

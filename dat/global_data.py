@@ -20,7 +20,7 @@ class GlobalManager(object):
     when they are loaded, by subscribing to VisTrails's registry notifications.
     """
     def __init__(self):
-        self._plots = dict()
+        self._plots = dict() # (package_identifier: str, name: str) -> Plot
         self._variable_loaders = set()
         self._variable_operations = set()
 
@@ -54,19 +54,19 @@ class GlobalManager(object):
             self.new_package(package.identifier)
 
     def _add_plot(self, plot):
-        self._plots[plot.name] = plot
+        self._plots[(plot.package_identifier, plot.name)] = plot
         get_vistrails_application().send_notification('dat_new_plot', plot)
 
     def _remove_plot(self, plot):
-        del self._plots[plot.name]
+        del self._plots[(plot.package_identifier, plot.name)]
         get_vistrails_application().send_notification('dat_removed_plot', plot)
 
-    def get_plot(self, plotname):
+    def get_plot(self, package_identifier, plotname):
         """Gets a plot with the given name.
 
         This is only used when building a recipe from a string.
         """
-        return self._plots[plotname] # Might raise KeyError
+        return self._plots[(package_identifier, plotname)] # Might raise KeyError
 
     def _get_plots(self):
         return self._plots.itervalues()

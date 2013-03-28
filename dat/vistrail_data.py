@@ -40,7 +40,7 @@ class VistrailData(object):
     #           value="<portmap>" />
     #
     # Where <recipe> has the format (with added whitespace for clarity):
-    #   PlotName;
+    #   plot_package,PlotName;
     #       param1=v=
     #           varname1:CONN1,CONN2|
     #           varname2:CONN3;
@@ -71,7 +71,7 @@ class VistrailData(object):
     def _build_recipe_annotation(recipe, conn_map):
         """Builds the recipe annotation value from the recipe and conn_map.
         """
-        value = recipe.plot.name
+        value = '%s,%s' % (recipe.plot.package_identifier, recipe.plot.name)
         for param, param_values in sorted(recipe.parameters.iteritems(),
                                           key=lambda (k, v): k):
             if not param_values:
@@ -106,7 +106,11 @@ class VistrailData(object):
 
         value = iter(value.split(';'))
         try:
-            plot = GlobalManager.get_plot(next(value)) # Might raise KeyError
+            plot = next(value)
+            plot = plot.split(',')
+            if len(plot) != 2:
+                raise ValueError
+            plot = GlobalManager.get_plot(*plot) # Might raise KeyError
             parameters = dict()
             conn_map = dict()
             for param in value:
