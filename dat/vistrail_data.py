@@ -187,6 +187,8 @@ class VistrailData(object):
         self._version_to_pipeline = dict() # int -> PipelineInformation
         self._cell_to_pipeline = dict() # CellInformation-> PipelineInformation
 
+        self._failed_infer_calls = set() # [version: int]
+
         app = get_vistrails_application()
 
         # dat_new_variable(varname: str)
@@ -432,13 +434,78 @@ class VistrailData(object):
                 self._PORTMAP_KEY,
                 self._build_portmap_annotation(pipeline.port_map))
 
-    def get_pipeline(self, param):
+    def _infer_pipelineinfo(self, version, cellInfo):
+        """Try to make up a pipelineInfo for a version and store it.
+
+        Returns the new pipelineInfo, or None if we failed.
+        """
+        # This ensures that we don't try to infer a DAT recipe from the same
+        # pipeline over and over again
+        if version in self._failed_infer_calls:
+            return None
+        def fail():
+            self._failed_infer_calls.add(version)
+            return None
+
+        # Recursively obtains the parent version's pipelineInfo
+        try:
+            parentId = self._controller.vistrail.actionMap[version].prevId
+        except KeyError:
+            return fail()
+        parentInfo = self.get_pipeline(parentId, infer_for_cell=cellInfo)
+        if parentInfo is None:
+            return fail()
+
+        # Here we loop on modules/connections to check that the required things
+        # from the old pipeline are still here
+
+        pipeline = self._controller.vistrail.getPipeline(version)
+
+        new_parameters = dict()
+        new_conn_map = dict()
+
+        # Check that the plot is still there by finding the plot ports
+        for name, port_list in parentInfo.port_map.iteritems():
+            for mod_id, portname in port_list:
+                if not pipeline.modules.has_key(mod_id):
+                    return fail()
+
+        # Loop on parameters to check they are still there
+        for name, parameter_list in parentInfo.recipe.parameters.iteritems():
+            conn_list = parentInfo.conn_map[name]
+            new_parameter_list = []
+            new_conn_list = []
+            for parameter, conns in itertools.izip(parameter_list, conn_list):
+                if all(
+                        pipeline.connections.has_key(conn_id)
+                        for conn_id in conns):
+                    new_parameter_list.append(parameter)
+                    new_conn_list.append(conns)
+            new_parameters[name] = new_parameter_list
+            new_conn_map[name] = new_conn_list
+
+        new_recipe = DATRecipe(parentInfo.recipe.plot, new_parameters)
+        pipelineInfo = PipelineInformation(version, new_recipe,
+                                           new_conn_map, parentInfo.port_map)
+        self.created_pipeline(cellInfo, pipelineInfo)
+        return pipelineInfo
+
+    def get_pipeline(self, param, infer_for_cell=None):
         """Get the pipeline information for a given cell or version.
 
         Returns None if nothing is found.
+
+        If infer_for_cell is set and the pipeline has no known recipe, but a
+        parent version had one, we'll try to make up something sensible and
+        store it. infer_for_cell should be the CellInformation of the cell
+        where this pipeline was found.
         """
         if isinstance(param, (int, long)):
-            return self._version_to_pipeline.get(param, None)
+            pipelineInfo = self._version_to_pipeline.get(param, None)
+            if pipelineInfo is not None or infer_for_cell is None:
+                return pipelineInfo
+
+            return self._infer_pipelineinfo(param, infer_for_cell)
         else:
             return self._cell_to_pipeline.get(param, None)
 

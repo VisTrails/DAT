@@ -163,9 +163,11 @@ class DATCellContainer(QCellContainer):
             pipelineInfo = self.cellInfo.tab.getCellPipelineInfo(
                     self.cellInfo.row, self.cellInfo.column)
             version = pipelineInfo[0]['version']
-            pipeline = VistrailManager(self._controller).get_pipeline(version)
+            pipeline = VistrailManager(self._controller).get_pipeline(
+                    version,
+                    infer_for_cell=self.cellInfo)
         else:
-            # Get pipeline info from DAT: we might be building somethere here
+            # Get pipeline info from DAT: we might be building something here
             pipeline = VistrailManager(self._controller).get_pipeline(
                     self.cellInfo)
 
@@ -374,7 +376,9 @@ class DATCellContainer(QCellContainer):
         recipe = DATRecipe(self._plot, self._parameters)
 
         # Try to get an existing pipeline for this cell
-        pipeline = vistraildata.get_pipeline(self.cellInfo)
+        pipeline = vistraildata.get_pipeline(
+                self.cellInfo,
+                infer_for_cell=self.cellInfo)
 
         try:
             # No pipeline: build one
