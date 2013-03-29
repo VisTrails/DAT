@@ -1047,9 +1047,14 @@ class PipelineGenerator(object):
     """
     def __init__(self, controller):
         self.controller = controller
+        self._version = controller.current_version
         self.operations = []
         self.all_modules = set(controller.current_pipeline.module_list)
         self.all_connections = set(controller.current_pipeline.connection_list)
+
+    def _ensure_version(self):
+        if self.controller.current_version != self._version:
+            self.controller.change_selected_version(self._version)
 
     def append_operations(self, operations):
         for op in operations:
@@ -1075,6 +1080,7 @@ class PipelineGenerator(object):
         self.all_modules.add(module)
 
     def connect_modules(self, src_mod, src_port, dest_mod, dest_port):
+        self._ensure_version()
         new_conn = self.controller.create_connection(
                 src_mod, src_port,
                 dest_mod, dest_port)
@@ -1083,6 +1089,7 @@ class PipelineGenerator(object):
         return new_conn.id
 
     def update_function(self, module, portname, values):
+        self._ensure_version()
         self.operations.extend(self.controller.update_function_ops(
                 module, portname, values))
 
@@ -1092,6 +1099,7 @@ class PipelineGenerator(object):
         This calls delete_linked with the controller and list of operations,
         and updates the internal list of all modules to be layout.
         """
+        self._ensure_version()
         deleted_ids = delete_linked(
                 self.controller, modules, self.operations, **kwargs)
         self.all_modules = set(
@@ -1110,6 +1118,8 @@ class PipelineGenerator(object):
     def perform_action(self):
         """Layout all the modules and create the action.
         """
+        self._ensure_version()
+
         wf = LayoutPipeline()
         wf_iport_map = {}
         wf_oport_map = {}
@@ -1428,8 +1438,6 @@ def create_pipeline(controller, recipe, cell_info, typecast=None):
                         parameter.constant,
                         plot_ports))
 
-    if controller.current_version != 0:
-        controller.change_selected_version(0)
     pipeline_version = generator.perform_action()
     controller.vistrail.change_description(
             "Created DAT plot %s" % recipe.plot.name,
@@ -1532,15 +1540,14 @@ def update_pipeline(controller, pipelineInfo, new_recipe, typecast=None):
         # there were more of them in the old recipe
         for conn_lists in old_params.itervalues():
             for connections in conn_lists:
-                connections = set(pipeline.connections[c]
-                                  for c in connections)
-
                 # Remove the variable subworkflow
-                modules = set(pipeline.modules[c.source.moduleId]
-                              for c in connections)
+                modules = set(
+                        pipeline.modules[
+                                pipeline.connections[c].source.moduleId]
+                        for c in connections)
                 generator.delete_linked(
                         modules,
-                        connection_filter=lambda c: c not in connections)
+                        connection_filter=lambda c: c.id not in connections)
 
                 removed_params.append(port_name)
 
@@ -1548,8 +1555,6 @@ def update_pipeline(controller, pipelineInfo, new_recipe, typecast=None):
     if not (added_params or removed_params):
         return pipelineInfo
 
-    if controller.current_version != pipelineInfo.version:
-        controller.change_selected_version(pipelineInfo.version)
     pipeline_version = generator.perform_action()
 
     controller.vistrail.change_description(
