@@ -38,6 +38,7 @@ class DATCellContainer(QCellContainer):
 
         self._parameter_hovered = None
         self._insert_pos = None
+        self._error = False
 
         self._overlay = None
         self._overlay_scrollarea = QtGui.QScrollArea()
@@ -184,7 +185,11 @@ class DATCellContainer(QCellContainer):
     def _set_overlay(self, overlay_class, **kwargs):
         if overlay_class is None:
             # Default overlay
-            if self.widget() is None and self._plot is not None:
+            if self._plot is not None and self._error:
+                self._set_overlay(VariableDroppingOverlay, overlayed=False)
+                self._hide_button.setVisible(False)
+                return
+            elif self.widget() is None and self._plot is not None:
                 self._set_overlay(VariableDroppingOverlay, overlayed=False)
                 return
             elif self.widget() is None:
@@ -429,14 +434,18 @@ class DATCellContainer(QCellContainer):
             spreadsheet_tab = vistraildata.spreadsheet_tab
             tabWidget = spreadsheet_tab.tabWidget
             sheetname = tabWidget.tabText(tabWidget.indexOf(spreadsheet_tab))
-            if not vistrails_interface.try_execute(
+            res = vistrails_interface.try_execute(
                     self._controller,
                     pipeline,
                     sheetname,
-                    recipe) and self.widget() is not None:
+                    recipe)
+            if (res == vistrails_interface.try_execute.MISSING_PARAMS and
+                    self.widget() is not None):
                 # Clear the cell
                 self.cellInfo.tab.deleteCell(self.cellInfo.row,
                                              self.cellInfo.column)
+            # Set error status
+            self._error = res == vistrails_interface.try_execute.ERROR
 
             return True
         except vistrails_interface.CancelExecution:

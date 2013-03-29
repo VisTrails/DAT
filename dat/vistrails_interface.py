@@ -1662,7 +1662,7 @@ def executePipeline(controller, pipeline,
     else:
         kwargs['module_executed_hook'] = [moduleExecuted]
 
-    controller.execute_workflow_list([(
+    results, changed = controller.execute_workflow_list([(
             locator,        # locator
             version,        # version
             pipeline,       # pipeline
@@ -1675,6 +1675,8 @@ def executePipeline(controller, pipeline,
     progress.setValue(totalProgress)
     progress.hide()
     progress.deleteLater()
+
+    return not results[0].errors
 
 
 def try_execute(controller, pipelineInfo, sheetname, recipe=None):
@@ -1732,12 +1734,18 @@ def try_execute(controller, pipelineInfo, sheetname, recipe=None):
             pipeline.tmp_id.__class__.getNewId = orig_getNewId
 
         # Execute the new pipeline
-        executePipeline(
+        if executePipeline(
                 controller,
                 pipeline,
                 reason="DAT recipe execution",
                 locator=controller.locator,
-                version=pipelineInfo.version)
-        return True
+                version=pipelineInfo.version):
+            return try_execute.SUCCESS
+        else:
+            return try_execute.ERROR
     else:
-        return False
+        return try_execute.MISSING_PARAMS
+
+try_execute.SUCCESS = 1
+try_execute.ERROR = 2
+try_execute.MISSING_PARAMS = 3
