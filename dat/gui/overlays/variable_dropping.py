@@ -63,7 +63,8 @@ DataParameter[targeted="no"][compatible="no"] {
 
 
 class DataParameter(QtGui.QPushButton):
-    def __init__(self, overlay, port_name, pos, variable, append=False):
+    def __init__(self, overlay, port_name, pos, variable, typecast=None,
+            append=False):
         QtGui.QPushButton.__init__(self)
 
         self.setSizePolicy(QtGui.QSizePolicy.Minimum,
@@ -72,7 +73,10 @@ class DataParameter(QtGui.QPushButton):
 
         self._variable = variable
         if variable is not None:
-            self.setText(variable.name)
+            if typecast is not None:
+                self.setText("(%s) %s" % (typecast, variable.name))
+            else:
+                self.setText(variable.name)
 
             self.connect(
                     self,
@@ -157,7 +161,8 @@ class VariableDroppingOverlay(Overlay):
                 for pos, variable in enumerate(
                         self._cell._parameters.get(port.name, [])):
                     param = DataParameter(self, port.name, pos,
-                                          variable=variable.variable)
+                                          variable=variable.variable,
+                                          typecast=variable.typecast)
                     param.setProperty('compatible', compatible)
                     param.setProperty('optional', port.optional)
                     param.setProperty('targeted', 'no')
@@ -165,7 +170,8 @@ class VariableDroppingOverlay(Overlay):
                     param_panel.layout().addWidget(param)
                 if ((port.multiple_values and compatible == 'yes') or
                         not self._cell._parameters.get(port.name)):
-                    param = DataParameter(self, port.name, pos, None,
+                    param = DataParameter(self, port.name, pos,
+                                          variable=None,
                                           append=compatible == 'yes')
                     param.setProperty('compatible', compatible)
                     param.setProperty('optional', port.optional)

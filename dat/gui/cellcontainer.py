@@ -392,6 +392,10 @@ class DATCellContainer(QCellContainer):
                         recipe,
                         self.cellInfo,
                         typecast=self._typecast)
+                recipe = pipeline.recipe
+                new_params_it = recipe.parameters.iteritems()
+                self._parameters = {param: list(values)
+                                    for param, values in new_params_it}
                 vistraildata.created_pipeline(self.cellInfo, pipeline)
 
             # Pipeline with a different content: update it
@@ -411,6 +415,10 @@ class DATCellContainer(QCellContainer):
                             recipe,
                             self.cellInfo,
                             typecast=self._typecast)
+                recipe = pipeline.recipe
+                new_params_it = recipe.parameters.iteritems()
+                self._parameters = {param: list(values)
+                                    for param, values in new_params_it}
                 vistraildata.created_pipeline(self.cellInfo, pipeline)
 
             # Nothing changed
@@ -443,4 +451,4 @@ class DATCellContainer(QCellContainer):
                 typecasts,
                 source_descriptor, expected_descriptor,
                 self)
-        return apply_operation(controller, choice, [variable])
+        return apply_operation(controller, choice, [variable]), choice

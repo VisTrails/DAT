@@ -43,7 +43,7 @@ class VistrailData(object):
     #   plot_package,PlotName;
     #       param1=v=
     #           varname1:CONN1,CONN2|
-    #           varname2:CONN3;
+    #           varname2,cast_op:CONN3;
     #       param2=c=value2
     #
     # And <portmap>:
@@ -62,6 +62,7 @@ class VistrailData(object):
     #   * CONN<M> with the id of a connection tying the plot input port to one
     #     of the parameters set to this port
     #   * value<N> is the string representation of a constant
+    #   * cast_op is the name of the variable operation used for typecasting
     #
     # Parameters which are not set are simply omitted from the list
     _RECIPE_KEY = 'dat-recipe'
@@ -92,6 +93,8 @@ class VistrailData(object):
                     value += urllib2.quote(param_val.constant, safe='')
                 else: # param_val.type == RecipeParameterValue.VARIABLE
                     value += param_val.variable.name
+                    if param_val.typecast is not None:
+                        value += ',%s' % param_val.typecast
                 value += ':' + ','.join(
                         '%d' % conn_id
                         for conn_id in conn_list)
@@ -123,12 +126,23 @@ class VistrailData(object):
                     raise ValueError
                 for val in pvals:
                     val = val.split(':')
+                    if len(val) != 2:
+                        raise ValueError
                     if t == 'c':
                         plist.append(RecipeParameterValue(
                                 constant=urllib2.unquote(val[0])))
                     else: # t == 'v':
-                        plist.append(RecipeParameterValue(
-                                variable=vistraildata.get_variable(val[0])))
+                        v = val[0].split(',')
+                        if len(v) not in (1, 2):
+                            raise ValueError
+                        variable = vistraildata.get_variable(v[0])
+                        if len(v) == 2:
+                            plist.append(RecipeParameterValue(
+                                    variable=variable,
+                                    typecast=v[1]))
+                        else:
+                            plist.append(RecipeParameterValue(
+                                    variable=variable))
                     cplist.append(read_connlist(val[1]))
                 parameters[param] = tuple(plist)
                 conn_map[param] = tuple(cplist)

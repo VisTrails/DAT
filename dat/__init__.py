@@ -19,11 +19,16 @@ class RecipeParameterValue(object):
     VARIABLE = 1
     CONSTANT = 2
 
-    def __init__(self, variable=None, constant=None):
+    def __init__(self, variable=None, constant=None, typecast=None):
         if variable is not None and constant is None:
             self.type = self.VARIABLE
             self.variable = variable
-        elif constant is not None and variable is None:
+            self.typecast = typecast # str
+            # This 'typecast' parameter is not really useful since it doesn't
+            # unambiguously point to a specific operation (remember: we allow
+            # overloading)
+            # It is only intended to be displayed for the user
+        elif constant is not None and variable is None and typecast is None:
             self.type = self.CONSTANT
             self.constant = constant
         else:

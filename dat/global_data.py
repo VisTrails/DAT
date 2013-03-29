@@ -64,9 +64,11 @@ class GlobalManager(object):
     def get_plot(self, package_identifier, plotname):
         """Gets a plot with the given name.
 
-        This is only used when building a recipe from a string.
+        This is used when building a recipe from a string and when the overlay
+        receives a drop (X-Vistrails/DATPlot).
         """
-        return self._plots[(package_identifier, plotname)] # Might raise KeyError
+        return self._plots[(package_identifier, plotname)]
+                # Might raise KeyError
 
     def _get_plots(self):
         return self._plots.itervalues()

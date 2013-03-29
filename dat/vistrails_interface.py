@@ -13,7 +13,7 @@ import warnings
 
 from PyQt4 import QtCore, QtGui
 
-from dat import BaseVariableLoader, PipelineInformation, \
+from dat import BaseVariableLoader, DATRecipe, PipelineInformation, \
     RecipeParameterValue, DEFAULT_VARIABLE_NAME
 from dat.gui import translate
 
@@ -1276,17 +1276,19 @@ def add_variable_subworkflow(generator, variable, plot_ports=None):
 def add_variable_subworkflow_typecast(generator, variable, plot_ports,
                                        expected_type, typecast):
     if issubclass(variable.type.module, expected_type.module):
-        return add_variable_subworkflow(
-                generator,
-                variable.name,
-                plot_ports)
+        return (
+                add_variable_subworkflow(
+                        generator,
+                        variable.name,
+                        plot_ports),
+                RecipeParameterValue(variable=variable))
     else:
         # Load the variable from the workflow
         var_pipeline = Variable.from_pipeline(
                 generator.controller, variable.name)
 
         # Apply the operation
-        var_pipeline = typecast(
+        var_pipeline, typecast_operation = typecast(
                 generator.controller, var_pipeline,
                 variable.type, expected_type)
 
@@ -1299,7 +1301,9 @@ def add_variable_subworkflow_typecast(generator, variable, plot_ports,
                         var_pipeline._outputport_name,
                         var_output_mod,
                         var_output_port))
-            return connection_ids
+            return connection_ids, RecipeParameterValue(
+                    variable=variable,
+                    typecast=typecast_operation.name)
         else:
             return (var_pipeline._output_module, var_pipeline._outputport_name)
 
@@ -1418,18 +1422,21 @@ def create_pipeline(controller, recipe, cell_info, typecast=None):
     conn_map = dict() # param: str -> [[conn_id: int]]
 
     name_to_port = {port.name: port for port in recipe.plot.ports}
-
+    actual_parameters = {}
     for port_name, parameters in recipe.parameters.iteritems():
         plot_ports = plot_params.get(port_name, [])
         p_conns = conn_map[port_name] = []
+        actual_values = []
         for parameter in parameters:
             if parameter.type == RecipeParameterValue.VARIABLE:
-                p_conns.append(add_variable_subworkflow_typecast(
+                conns, actual_param = add_variable_subworkflow_typecast(
                         generator,
                         parameter.variable,
                         plot_ports,
                         name_to_port[port_name].type,
-                        typecast=typecast))
+                        typecast=typecast)
+                p_conns.append(conns)
+                actual_values.append(actual_param)
             else: # parameter.type == RecipeParameterValue.CONSTANT
                 desc = name_to_port[port_name].type
                 p_conns.append(add_constant_module(
@@ -1437,6 +1444,8 @@ def create_pipeline(controller, recipe, cell_info, typecast=None):
                         desc,
                         parameter.constant,
                         plot_ports))
+                actual_values.append(parameter)
+        actual_parameters[port_name] = actual_values
 
     pipeline_version = generator.perform_action()
     controller.vistrail.change_description(
@@ -1450,7 +1459,10 @@ def create_pipeline(controller, recipe, cell_info, typecast=None):
     for param, portlist in plot_params.iteritems():
         port_map[param] = [(module.id, port) for module, port in portlist]
 
-    return PipelineInformation(pipeline_version, recipe, conn_map, port_map)
+    return PipelineInformation(
+            pipeline_version,
+            DATRecipe(recipe.plot, actual_parameters),
+            conn_map, port_map)
 
 
 class UpdateError(ValueError):
@@ -1489,9 +1501,9 @@ def update_pipeline(controller, pipelineInfo, new_recipe, typecast=None):
     removed_params = []
 
     name_to_port = {port.name: port for port in new_recipe.plot.ports}
-
+    actual_parameters = {}
     for port_name in (set(old_recipe.parameters.iterkeys()) |
-                             set(new_recipe.parameters.iterkeys())):
+                      set(new_recipe.parameters.iterkeys())):
         # param -> [[conn_id]]
         old_params = dict()
         for i, param in enumerate(old_recipe.parameters.get(port_name, [])):
@@ -1501,6 +1513,7 @@ def update_pipeline(controller, pipelineInfo, new_recipe, typecast=None):
         conn_lists = conn_map.setdefault(port_name, [])
 
         # Loop on new parameters
+        actual_values = []
         for param in new_params:
             # Remove one from old_params
             old = old_params.get(param)
@@ -1519,12 +1532,14 @@ def update_pipeline(controller, pipelineInfo, new_recipe, typecast=None):
                           for mod_id, port in (
                                   pipelineInfo.port_map[port_name])]
             if param.type == RecipeParameterValue.VARIABLE:
-                conn_lists.append(add_variable_subworkflow_typecast(
+                conns, actual_param = add_variable_subworkflow_typecast(
                         generator,
                         param.variable,
                         plot_ports,
                         name_to_port[port_name].type,
-                        typecast=typecast))
+                        typecast=typecast)
+                conn_lists.append(conns)
+                actual_values.append(actual_param)
             else: #param.type == RecipeParameterValue.CONSTANT:
                 desc = name_to_port[port_name].type
                 conn_lists.append(add_constant_module(
@@ -1532,6 +1547,7 @@ def update_pipeline(controller, pipelineInfo, new_recipe, typecast=None):
                         desc,
                         param.constant,
                         plot_ports))
+                actual_values.append(param)
 
             added_params.append(port_name)
 
@@ -1551,6 +1567,8 @@ def update_pipeline(controller, pipelineInfo, new_recipe, typecast=None):
 
                 removed_params.append(port_name)
 
+        actual_parameters[port_name] = actual_values
+
     # We didn't find anything to change
     if not (added_params or removed_params):
         return pipelineInfo
@@ -1563,8 +1581,10 @@ def update_pipeline(controller, pipelineInfo, new_recipe, typecast=None):
 
     controller.change_selected_version(pipeline_version, from_root=True)
 
-    return PipelineInformation(pipeline_version, new_recipe,
-                               conn_map, pipelineInfo.port_map)
+    return PipelineInformation(
+            pipeline_version,
+            DATRecipe(new_recipe.plot, actual_parameters),
+            conn_map, pipelineInfo.port_map)
 
 
 def describe_dat_update(added_params, removed_params):
