@@ -1676,8 +1676,14 @@ def executePipeline(controller, pipeline,
     progress.hide()
     progress.deleteLater()
 
-    return not results[0].errors
+    if not results[0].errors:
+        return None
+    else:
+        module_id, error = next(results[0].errors.iteritems())
+        return str(error)
 
+
+MISSING_PARAMS = object()
 
 def try_execute(controller, pipelineInfo, sheetname, recipe=None):
     if recipe is None:
@@ -1734,18 +1740,12 @@ def try_execute(controller, pipelineInfo, sheetname, recipe=None):
             pipeline.tmp_id.__class__.getNewId = orig_getNewId
 
         # Execute the new pipeline
-        if executePipeline(
+        error = executePipeline(
                 controller,
                 pipeline,
                 reason="DAT recipe execution",
                 locator=controller.locator,
-                version=pipelineInfo.version):
-            return try_execute.SUCCESS
-        else:
-            return try_execute.ERROR
+                version=pipelineInfo.version)
+        return error
     else:
-        return try_execute.MISSING_PARAMS
-
-try_execute.SUCCESS = 1
-try_execute.ERROR = 2
-try_execute.MISSING_PARAMS = 3
+        return MISSING_PARAMS

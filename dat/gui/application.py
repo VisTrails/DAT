@@ -227,12 +227,11 @@ class Application(QtGui.QApplication, NotificationDispatcher, VistrailsApplicati
             tabWidget = spreadsheet_tab.tabWidget
             sheetname = tabWidget.tabText(tabWidget.indexOf(spreadsheet_tab))
             for cellInfo, pipeline in vistraildata.all_cells:
-                res = vistrails_interface.try_execute(
+                error = vistrails_interface.try_execute(
                         controller,
                         pipeline,
                         sheetname)
-                if res != vistrails_interface.try_execute.SUCCESS:
-                    error = res == vistrails_interface.try_execute.ERROR
+                if error is not None:
                     from dat.gui.cellcontainer import DATCellContainer
                     spreadsheet_tab.setCellWidget(
                             cellInfo.row,

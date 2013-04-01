@@ -25,7 +25,7 @@ class DATCellContainer(QCellContainer):
     It adds an overlay feature to the spreadsheet's cells and handles drops of
     variables and plots.
     """
-    def __init__(self, cellInfo=None, widget=None, error=False, parent=None):
+    def __init__(self, cellInfo=None, widget=None, error=None, parent=None):
         self._parameters = dict() # param name -> [RecipeParameterValue]
         self._plot = None # dat.vistrails_interface:Plot
 
@@ -38,7 +38,6 @@ class DATCellContainer(QCellContainer):
 
         self._parameter_hovered = None
         self._insert_pos = None
-        self._error = error
 
         self._overlay = None
         self._overlay_scrollarea = QtGui.QScrollArea()
@@ -55,6 +54,9 @@ class DATCellContainer(QCellContainer):
         self._show_button.setIcon(get_icon('show_overlay.png'))
         self._hide_button = QtGui.QPushButton()
         self._hide_button.setIcon(get_icon('hide_overlay.png'))
+        self._error_icon = QtGui.QLabel()
+        self._error_icon.setPixmap(get_icon('error.png').pixmap(24, 24))
+        self._set_error(error)
 
         QCellContainer.__init__(self, cellInfo, widget, parent)
         self.setAcceptDrops(True)
@@ -71,6 +73,8 @@ class DATCellContainer(QCellContainer):
                      lambda: self._set_overlay(None))
         self._hide_button.setGeometry(self.width() - 24, 0, 24, 24)
         self._hide_button.setVisible(False)
+
+        self._error_icon.setParent(self)
 
         self.contentsUpdated()
 
@@ -185,9 +189,11 @@ class DATCellContainer(QCellContainer):
     def _set_overlay(self, overlay_class, **kwargs):
         if overlay_class is None:
             # Default overlay
-            if self._plot is not None and self._error:
+            if self._plot is not None and self.has_error():
                 self._set_overlay(VariableDroppingOverlay, overlayed=False)
                 self._hide_button.setVisible(False)
+                self._show_button.setVisible(False)
+                self._error_icon.raise_()
                 return
             elif self.widget() is None and self._plot is not None:
                 self._set_overlay(VariableDroppingOverlay, overlayed=False)
@@ -230,6 +236,19 @@ class DATCellContainer(QCellContainer):
         self._hide_button.setVisible(True)
         self._hide_button.raise_()
 
+    def _set_error(self, error):
+        self._error = error
+        if self.has_error():
+            self._error_icon.setToolTip(error)
+            self._error_icon.show()
+            self._error_icon.raise_()
+        else:
+            self._error_icon.hide()
+
+    def has_error(self):
+        return (self._error is not None and
+                self._error is not vistrails_interface.MISSING_PARAMS)
+
     def resizeEvent(self, event):
         """Reacts to a resize by laying out the overlay and buttons.
         """
@@ -237,6 +256,7 @@ class DATCellContainer(QCellContainer):
         self._overlay_scrollarea.setGeometry(0, 0, self.width(), self.height())
         self._show_button.setGeometry(self.width() - 24, 0, 24, 24)
         self._hide_button.setGeometry(self.width() - 24, 0, 24, 24)
+        self._error_icon.setGeometry(self.width() - 24, 0, 24, 24)
 
     def dragEnterEvent(self, event):
         mimeData = event.mimeData()
@@ -434,18 +454,18 @@ class DATCellContainer(QCellContainer):
             spreadsheet_tab = vistraildata.spreadsheet_tab
             tabWidget = spreadsheet_tab.tabWidget
             sheetname = tabWidget.tabText(tabWidget.indexOf(spreadsheet_tab))
-            res = vistrails_interface.try_execute(
+            error = vistrails_interface.try_execute(
                     self._controller,
                     pipeline,
                     sheetname,
                     recipe)
-            if (res == vistrails_interface.try_execute.MISSING_PARAMS and
+            if (error is vistrails_interface.MISSING_PARAMS and
                     self.widget() is not None):
                 # Clear the cell
                 self.cellInfo.tab.deleteCell(self.cellInfo.row,
                                              self.cellInfo.column)
             # Set error status
-            self._error = res == vistrails_interface.try_execute.ERROR
+            self._set_error(error)
 
             return True
         except vistrails_interface.CancelExecution:
