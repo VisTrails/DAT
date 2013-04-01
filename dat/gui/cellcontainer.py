@@ -25,7 +25,7 @@ class DATCellContainer(QCellContainer):
     It adds an overlay feature to the spreadsheet's cells and handles drops of
     variables and plots.
     """
-    def __init__(self, cellInfo=None, widget=None, parent=None):
+    def __init__(self, cellInfo=None, widget=None, error=False, parent=None):
         self._parameters = dict() # param name -> [RecipeParameterValue]
         self._plot = None # dat.vistrails_interface:Plot
 
@@ -38,7 +38,7 @@ class DATCellContainer(QCellContainer):
 
         self._parameter_hovered = None
         self._insert_pos = None
-        self._error = False
+        self._error = error
 
         self._overlay = None
         self._overlay_scrollarea = QtGui.QScrollArea()

@@ -32,9 +32,6 @@ class VariableDropEmptyCell(Overlay):
     known.
     """
 
-    def __init__(self, cellcontainer, **kwargs):
-        Overlay.__init__(self, cellcontainer, **kwargs)
-
     def draw(self, qp):
         _ = translate(VariableDropEmptyCell)
 

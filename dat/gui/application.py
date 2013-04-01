@@ -13,6 +13,7 @@ from vistrails.core.application import (set_vistrails_application,
         VistrailsApplicationInterface)
 import vistrails.core.requirements
 import vistrails.gui.theme
+from vistrails.packages.spreadsheet.spreadsheet_cell import CellInformation
 from vistrails.packages.spreadsheet.spreadsheet_controller import \
     spreadsheetController
 
@@ -213,38 +214,35 @@ class Application(QtGui.QApplication, NotificationDispatcher, VistrailsApplicati
         spreadsheet_tab = vistraildata.spreadsheet_tab
 
         if new:
-            # Find the existing visualization pipelines in this vistrail
-            cells = dict()
-            for pipeline in vistraildata.all_pipelines:
-                try:
-                    row, col = vistrails_interface.get_pipeline_location(
-                            controller,
-                            pipeline)
-                except ValueError:
-                    continue
-                try:
-                    p = cells[(row, col)]
-                except KeyError:
-                    cells[(row, col)] = pipeline
-                else:
-                    if pipeline.version > p.version:
-                        # Select the latest version for a given cell
-                        cells[(row, col)] = pipeline
-
             # Resize the spreadsheet
             width, height = 2, 2
-            for row, col in cells.iterkeys():
-                if row >= height:
-                    height = row + 1
-                if col >= width:
-                    width = col + 1
+            for cellInfo, pipeline in vistraildata.all_cells:
+                if cellInfo.row >= height:
+                    height = cellInfo.row + 1
+                if cellInfo.column >= width:
+                    width = cellInfo.column + 1
             spreadsheet_tab.setDimension(height, width)
 
-            # Execute these pipelines
+            # Execute the pipelines
             tabWidget = spreadsheet_tab.tabWidget
             sheetname = tabWidget.tabText(tabWidget.indexOf(spreadsheet_tab))
-            for pipeline in cells.itervalues():
-                vistrails_interface.try_execute(controller, pipeline, sheetname)
+            for cellInfo, pipeline in vistraildata.all_cells:
+                res = vistrails_interface.try_execute(
+                        controller,
+                        pipeline,
+                        sheetname)
+                if res != vistrails_interface.try_execute.SUCCESS:
+                    error = res == vistrails_interface.try_execute.ERROR
+                    from dat.gui.cellcontainer import DATCellContainer
+                    spreadsheet_tab.setCellWidget(
+                            cellInfo.row,
+                            cellInfo.column,
+                            DATCellContainer(
+                                    cellInfo=CellInformation(
+                                            spreadsheet_tab,
+                                            cellInfo.row,
+                                            cellInfo.column),
+                                    error=error))
 
         # Make that spreadsheet tab current
         sh_window = spreadsheetController.findSpreadsheetWindow(

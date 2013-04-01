@@ -5,10 +5,11 @@ import weakref
 
 from dat import RecipeParameterValue, DATRecipe, PipelineInformation
 from dat.global_data import GlobalManager
-from dat.vistrails_interface import Variable
+from dat.vistrails_interface import Variable, get_pipeline_location
 
 from vistrails.core.application import get_vistrails_application
 from vistrails.core.system import vistrails_default_file_type
+from vistrails.packages.spreadsheet.spreadsheet_cell import CellInformation
 from vistrails.packages.spreadsheet.spreadsheet_controller import \
     spreadsheetController
 from vistrails.packages.spreadsheet.spreadsheet_tab import \
@@ -262,6 +263,31 @@ class VistrailData(object):
                     if port_map is not None:
                         pipeline.port_map = port_map
 
+    def _discover_cell_pipelines(self):
+        # Get the cell location from the pipeline to fill in _cell_to_version
+        # and _cell_to_pipeline
+        cells = dict()
+        for pipeline in self._version_to_pipeline.itervalues():
+            try:
+                row, col = get_pipeline_location(
+                        self._controller,
+                        pipeline)
+            except ValueError:
+                continue
+            try:
+                p = cells[(row, col)]
+            except KeyError:
+                cells[(row, col)] = pipeline
+            else:
+                if pipeline.version > p.version:
+                    # Select the latest version for a given cell
+                    cells[(row, col)] = pipeline
+        spreadsheet_tab = self.spreadsheet_tab
+        for (row, col), pipeline in cells.iteritems():
+            cellInfo = CellInformation(spreadsheet_tab, row, col)
+            self._cell_to_pipeline[cellInfo] = pipeline
+            self._cell_to_version[cellInfo] = pipeline.version
+
     def _get_controller(self):
         return self._controller
     controller = property(_get_controller)
@@ -282,6 +308,8 @@ class VistrailData(object):
                 tab_controller.addTabWidget(tab, title)
                 self._spreadsheet_tab = tab
                 VistrailManager._tabs[tab] = self
+
+                self._discover_cell_pipelines()
         return self._spreadsheet_tab
     spreadsheet_tab = property(_get_spreadsheet_tab)
 
@@ -530,6 +558,10 @@ class VistrailData(object):
     def _get_all_pipelines(self):
         return self._version_to_pipeline.itervalues()
     all_pipelines = property(_get_all_pipelines)
+
+    def _get_all_cells(self):
+        return self._cell_to_pipeline.iteritems()
+    all_cells = property(_get_all_cells)
 
 
 class VistrailManager(object):
