@@ -1523,6 +1523,7 @@ def update_pipeline(controller, pipelineInfo, new_recipe, typecast=None):
                     del old_params[param]
 
                 conn_lists.append(old_conns)
+                actual_values.append(param)
                 continue
 
             # Can't remove, meaning that there is more of this param than there
