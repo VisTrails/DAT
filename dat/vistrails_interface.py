@@ -711,7 +711,7 @@ class FileVariableLoader(QtGui.QWidget, BaseVariableLoader):
                         _simple_default_varname=default_varname,
                         _simple_extension=extension,
                         _simple_load=load,
-                        _simple_get_varname=get_varname))
+                        _simple_get_varname=staticmethod(get_varname)))
 
 
 class Port(object):
