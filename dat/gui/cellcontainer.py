@@ -51,26 +51,26 @@ class DATCellContainer(QCellContainer):
                 '    background-color: transparent;'
                 '}')
         self._overlay_scrollarea.setWidgetResizable(True)
-        self._show_button = QtGui.QPushButton()
-        self._show_button.setIcon(get_icon('show_overlay.png'))
-        self._hide_button = QtGui.QPushButton()
-        self._hide_button.setIcon(get_icon('hide_overlay.png'))
+        #self._show_button = QtGui.QPushButton()
+        #self._show_button.setIcon(get_icon('show_overlay.png'))
+        #self._hide_button = QtGui.QPushButton()
+        #self._hide_button.setIcon(get_icon('hide_overlay.png'))
 
         QCellContainer.__init__(self, cellInfo, widget, parent)
         self.setAcceptDrops(True)
 
         self._overlay_scrollarea.setParent(self)
 
-        self._show_button.setParent(self)
-        self.connect(self._show_button, QtCore.SIGNAL('clicked()'),
-                     self.show_overlay)
-        self._show_button.setGeometry(self.width() - 24, 0, 24, 24)
+        #self._show_button.setParent(self)
+        #self.connect(self._show_button, QtCore.SIGNAL('clicked()'),
+        #             self.show_overlay)
+        #self._show_button.setGeometry(self.width() - 24, 0, 24, 24)
 
-        self._hide_button.setParent(self)
-        self.connect(self._hide_button, QtCore.SIGNAL('clicked()'),
-                     lambda: self._set_overlay(None))
-        self._hide_button.setGeometry(self.width() - 24, 0, 24, 24)
-        self._hide_button.setVisible(False)
+        #self._hide_button.setParent(self)
+        #self.connect(self._hide_button, QtCore.SIGNAL('clicked()'),
+        #             lambda: self._set_overlay(None))
+        #self._hide_button.setGeometry(self.width() - 24, 0, 24, 24)
+        #self._hide_button.setVisible(False)
 
         self._saved_widget = None
         self._fake_widget = None
@@ -129,12 +129,12 @@ class DATCellContainer(QCellContainer):
                         QtCore.Qt.WA_TransparentForMouseEvents, True)
                 self.layout().addWidget(self._fake_widget)
                 self._fake_widget.raise_()
-                self._show_button.raise_()
+                #self._show_button.raise_()
         else:
             if self._saved_widget is not None:
                 self.layout().addWidget(self._saved_widget)
                 self._saved_widget.raise_()
-                self._show_button.raise_()
+                #self._show_button.raise_()
                 self._saved_widget = None
                 self._fake_widget.setParent(None)
                 self._fake_widget.deleteLater()
@@ -190,7 +190,7 @@ class DATCellContainer(QCellContainer):
             return
 
         widget.raise_()
-        self._show_button.raise_()
+        #self._show_button.raise_()
 
         self.contentsUpdated()
 
@@ -232,7 +232,7 @@ class DATCellContainer(QCellContainer):
             # Default overlay
             if self._plot is not None and self._error:
                 self._set_overlay(VariableDroppingOverlay, overlayed=False)
-                self._hide_button.setVisible(False)
+                #self._hide_button.setVisible(False)
                 return
             elif self.widget() is None and self._plot is not None:
                 self._set_overlay(VariableDroppingOverlay, overlayed=False)
@@ -248,9 +248,9 @@ class DATCellContainer(QCellContainer):
         if overlay_class is None:
             self._overlay = None
             self._overlay_scrollarea.lower()
-            self._show_button.raise_()
-            self._show_button.setVisible(self._plot is not None)
-            self._hide_button.setVisible(False)
+            #self._show_button.raise_()
+            #self._show_button.setVisible(self._plot is not None)
+            #self._hide_button.setVisible(False)
         else:
             self._overlay = overlay_class(self, **kwargs)
             self._overlay_scrollarea.setWidget(self._overlay)
@@ -258,8 +258,8 @@ class DATCellContainer(QCellContainer):
             self._overlay_scrollarea.raise_()
             self._overlay_scrollarea.setGeometry(0, 0,
                                                  self.width(), self.height())
-            self._show_button.setVisible(False)
-            self._hide_button.setVisible(False)
+            #self._show_button.setVisible(False)
+            #self._hide_button.setVisible(False)
 
     def show_overlay(self):
         """Shows the overlay from the button in the corner.
@@ -272,16 +272,16 @@ class DATCellContainer(QCellContainer):
             warnings.warn("show_overlay() while cell is empty!")
             return
         self._set_overlay(VariableDroppingOverlay, overlayed=False)
-        self._hide_button.setVisible(True)
-        self._hide_button.raise_()
+        #self._hide_button.setVisible(True)
+        #self._hide_button.raise_()
 
     def resizeEvent(self, event):
         """Reacts to a resize by laying out the overlay and buttons.
         """
         super(DATCellContainer, self).resizeEvent(event)
         self._overlay_scrollarea.setGeometry(0, 0, self.width(), self.height())
-        self._show_button.setGeometry(self.width() - 24, 0, 24, 24)
-        self._hide_button.setGeometry(self.width() - 24, 0, 24, 24)
+        #self._show_button.setGeometry(self.width() - 24, 0, 24, 24)
+        #self._hide_button.setGeometry(self.width() - 24, 0, 24, 24)
 
     def dragEnterEvent(self, event):
         mimeData = event.mimeData()
