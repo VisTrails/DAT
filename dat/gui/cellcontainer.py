@@ -64,7 +64,7 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
 
         # Overlay
         self._overlay = None
-        self._overlay_scrollarea = QtGui.QScrollArea(self)
+        self._overlay_scrollarea = QtGui.QScrollArea()  # FIXME: no parent
         self._overlay_scrollarea.setObjectName('overlay_scrollarea')
         self._overlay_scrollarea.setStyleSheet(
             'QScrollArea#overlay_scrollarea {'
@@ -74,6 +74,7 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
             '    background-color: transparent;'
             '}')
         self._overlay_scrollarea.setWidgetResizable(True)
+        self._overlay_scrollarea.setVisible(False)
 
         # Toolbar
         self._container_toolbar = QtGui.QToolBar(self)
@@ -165,6 +166,7 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
         if dragging:
             widget = self.containedWidget
             if widget is not None:
+                print "removes widget()"
                 widget.setParent(None)
                 self._saved_widget = widget
 
@@ -190,6 +192,7 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
                 self._fake_widget.raise_()
         else:
             if self._saved_widget is not None:
+                print "restores widget()"
                 self._saved_widget.setParent(self)
                 self._saved_widget.raise_()
                 self._saved_widget = None
@@ -330,12 +333,15 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
                 return
 
         if self._overlay is not None:
+            print "deletes overlay"
             self._overlay.setParent(None)
             self._overlay.deleteLater()
 
         if overlay_class is None:
+            print "removes overlay_scrollarea"
             self._overlay = None
-            self._overlay_scrollarea.lower()
+            self._overlay_scrollarea.setParent(None)
+            self._overlay_scrollarea.setVisible(False)
             if self._plot is not None:
                 self._set_toolbar_buttons(True)
             else:
@@ -347,7 +353,10 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
                 self.update_pipeline()
                 self._execute_pending = False
         else:
+            print "creates overlay %s, adds overlay_scrollarea" % overlay_class.__name__
             self._overlay = overlay_class(self, **kwargs)
+            self._overlay_scrollarea.setParent(self)
+            self._overlay_scrollarea.setVisible(True)
             self._overlay_scrollarea.setWidget(self._overlay)
             self._overlay.show()
             self._overlay_scrollarea.raise_()
