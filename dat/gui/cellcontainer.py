@@ -51,6 +51,7 @@ class DATCellContainer(QCellContainer):
                 '    background-color: transparent;'
                 '}')
         self._overlay_scrollarea.setWidgetResizable(True)
+        self._overlay_scrollarea.setVisible(False)
         #self._show_button = QtGui.QPushButton()
         #self._show_button.setIcon(get_icon('show_overlay.png'))
         #self._hide_button = QtGui.QPushButton()
@@ -58,8 +59,6 @@ class DATCellContainer(QCellContainer):
 
         QCellContainer.__init__(self, cellInfo, widget, parent)
         self.setAcceptDrops(True)
-
-        self._overlay_scrollarea.setParent(self)
 
         #self._show_button.setParent(self)
         #self.connect(self._show_button, QtCore.SIGNAL('clicked()'),
@@ -106,6 +105,7 @@ class DATCellContainer(QCellContainer):
         if dragging:
             widget = self.containedWidget
             if widget is not None:
+                print "removes widget()"
                 widget.setParent(None)
                 self._saved_widget = widget
 
@@ -132,6 +132,7 @@ class DATCellContainer(QCellContainer):
                 #self._show_button.raise_()
         else:
             if self._saved_widget is not None:
+                print "restores widget()"
                 self.layout().addWidget(self._saved_widget)
                 self._saved_widget.raise_()
                 #self._show_button.raise_()
@@ -242,17 +243,23 @@ class DATCellContainer(QCellContainer):
                 return
 
         if self._overlay is not None:
+            print "deletes overlay"
             self._overlay.setParent(None)
             self._overlay.deleteLater()
 
         if overlay_class is None:
+            print "removes overlay_scrollarea"
             self._overlay = None
-            self._overlay_scrollarea.lower()
+            self._overlay_scrollarea.setParent(None)
+            self._overlay_scrollarea.setVisible(False)
             #self._show_button.raise_()
             #self._show_button.setVisible(self._plot is not None)
             #self._hide_button.setVisible(False)
         else:
+            print "creates overlay %s, adds overlay_scrollarea" % overlay_class.__name__
             self._overlay = overlay_class(self, **kwargs)
+            self._overlay_scrollarea.setParent(self)
+            self._overlay_scrollarea.setVisible(True)
             self._overlay_scrollarea.setWidget(self._overlay)
             self._overlay.show()
             self._overlay_scrollarea.raise_()
