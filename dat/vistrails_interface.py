@@ -863,10 +863,11 @@ class Plot(object):
                 spec = currentspec
                 type = resolve_descriptor(currentspec, package_identifier)
 
-            # Get the default value
+            # Get info from the PortSpec
             currentport.default_value = None
+            currentport.enumeration = None
             try:
-                default_type, default_value = read_default_value(
+                default_type, default_value, enum_values = read_port_specs(
                         pipeline,
                         port)
                 if default_value is not None:
@@ -876,8 +877,9 @@ class Plot(object):
                                          type.module),))
                     elif default_type is type.module:
                         currentport.default_value = default_value
+                currentport.enumeration = enum_values
             except ValueError, e:
-                raise ValueError("Error reading default value for port '%s' "
+                raise ValueError("Error reading specs for port '%s' "
                                  "from plot '%s': %s" % (
                                  name, self.name, e.args[0]))
 
@@ -968,7 +970,10 @@ def get_function(module, function_name):
     return None
 
 
-def read_default_value(pipeline, port):
+def read_port_specs(pipeline, port):
+    default_type = None
+    default_value = None
+
     # First: try from the InputPort's 'Default' port
     # Connections to the 'Default' port
     connections = [c
@@ -982,11 +987,8 @@ def read_default_value(pipeline, port):
         module_type = module.module_descriptor.module
         if not issubclass(module_type, Constant):
             raise ValueError("not a Constant")
-        return module_type, get_function(module, 'value')
-    # not connections:
-
-    # Nothing was set on the 'Default' port. Now, we can try to use the
-    # 'defaults' attribute of the input port this InputPort module is linked to
+        default_type, default_value = (
+                module_type, get_function(module, 'value'))
 
     # Connections from the 'InternalPipe' port
     connections = [c
@@ -995,20 +997,26 @@ def read_default_value(pipeline, port):
                            c.source.name == 'InternalPipe']
     if len(connections) != 1:
         # Can't guess anything here
-        return None, None
+        return default_type, default_value, None
     module = pipeline.modules[connections[0].destination.moduleId]
     d_port_name = connections[0].destination.name
     for d_port in module.destinationPorts():
         if d_port.name != d_port_name:
             continue
         descriptors = d_port.descriptors()
-        if (len(descriptors) != 1 or
-                not d_port.defaults or
-                d_port.defaults[0] is None):
+        if len(descriptors) != 1:
             break
-        return descriptors[0].module, d_port.defaults[0]
+        if d_port.defaults and d_port.defaults[0] is not None:
+            default_type = descriptors[0].module
+            default_value = d_port.defaults[0]
+        psi = d_port.port_spec_items[0]
+        if psi.entry_type is not None and psi.entry_type.startswith('enum'):
+            enum_values = psi.values
+        else:
+            enum_values = None
+        return descriptors[0].module, d_port.defaults[0], enum_values
 
-    return None, None
+    return default_type, default_type, None
 
 
 def delete_linked(controller, modules, operations,
