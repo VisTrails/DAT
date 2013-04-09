@@ -1493,6 +1493,15 @@ def create_pipeline(controller, recipe, cell_info, typecast=None):
                     plot_modules_map[connection.destination.moduleId],
                     connection.destination.name)
 
+    # Adds default values for unset constants
+    defaulted_parameters = dict(recipe.parameters)
+    for port in recipe.plot.ports:
+        if (isinstance(port, ConstantPort) and
+                port.default_value is not None and
+                port.name not in recipe.parameters):
+            defaulted_parameters[port.name] = [RecipeParameterValue(
+                    constant=port.default_value)]
+
     # Maps a port name to the list of parameters
     # for each parameter, we have a list of connections tying it to modules of
     # the plot
@@ -1500,7 +1509,7 @@ def create_pipeline(controller, recipe, cell_info, typecast=None):
 
     name_to_port = {port.name: port for port in recipe.plot.ports}
     actual_parameters = {}
-    for port_name, parameters in recipe.parameters.iteritems():
+    for port_name, parameters in defaulted_parameters.iteritems():
         plot_ports = plot_params.get(port_name, [])
         p_conns = conn_map[port_name] = []
         actual_values = []
