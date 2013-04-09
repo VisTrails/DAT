@@ -186,6 +186,8 @@ class VariableDroppingOverlay(Overlay):
                 except KeyError:
                     isset = False
                 param = port.widget_class(gp)
+                if port.default_value is not None:
+                    pass # TODO : set default value
                 self._constant_widgets[param] = port.name
                 self.connect(param, QtCore.SIGNAL('contentsChanged'),
                              self.constant_changed)

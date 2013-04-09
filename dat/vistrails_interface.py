@@ -860,6 +860,27 @@ class Plot(object):
                     warnings.warn("Declaration of port '%s' from plot '%s' "
                                   "differs from subworkflow contents" % (
                                   name, self.name))
+                spec = currentspec
+                type = resolve_descriptor(currentspec, package_identifier)
+
+            # Get the default value
+            currentport.default_value = None
+            try:
+                default_type, default_value = read_default_value(
+                        pipeline,
+                        port)
+                if default_value is not None:
+                    if not issubclass(default_type, type.module):
+                        raise ValueError("incompatible type %r" % ((
+                                         default_type,
+                                         type.module),))
+                    elif default_type is type.module:
+                        currentport.default_value = default_value
+            except ValueError, e:
+                raise ValueError("Error reading default value for port '%s' "
+                                 "from plot '%s': %s" % (
+                                 name, self.name, e.args[0]))
+
             seenports.add(name)
 
         # If the package declared ports that we didn't see
@@ -945,6 +966,49 @@ def get_function(module, function_name):
             if len(function.params) > 0:
                 return function.params[0].strValue
     return None
+
+
+def read_default_value(pipeline, port):
+    # First: try from the InputPort's 'Default' port
+    # Connections to the 'Default' port
+    connections = [c
+                   for c in pipeline.connection_list
+                   if c.destination.moduleId == port.id and
+                           c.destination.name == 'Default']
+    if len(connections) > 1:
+        raise ValueError("multiple default values set")
+    elif len(connections) == 1:
+        module = pipeline.modules[connections[0].source.moduleId]
+        module_type = module.module_descriptor.module
+        if not issubclass(module_type, Constant):
+            raise ValueError("not a Constant")
+        return module_type, get_function(module, 'value')
+    # not connections:
+
+    # Nothing was set on the 'Default' port. Now, we can try to use the
+    # 'defaults' attribute of the input port this InputPort module is linked to
+
+    # Connections from the 'InternalPipe' port
+    connections = [c
+                   for c in pipeline.connection_list
+                   if c.source.moduleId == port.id and
+                           c.source.name == 'InternalPipe']
+    if len(connections) != 1:
+        # Can't guess anything here
+        return None, None
+    module = pipeline.modules[connections[0].destination.moduleId]
+    d_port_name = connections[0].destination.name
+    for d_port in module.destinationPorts():
+        if d_port.name != d_port_name:
+            continue
+        descriptors = d_port.descriptors()
+        if (len(descriptors) != 1 or
+                not d_port.defaults or
+                d_port.defaults[0] is None):
+            break
+        return descriptors[0].module, d_port.defaults[0]
+
+    return None, None
 
 
 def delete_linked(controller, modules, operations,
@@ -1348,6 +1412,8 @@ def create_pipeline(controller, recipe, cell_info, typecast=None):
     for module in plot_pipeline.modules.itervalues():
         if module.module_descriptor is not inputport_desc:
             plot_modules_map[module.id] = generator.copy_module(module)
+
+    # TODO : don't copy modules upstream of the InputPort (on 'Default'...)?
 
     def _get_or_create_module(moduleType):
         """Returns or creates a new module of the given type.
