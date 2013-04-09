@@ -1407,13 +1407,21 @@ def create_pipeline(controller, recipe, cell_info, typecast=None):
     version = vistrail.get_latest_version()
     plot_pipeline = vistrail.getPipeline(version)
 
-    # Copy every module but the InputPorts
+    connected_to_inputport = set(
+            c.source.moduleId
+            for c in plot_pipeline.connection_list
+            if plot_pipeline.modules[
+                    c.destination.moduleId
+                ].module_descriptor is inputport_desc)
+
+    # Copy every module but the InputPorts and up
     plot_modules_map = dict() # old module id -> new module
     for module in plot_pipeline.modules.itervalues():
-        if module.module_descriptor is not inputport_desc:
+        if (module.module_descriptor is not inputport_desc and
+                module.id not in connected_to_inputport):
             plot_modules_map[module.id] = generator.copy_module(module)
 
-    # TODO : don't copy modules upstream of the InputPort (on 'Default'...)?
+    del connected_to_inputport
 
     def _get_or_create_module(moduleType):
         """Returns or creates a new module of the given type.
@@ -1469,7 +1477,10 @@ def create_pipeline(controller, recipe, cell_info, typecast=None):
     plot_params = dict() # param name -> [(module, input port name)]
     for connection in plot_pipeline.connection_list:
         src = plot_pipeline.modules[connection.source.moduleId]
-        if src.module_descriptor is inputport_desc:
+        dest = plot_pipeline.modules[connection.destination.moduleId]
+        if dest.module_descriptor is inputport_desc:
+            continue
+        elif src.module_descriptor is inputport_desc:
             param = get_function(src, 'name')
             ports = plot_params.setdefault(param, [])
             ports.append((
