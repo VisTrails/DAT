@@ -1008,7 +1008,8 @@ def read_port_specs(pipeline, port):
         descriptors = d_port.descriptors()
         if len(descriptors) != 1:
             break
-        if d_port.defaults and d_port.defaults[0] is not None:
+        if ((default_type, default_value == None, None) and
+                d_port.defaults and d_port.defaults[0]):
             default_type = descriptors[0].module
             default_value = d_port.defaults[0]
         psi = d_port.port_spec_items[0]
