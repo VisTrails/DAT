@@ -841,15 +841,17 @@ class Plot(object):
                     optional = False
                 type = resolve_descriptor(spec, package_identifier)
                 if issubclass(type.module, Constant):
-                    self.ports.append(InputPort(
+                    currentport = ConstantPort(
                             name=name,
                             type=type,
-                            optional=optional))
+                            optional=optional)
                 else:
-                    self.ports.append(DataPort(
+                    currentport = DataPort(
                             name=name,
                             type=type,
-                            optional=optional))
+                            optional=optional)
+
+                self.ports.append(currentport)
             else:
                 currentspec = (currentport.type.identifier +
                                ':' +
