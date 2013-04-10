@@ -8,6 +8,7 @@ from dat.operations.typecasting import get_typecast_operations
 from dat.vistrail_data import VistrailManager
 from dat.vistrails_interface import DataPort
 
+from vistrails.core.vistrail.port_spec_item import PortSpecItem
 from vistrails.gui.ports_pane import Parameter as GuiParameter
 
 
@@ -180,14 +181,18 @@ class VariableDroppingOverlay(Overlay):
                     param_panel.layout().addWidget(param)
             else: # isinstance(port, ConstantPort):
                 gp = GuiParameter(port.type)
+                gp.port_spec_item = PortSpecItem(id=-1, pos=0,
+                                                 module=port.type.name,
+                                                 package=port.type.package,
+                                                 default=port.default_value,
+                                                 entry_type=port.entry_type,
+                                                 values=port.enum_values)
                 try:
                     gp.strValue = self._cell._parameters[port.name][0].constant
                     isset = True
                 except KeyError:
                     isset = False
                 param = port.widget_class(gp)
-                if port.default_value is not None:
-                    param.setDefault(port.default_value)
                 self._constant_widgets[param] = port.name
                 self.connect(param, QtCore.SIGNAL('contentsChanged'),
                              self.constant_changed)

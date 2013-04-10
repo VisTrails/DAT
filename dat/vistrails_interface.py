@@ -869,7 +869,8 @@ class Plot(object):
             currentport.default_value = None
             currentport.enumeration = None
             try:
-                default_type, default_value, enum_values = read_port_specs(
+                (default_type, default_value,
+                 entry_type, enum_values) = read_port_specs(
                         pipeline,
                         port)
                 if default_value is not None:
@@ -879,7 +880,8 @@ class Plot(object):
                                          type.module),))
                     elif default_type is type.module:
                         currentport.default_value = default_value
-                currentport.enumeration = enum_values
+                currentport.entry_type = entry_type
+                currentport.enum_values = enum_values
             except ValueError, e:
                 raise ValueError("Error reading specs for port '%s' "
                                  "from plot '%s': %s" % (
@@ -999,7 +1001,7 @@ def read_port_specs(pipeline, port):
                            c.source.name == 'InternalPipe']
     if len(connections) != 1:
         # Can't guess anything here
-        return default_type, default_value, None
+        return default_type, default_value, None, None
     module = pipeline.modules[connections[0].destination.moduleId]
     d_port_name = connections[0].destination.name
     for d_port in module.destinationPorts():
@@ -1014,12 +1016,12 @@ def read_port_specs(pipeline, port):
             default_value = d_port.defaults[0]
         psi = d_port.port_spec_items[0]
         if psi.entry_type is not None and psi.entry_type.startswith('enum'):
-            enum_values = psi.values
+            entry_type, enum_values = psi.entry_type, psi.values
         else:
-            enum_values = None
-        return descriptors[0].module, d_port.defaults[0], enum_values
+            entry_type, enum_values = None, None
+        return default_type, default_value, entry_type, enum_values
 
-    return default_type, default_type, None
+    return default_type, default_type, None, None
 
 
 def delete_linked(controller, modules, operations,
