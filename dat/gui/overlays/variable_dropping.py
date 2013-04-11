@@ -281,13 +281,13 @@ class VariableDroppingOverlay(Overlay):
 
     def constant_changed(self, args):
         widget, contents = args # params are packed as a tuple for some reason
-        self._cell.change_constant(self._constant_widgets[widget], contents)
         try:
-            label = self._unset_constant_labels[widget]
+            label = self._unset_constant_labels.pop(widget)
             label.setParent(None)
             label.deleteLater()
         except KeyError:
             pass
+        self._cell.change_constant(self._constant_widgets[widget], contents)
 
     def mouseReleaseEvent(self, event):
         metrics = self.fontMetrics()
