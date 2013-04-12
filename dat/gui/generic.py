@@ -353,3 +353,48 @@ class SingleLineTextEdit(QtGui.QTextEdit):
         self.setTextCursor(cursor)
 
     returnPressed = QtCore.SIGNAL('returnPressed()')
+
+
+class ZoomPanGraphicsView(QtGui.QGraphicsView):
+    _NOT_DRAGGING = 0
+    _PANNING = 1
+    _ZOOMING = 2
+
+    def mousePressEvent(self, event):
+        if event.button() == QtCore.Qt.LeftButton:
+            self._dragging = ZoomPanGraphicsView._PANNING
+            self.setCursor(QtCore.Qt.ClosedHandCursor)
+        elif event.button() == QtCore.Qt.RightButton:
+            self._dragging = ZoomPanGraphicsView._ZOOMING
+            self.setCursor(QtCore.Qt.SizeVerCursor)
+        else:
+            event.ignore()
+            return
+        self._start_x = event.x()
+        self._start_y = event.y()
+        event.accept()
+
+    def mouseMoveEvent(self, event):
+        if self._dragging == ZoomPanGraphicsView._PANNING:
+            hs = self.horizontalScrollBar()
+            hs.setValue(hs.value() - (event.x() - self._start_x))
+            vs = self.verticalScrollBar()
+            vs.setValue(vs.value() - (event.y() - self._start_y))
+            self._start_x = event.x()
+            self._start_y = event.y()
+            event.accept()
+        elif self._dragging == ZoomPanGraphicsView._ZOOMING:
+            factor = pow(1.01, self._start_y - event.y())
+            self.scale(factor, factor)
+            self._start_y = event.y()
+            event.accept()
+        else:
+            event.ignore()
+
+    def mouseReleaseEvent(self, event):
+        if self._dragging != ZoomPanGraphicsView._NOT_DRAGGING:
+            self._dragging = ZoomPanGraphicsView._NOT_DRAGGING
+            self.setCursor(QtCore.Qt.ArrowCursor)
+            event.accept()
+        else:
+            event.ignore
