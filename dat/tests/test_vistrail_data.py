@@ -72,7 +72,7 @@ class Test_annotations(unittest.TestCase):
             }
 
     def test_build_recipe(self):
-        """Tests the _build_annotation() method.
+        """Tests the _build_recipe_annotation() method.
         """
         self.assertEqual(
                 VistrailData._build_recipe_annotation(
@@ -115,7 +115,7 @@ class Test_annotations(unittest.TestCase):
             GlobalManager.get_plot = old_get_plot
 
     def test_build_portmap(self):
-        """Tests the _build_annotation() method.
+        """Tests the _build_portmap_annotation() method.
         """
         self.assertEqual(
                 VistrailData._build_portmap_annotation(

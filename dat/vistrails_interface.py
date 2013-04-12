@@ -161,10 +161,11 @@ class Variable(object):
         class of the object we store. It is created by
         Variable#materialize().
         """
-        def __init__(self, name, controller, type):
+        def __init__(self, name, controller, type, provenance=None):
             self.name = name
             self._controller = controller
             self.type = type
+            self.provenance = provenance
 
         def remove(self):
             """Delete the pipeline from the Vistrail.
@@ -234,7 +235,7 @@ class Variable(object):
         return controller, root_version, outmod_id
 
     def __init__(self, type, controller=None, generator=None, output=None,
-            materialized=None):
+            provenance=None, materialized=None):
         """Create a new variable.
 
         type should be resolvable to a VisTrails module type.
@@ -244,6 +245,7 @@ class Variable(object):
                 Variable._get_variables_root(controller))
 
         self._output_module = None
+        self.provenance = provenance
 
         if generator is None and materialized is None:
             self._generator = PipelineGenerator(controller)
@@ -351,7 +353,8 @@ class Variable(object):
         variable_info = Variable.VariableInformation(
                 name,
                 controller,
-                self.type)
+                self.type,
+                self.provenance)
         self._materialized = variable_info
         return variable_info
 
@@ -388,7 +391,8 @@ class Variable(object):
                 controller=controller,
                 generator=generator,
                 materialized=variable_info,
-                output=output)
+                output=output,
+                provenance=variable_info.provenance)
 
 
 class ArgumentWrapper(object):

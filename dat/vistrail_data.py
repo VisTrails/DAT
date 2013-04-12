@@ -4,6 +4,7 @@ import warnings
 import weakref
 
 from dat import RecipeParameterValue, DATRecipe, PipelineInformation
+from dat import data_provenance
 from dat.global_data import GlobalManager
 from dat.vistrails_interface import Variable, get_pipeline_location
 
@@ -68,6 +69,7 @@ class VistrailData(object):
     # Parameters which are not set are simply omitted from the list
     _RECIPE_KEY = 'dat-recipe'
     _PORTMAP_KEY = 'dat-ports'
+    _DATA_PROVENANCE_KEY = 'dat-data-provenance'
 
     @staticmethod
     def _build_recipe_annotation(recipe, conn_map):
@@ -221,18 +223,31 @@ class VistrailData(object):
             for version, tag in tagmap.iteritems():
                 if tag.startswith('dat-var-'):
                     varname = tag[8:]
+
                     # Get the type from the OutputPort module's spec input port
                     type = Variable.read_type(
                             self._controller.vistrail.getPipeline(version))
                     if type is None:
                         warnings.warn("Found invalid DAT variable pipeline "
                                       "%r, ignored" % tag)
-                    else:
-                        variable = Variable.VariableInformation(
-                                varname, self._controller, type)
+                        continue
+                    # Read the data provenance from the variable annotations
+                    an = self._controller.vistrail.get_action_annotation(
+                            version,
+                            self._DATA_PROVENANCE_KEY)
+                    provenance = None
+                    if an is not None:
+                        try:
+                            provenance = data_provenance.read_from_annotation(
+                                    an.value)
+                        except ValueError:
+                            pass
 
-                        self._variables[varname] = variable
-                        self._add_variable(varname)
+                    variable = Variable.VariableInformation(
+                            varname, self._controller, type, provenance)
+
+                    self._variables[varname] = variable
+                    self._add_variable(varname)
 
         # Load mappings from annotations
         annotations = self._controller.vistrail.action_annotations
@@ -337,6 +352,14 @@ class VistrailData(object):
 
         # Materialize the Variable in the Vistrail
         variable = variable.materialize(varname)
+
+        # Record the data provenance in an annotation
+        version = self.controller.vistrail.get_version_number(
+                'dat-var-%s' % varname)
+        self.controller.vistrail.set_action_annotation(
+                version,
+                self._DATA_PROVENANCE_KEY,
+                data_provenance.save_to_annotation(variable.provenance))
 
         self._variables[varname] = variable
 

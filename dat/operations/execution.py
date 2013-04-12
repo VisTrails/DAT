@@ -1,6 +1,7 @@
 import sys
 import warnings
 
+from dat import data_provenance
 from dat.global_data import GlobalManager
 from dat.operations import InvalidOperation, OperationWarning
 from dat.operations.parsing import SYMBOL, NUMBER, STRING, OP, parse_expression
@@ -31,7 +32,7 @@ class GetExistingVariable(ComputeVariable):
 class BuildConstant(ComputeVariable):
     def __init__(self, value):
         self.value = value
-        if isinstance(value, basestring):
+        if isinstance(self.value, basestring):
             self.type = get_module_registry().get_descriptor_by_name(
                     'edu.utah.sci.vistrails.basic',
                     'String')
@@ -49,7 +50,8 @@ class BuildConstant(ComputeVariable):
                 type=self.type,
                 controller=controller,
                 generator=generator,
-                output=(module, 'value'))
+                output=(module, 'value'),
+                provenance=data_provenance.Constant(constant=self.value))
 
 
 class ApplyOperation(ComputeVariable):
@@ -210,10 +212,15 @@ def apply_operation(controller, op, args):
         if result is None:
             raise InvalidOperation("Package error: operation callback "
                                    "returned None")
-        return result
     else: # op.subworkflow is not None:
-        return vistrails_interface.apply_operation_subworkflow(
+        result = vistrails_interface.apply_operation_subworkflow(
                 controller,
                 op,
                 op.subworkflow,
                 args)
+
+    if result.provenance is None:
+        result.provenance = data_provenance.Operation(
+                operation=op,
+                arg_list=args)
+    return result
