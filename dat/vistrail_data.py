@@ -433,6 +433,8 @@ class VistrailData(object):
         self._add_variable(new_varname, renamed_from=old_varname)
 
     def get_variable(self, varname):
+        if not isinstance(varname, str):
+            raise ValueError
         return self._variables.get(varname)
 
     def _get_variables(self):
