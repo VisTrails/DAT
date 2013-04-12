@@ -223,8 +223,9 @@ class VariableDroppingOverlay(Overlay):
         self.setLayout(main_layout)
 
     def update(self):
-        for child in self._parameters:
-            child.update()
+        for panel in self._parameters:
+            for child in panel:
+                child.update()
         super(VariableDroppingOverlay, self).update()
 
     def set_mouse_position(self, x, y):

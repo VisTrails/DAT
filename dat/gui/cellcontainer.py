@@ -31,6 +31,8 @@ class DATCellContainer(QCellContainer):
 
         app = get_vistrails_application()
         app.register_notification(
+                'dat_new_variable', self._variable_added)
+        app.register_notification(
                 'dat_removed_variable', self._variable_removed)
         app.register_notification(
                 'dragging_to_overlays', self._set_dragging)
@@ -84,6 +86,8 @@ class DATCellContainer(QCellContainer):
         if cellInfo is None: # We were removed from the spreadsheet
             app = get_vistrails_application()
             app.unregister_notification(
+                    'dat_new_variable', self._variable_added)
+            app.unregister_notification(
                     'dat_removed_variable', self._variable_removed)
             app.unregister_notification(
                     'dragging_to_overlays', self._set_dragging)
@@ -99,44 +103,52 @@ class DATCellContainer(QCellContainer):
         self._overlay_scrollarea.setAttribute(
                 QtCore.Qt.WA_TransparentForMouseEvents, dragging)
 
-    def _variable_removed(self, controller, varname, renamed_to=None):
-        if controller != self._controller:
-            return
-        if self._plot is None:
+    def _variable_added(self, controller, varname, renamed_from=None):
+        if (renamed_from is None or
+                controller != self._controller or
+                self._plot is None):
             return
         if any(
                 param.type == RecipeParameterValue.VARIABLE and
                         param.variable.name == varname
                 for params in self._parameters.itervalues()
                 for param in params):
-            if renamed_to is None:
-                # A variable was removed!
-                # Two cases here:
-                if self.widget() is not None:
-                    # If this cell already contains a result, we'll just turn
-                    # into a dumb VisTrails cell, as the DAT recipe doesn't
-                    # exist anymore
-                    self._plot = None
-                    self._parameters = dict()
-                else:
-                    # If this cell didn't already contain a result, we just
-                    # remove the associated parameters
-                    # The user will just have to drop something else
-                    to_remove = []
-                    for param, values in self._parameters.iteritems():
-                        for i, value in enumerate(values):
-                            if (value.type == RecipeParameterValue.VARIABLE and
-                                    value.variable.name == varname):
-                                to_remove.append((param, i))
-                    for param, i in to_remove:
-                        del self._parameters[param][i]
-                    for param in set(param for param, i in to_remove):
-                        if not self._parameters[param]:
-                            del self._parameters[param]
+            self._overlay.update()
 
-                self._set_overlay(None)
-            elif self._overlay is not None:
-                self._overlay.update()
+    def _variable_removed(self, controller, varname, renamed_to=None):
+        if (renamed_to is not None or
+                controller != self._controller or self._plot is None):
+            return
+        if any(
+                param.type == RecipeParameterValue.VARIABLE and
+                        param.variable.name == varname
+                for params in self._parameters.itervalues()
+                for param in params):
+            # A variable was removed!
+            # Two cases here:
+            if self.widget() is not None:
+                # If this cell already contains a result, we'll just turn
+                # into a dumb VisTrails cell, as the DAT recipe doesn't
+                # exist anymore
+                self._plot = None
+                self._parameters = dict()
+            else:
+                # If this cell didn't already contain a result, we just
+                # remove the associated parameters
+                # The user will just have to drop something else
+                to_remove = []
+                for param, values in self._parameters.iteritems():
+                    for i, value in enumerate(values):
+                        if (value.type == RecipeParameterValue.VARIABLE and
+                                value.variable.name == varname):
+                            to_remove.append((param, i))
+                for param, i in to_remove:
+                    del self._parameters[param][i]
+                for param in set(param for param, i in to_remove):
+                    if not self._parameters[param]:
+                        del self._parameters[param]
+
+            self._set_overlay(None)
 
     def setWidget(self, widget):
         """Changes the current widget in the cell.
