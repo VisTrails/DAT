@@ -25,7 +25,7 @@ class GetExistingVariable(ComputeVariable):
         self.type = self._variable.type
 
     def execute(self, controller):
-        return Variable.from_pipeline(controller, self._variable.name)
+        return Variable.from_workflow(self._variable)
 
 
 class BuildConstant(ComputeVariable):

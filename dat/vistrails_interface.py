@@ -159,7 +159,7 @@ class Variable(object):
         Because most of the logic/attribute in Variable become unnecessary once
         the Variable has been materialized in the pipeline, this is the actual
         class of the object we store. It is created by
-        Variable#perform_operations().
+        Variable#materialize().
         """
         def __init__(self, name, controller, type):
             self.name = name
@@ -233,7 +233,8 @@ class Variable(object):
         outmod_id = outmod_id[0]
         return controller, root_version, outmod_id
 
-    def __init__(self, type, controller=None, generator=None, output=None):
+    def __init__(self, type, controller=None, generator=None, output=None,
+            materialized=None):
         """Create a new variable.
 
         type should be resolvable to a VisTrails module type.
@@ -244,9 +245,9 @@ class Variable(object):
 
         self._output_module = None
 
-        if generator is None:
+        if generator is None and materialized is None:
             self._generator = PipelineGenerator(controller)
-    
+
             # Get the VisTrails package that's creating this Variable by inspecting
             # the stack
             caller = inspect.currentframe().f_back
@@ -260,11 +261,15 @@ class Variable(object):
                 self._vt_package_id = pkg.identifier
             except (ImportError, AttributeError):
                 self._vt_package_id = None
-        else:
+        elif generator is not None:
             self._generator = generator
             self._vt_package_id = None
             if output is not None:
                 self._output_module, self._outputport_name = output
+        else:
+            raise ValueError
+
+        self._materialized = materialized
 
         self.type = resolve_descriptor(type, self._vt_package_id)
 
@@ -311,7 +316,7 @@ class Variable(object):
         self._output_module = module._module
         self._outputport_name = outputport_name
 
-    def perform_operations(self, name):
+    def materialize(self, name):
         """Materialize this Variable in the Vistrail.
 
         Create a pipeline tagged as 'dat-var-<varname>' for this Variable,
@@ -319,6 +324,11 @@ class Variable(object):
 
         This is called by the VistrailData when the Variable is inserted.
         """
+        if self._materialized is not None:
+            raise ValueError("materialize() called on already materlialized "
+                             "variable %s (new name: %s)" % (
+                             self._materialized.name, name))
+
         if self._output_module is None:
             raise ValueError("Invalid Variable: select_output_port() was "
                              "never called")
@@ -338,7 +348,12 @@ class Variable(object):
                                     'dat-var-%s' % name)
         controller.change_selected_version(self._var_version)
 
-        return Variable.VariableInformation(name, controller, self.type)
+        variable_info = Variable.VariableInformation(
+                name,
+                controller,
+                self.type)
+        self._materialized = variable_info
+        return variable_info
 
     @staticmethod
     def read_type(pipeline):
@@ -359,16 +374,20 @@ class Variable(object):
         return None
 
     @staticmethod
-    def from_pipeline(controller, varname, type=None):
+    def from_workflow(variable_info):
+        """Reads back a Variable from a pipeline, given a VariableInformation.
+        """
+        controller = variable_info._controller
+        varname = variable_info.name
         pipeline = controller.vistrail.getPipeline('dat-var-%s' % varname)
-        if type is None:
-            type = Variable.read_type(pipeline)
+
         generator = PipelineGenerator(controller)
         output = add_variable_subworkflow(generator, pipeline)
         return Variable(
-                type=type,
+                type=variable_info.type,
                 controller=controller,
                 generator=generator,
+                materialized=variable_info,
                 output=output)
 
 
@@ -1361,8 +1380,7 @@ def add_variable_subworkflow_typecast(generator, variable, plot_ports,
                 RecipeParameterValue(variable=variable))
     else:
         # Load the variable from the workflow
-        var_pipeline = Variable.from_pipeline(
-                generator.controller, variable.name)
+        var_pipeline = Variable.from_workflow(variable)
 
         # Apply the operation
         var_pipeline, typecast_operation = typecast(

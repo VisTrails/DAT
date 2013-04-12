@@ -336,7 +336,7 @@ class VistrailData(object):
             raise ValueError("A variable named %s already exists!")
 
         # Materialize the Variable in the Vistrail
-        variable = variable.perform_operations(varname)
+        variable = variable.materialize(varname)
 
         self._variables[varname] = variable
 
