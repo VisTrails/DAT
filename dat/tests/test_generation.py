@@ -27,7 +27,7 @@ class Test_generation(unittest.TestCase):
 
     @staticmethod
     def _new_loader(loader):
-        Test_generation._loaders[loader.loader_tab_name] = loader()
+        Test_generation._loaders[loader.name] = loader()
 
     @classmethod
     def setUpClass(cls):

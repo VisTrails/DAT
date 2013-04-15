@@ -144,7 +144,7 @@ class GlobalManager(object):
                             loader))
                     continue
                 loader.package_identifier = package_identifier
-                loader.loader_tab_name = name
+                loader.name = name
                 self._add_loader(loader)
         if hasattr(package.init_module, '_variable_operations'):
             for operation in package.init_module._variable_operations:

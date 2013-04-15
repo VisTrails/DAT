@@ -147,7 +147,7 @@ class FileLoaderPanel(QtGui.QWidget):
                     # The order of these lines is important, because adding an
                     # item to the list emits a signal
                     self._loader_stack.addWidget(widget)
-                    self._loader_list.addItem(loader.loader_tab_name, widget)
+                    self._loader_list.addItem(loader.name, widget)
             if self._loader_stack.count() == 0:
                 self._loader_stack.addWidget(
                         QtGui.QLabel(_("No loader accepts this file")))
@@ -335,7 +335,7 @@ class LoadVariableDialog(QtGui.QDialog):
             l = loader()
             l.default_variable_name_observer = (
                     self.default_variable_name_changed)
-            self._add_tab(l, loader.loader_tab_name)
+            self._add_tab(l, loader.name)
 
     def loader_removed(self, loader):
         """Called when a VariableLoader is removed.
