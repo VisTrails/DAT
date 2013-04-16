@@ -119,7 +119,7 @@ class ProvenanceSceneLayout(object):
                     varname = varname[:8]
                 else:
                     varname = translate(ProvenanceSceneLayout)(
-                            '(deleted variable)')
+                            '(deleted)')
                 warnings.warn(
                         "A variable (version %r) referenced from provenance "
                         "is missing!" % provenance['version'])

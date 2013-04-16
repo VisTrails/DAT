@@ -363,6 +363,9 @@ class VistrailData(object):
                 self._DATA_PROVENANCE_KEY,
                 data_provenance.save_to_annotation(variable.provenance))
 
+        # Add a record in our map of provenance data
+        self._data_provenance[version] = variable.provenance
+
         self._variables[varname] = variable
 
         self._add_variable(varname)
