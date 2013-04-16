@@ -164,7 +164,9 @@ def _json_object_hook(dct):
     except KeyError:
         return dct
     else:
-        return _json_classes[t](_json=dct)
+        return _json_classes[t](_json={k: v
+                                       for k, v in dct.iteritems()
+                                       if k != 'type'})
 
 def read_from_annotation(annotation):
     """Deserializes a data provenance tree from an annotation string.
