@@ -210,45 +210,38 @@ class Application(QtGui.QApplication, NotificationDispatcher, VistrailsApplicati
     def _controller_changed(self, controller, new=False):
         vistraildata = VistrailManager(controller)
 
-        # Get the spreadsheet for this project
-        spreadsheet_tab = vistraildata.spreadsheet_tab
+        # Get the spreadsheets for this project
+        spreadsheet_tabs = vistraildata.spreadsheet_tabs
 
         if new:
-            # Resize the spreadsheet
-            width, height = 2, 2
-            for cellInfo, pipeline in vistraildata.all_cells:
-                if cellInfo.row >= height:
-                    height = cellInfo.row + 1
-                if cellInfo.column >= width:
-                    width = cellInfo.column + 1
-            spreadsheet_tab.setDimension(height, width)
-
             # Execute the pipelines
-            tabWidget = spreadsheet_tab.tabWidget
-            sheetname = tabWidget.tabText(tabWidget.indexOf(spreadsheet_tab))
-            for cellInfo, pipeline in vistraildata.all_cells:
-                error = vistrails_interface.try_execute(
-                        controller,
-                        pipeline,
-                        sheetname)
-                if error is not None:
-                    from dat.gui.cellcontainer import DATCellContainer
-                    spreadsheet_tab.setCellWidget(
-                            cellInfo.row,
-                            cellInfo.column,
-                            DATCellContainer(
-                                    cellInfo=CellInformation(
-                                            spreadsheet_tab,
-                                            cellInfo.row,
-                                            cellInfo.column),
-                                    error=error))
+            for tab in spreadsheet_tabs.itervalues():
+                tabWidget = tab.tabWidget
+                sheetname = tabWidget.tabText(tabWidget.indexOf(tab))
+                for cellInfo, pipeline in vistraildata.all_cells:
+                    error = vistrails_interface.try_execute(
+                            controller,
+                            pipeline,
+                            sheetname)
+                    if error is not None:
+                        from dat.gui.cellcontainer import DATCellContainer
+                        tab.setCellWidget(
+                                cellInfo.row,
+                                cellInfo.column,
+                                DATCellContainer(
+                                        cellInfo=CellInformation(
+                                                tab,
+                                                cellInfo.row,
+                                                cellInfo.column),
+                                        error=error))
 
-        # Make that spreadsheet tab current
+        # Make one of these tabs current
         sh_window = spreadsheetController.findSpreadsheetWindow(
                 create=False)
         if sh_window is not None:
             tab_controller = sh_window.tabController
-            tabidx = tab_controller.indexOf(spreadsheet_tab)
+            tab = next(spreadsheet_tabs.itervalues())
+            tabidx = tab_controller.indexOf(tab)
             tab_controller.setCurrentIndex(tabidx)
 
     def _sheet_changed(self, tab):
@@ -260,7 +253,7 @@ class Application(QtGui.QApplication, NotificationDispatcher, VistrailsApplicati
         # The saved controller is not passed in the notification
         # It should be the current one
         controller = self.builderWindow.get_current_controller()
-        VistrailManager(controller).update_spreadsheet_tab()
+        VistrailManager(controller).update_spreadsheet_tabs()
 
     def try_quit(self):
         return self.builderWindow.quit()

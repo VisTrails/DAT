@@ -200,7 +200,7 @@ class VistrailData(object):
         notifications for packages loaded in the future.
         """
         self._controller = controller
-        self._spreadsheet_tab = None
+        self._spreadsheet_tabs = None
 
         self._variables = dict()
         self._data_provenance = dict() # version: int -> provenance
@@ -280,69 +280,95 @@ class VistrailData(object):
                     if port_map is not None:
                         pipeline.port_map = port_map
 
-    def _discover_cell_pipelines(self):
+    def _get_controller(self):
+        return self._controller
+    controller = property(_get_controller)
+
+    def _get_spreadsheet_tabs(self):
+        if self._spreadsheet_tabs is not None:
+            return self._spreadsheet_tabs
+
+        sh_window = spreadsheetController.findSpreadsheetWindow(create=False)
+        if sh_window is None:
+            return None
+        tab_controller = sh_window.tabController
+
+        ctrl_name = self._controller.name
+        if not ctrl_name:
+            ctrl_name = "Untitled{ext}".format(
+                    ext=vistrails_default_file_type())
+
         # Get the cell location from the pipeline to fill in _cell_to_version
         # and _cell_to_pipeline
         cells = dict()
+        sheet_sizes = dict()
         for pipeline in self._version_to_pipeline.itervalues():
             try:
-                row, col = get_pipeline_location(
+                row, col, sheetname = get_pipeline_location(
                         self._controller,
                         pipeline)
             except ValueError:
                 continue
             try:
-                p = cells[(row, col)]
+                p = cells[(row, col, sheetname)]
             except KeyError:
-                cells[(row, col)] = pipeline
+                cells[(row, col, sheetname)] = pipeline
+                rowCount, colCount = sheet_sizes.get(sheetname, (2, 2))
+                rowCount = max(rowCount, row + 1)
+                colCount = max(colCount, col + 1)
+                sheet_sizes[sheetname] = (rowCount, colCount)
             else:
                 if pipeline.version > p.version:
                     # Select the latest version for a given cell
-                    cells[(row, col)] = pipeline
-        spreadsheet_tab = self.spreadsheet_tab
-        for (row, col), pipeline in cells.iteritems():
+                    cells[(row, col, sheetname)] = pipeline
+        self._spreadsheet_tabs = dict()
+        for (row, col, sheetname), pipeline in cells.iteritems():
+            try:
+                spreadsheet_tab = self._spreadsheet_tabs[sheetname]
+            except KeyError:
+                rowCount, colCount = sheet_sizes.get(sheetname, (2, 2))
+                tab = StandardWidgetSheetTab(
+                        tab_controller,
+                        row=rowCount,
+                        col=colCount,
+                        swflags=0)
+                tab_controller.addTabWidget(
+                        tab,
+                        u'%s / %s' % (ctrl_name, sheetname))
+                self._spreadsheet_tabs[sheetname] = tab
             cellInfo = CellInformation(spreadsheet_tab, row, col)
             self._cell_to_pipeline[cellInfo] = pipeline
             self._cell_to_version[cellInfo] = pipeline.version
 
-    def _get_controller(self):
-        return self._controller
-    controller = property(_get_controller)
+        if not self._spreadsheet_tabs:
+            tab = StandardWidgetSheetTab(
+                    tab_controller,
+                    row=2,
+                    col=2,
+                    swflags=0)
+            name = 'Sheet 1'
+            tab_controller.addTabWidget(tab, u'%s / %s' % (ctrl_name, name))
+            self._spreadsheet_tabs[name] = tab
+            VistrailManager._tabs[tab] = self
 
-    def _get_spreadsheet_tab(self):
-        if self._spreadsheet_tab is None:
-            sh_window = spreadsheetController.findSpreadsheetWindow(
-                    create=False)
-            if sh_window is not None:
-                tab_controller = sh_window.tabController
-                tab = StandardWidgetSheetTab(
-                        tab_controller,
-                        swflags=0)
-                title = self._controller.name
-                if not title:
-                    title = "Untitled{ext}".format(
-                            ext=vistrails_default_file_type())
-                tab_controller.addTabWidget(tab, title)
-                self._spreadsheet_tab = tab
-                VistrailManager._tabs[tab] = self
+        return self._spreadsheet_tabs
+    spreadsheet_tabs = property(_get_spreadsheet_tabs)
 
-                self._discover_cell_pipelines()
-        return self._spreadsheet_tab
-    spreadsheet_tab = property(_get_spreadsheet_tab)
-
-    def update_spreadsheet_tab(self):
+    def update_spreadsheet_tabs(self):
         """Updates the title of the spreadsheet tab.
 
         Called when a controller changes name.
         """
-        tab = self.spreadsheet_tab
-        if tab is not None:
-            title = self._controller.name
-            if not title:
-                title = "Untitled{ext}".format(
-                        ext=vistrails_default_file_type())
-            tabWidget = tab.tabWidget
-            tabWidget.setTabText(tabWidget.indexOf(tab), title)
+        tabs = self.spreadsheet_tabs
+        if tabs is not None:
+            for title, tab in tabs.iteritems():
+                tabWidget = tab.tabWidget
+                ctrl_name = self._controller.name
+                if not ctrl_name:
+                    ctrl_name = u"Untitled{ext}".format(
+                            ext=vistrails_default_file_type())
+                title = u'%s / %s' % (ctrl_name, title)
+                tabWidget.setTabText(tabWidget.indexOf(tab), title)
 
     def new_variable(self, varname, variable):
         """Register a new Variable with DAT.
@@ -687,18 +713,16 @@ class VistrailManager(object):
 
         Called when a controller is closed.
         """
-        title = controller.name
-        if not title:
-            title = "Untitled{ext}".format(
-                    ext=vistrails_default_file_type())
         try:
             vistraildata = self._vistrails[controller]
         except KeyError:
             return
         else:
-            # Remove the spreadsheet
-            spreadsheet_tab = vistraildata.spreadsheet_tab
-            spreadsheet_tab.tabWidget.deleteSheet(spreadsheet_tab)
+            # Remove the spreadsheets
+            tabs = vistraildata.spreadsheet_tabs
+            for tab in tabs.itervalues():
+                tab.tabWidget.deleteSheet(tab)
+                del self._tabs[tab]
 
             del self._vistrails[controller]
 
