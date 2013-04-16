@@ -1262,84 +1262,19 @@ class PipelineGenerator(object):
         """
         self._ensure_version()
 
-        wf = LayoutPipeline()
-        wf_iport_map = {}
-        wf_oport_map = {}
-
-        for module in self.all_modules:
-            wf_mod = wf.createModule(
-                    module.id, module.name,
-                    len(module.destinationPorts()),
-                    len(module.sourcePorts()))
-            wf_mod._actual_module = module
-            input_ports = module.destinationPorts()
-            output_ports = module.sourcePorts()
-
-            for i, p in enumerate(input_ports):
-                if module.id not in wf_iport_map:
-                    wf_iport_map[module.id] = {}
-                wf_iport_map[module.id][p.name] = wf_mod.input_ports[i]
-            for i, p in enumerate(output_ports):
-                if module.id not in wf_oport_map:
-                    wf_oport_map[module.id] = {}
-                wf_oport_map[module.id][p.name] = wf_mod.output_ports[i]
-
-        for conn in self.all_connections:
-            src = wf_oport_map[conn.sourceId][conn.source.name]
-            dst = wf_iport_map[conn.destinationId][conn.destination.name]
-            wf.createConnection(src.module, src.index, 
-                                dst.module, dst.index)
-
-        def get_module_size(m):
-            return 130, 50 # TODO-dat : Of course, this is wrong
-
-        layout = WorkflowLayout(
-                wf,
-                get_module_size,
-                CurrentTheme.MODULE_PORT_MARGIN,
-                (CurrentTheme.PORT_WIDTH,  CurrentTheme.PORT_HEIGHT),
-                CurrentTheme.MODULE_PORT_SPACE)
-        layout.compute_module_sizes()
-        layout.assign_modules_to_layers()
-        layout.assign_module_permutation_to_each_layer()
-        layer_x_separation = layer_y_separation = 50
-        layout.compute_layout(layer_x_separation, layer_y_separation)
-
-        center_out = [0.0, 0.0]
-        for wf_mod in wf.modules:
-            center_out[0] += wf_mod.layout_pos.x
-            center_out[1] += wf_mod.layout_pos.y
-        center_out[0] /= float(len(self.all_modules))
-        center_out[1] /= float(len(self.all_modules))
-
         pipeline = self.controller.current_pipeline
-        existing_modules = set(m.id for m in pipeline.module_list)
-        for wf_mod in wf.modules:
-            module = wf_mod._actual_module
-            x = wf_mod.layout_pos.x - center_out[0]
-            y = wf_mod.layout_pos.y - center_out[1]
-            y = -y # Yes, it's backwards in VisTrails
-            if module.id in existing_modules:
-                # This module already exists in the workflow, we have to emit a
-                # move operation
-                # See vistrails.core.vistrail.controller:
-                #         VistrailController#move_module_list()
-                loc_id = self.controller.vistrail.idScope.getNewId(
-                        Location.vtType)
-                location = Location(id=loc_id, x=x, y=y)
-                if module.location and module.location.id != -1:
-                    old_location = module.location
-                    self.operations.append(('change', old_location, location,
-                                            module.vtType, module.id))
-                else:
-                    self.operations.append(('add', location,
-                                            module.vtType, module.id))
-            else:
-                # This module's addition to the workflow is pending, as
-                # create_action() was not yet called
-                # We can just change its position
-                module.location.x = x
-                module.location.y = y
+
+        self.operations.extend(self.controller.layout_modules_ops(
+                old_modules=[m
+                             for m in self.all_modules
+                             if m.id in pipeline.modules],
+                new_modules=[m
+                             for m in self.all_modules
+                             if m.id not in pipeline.modules],
+                new_connections=[c
+                                 for c in self.all_connections
+                                 if c.id not in pipeline.connections],
+                preserve_order=True))
 
         action = create_action(self.operations)
         self.controller.add_new_action(action)
