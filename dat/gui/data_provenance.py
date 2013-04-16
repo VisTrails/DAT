@@ -17,9 +17,10 @@ Y_PADDING = 3
 class ProvenanceItem(QtGui.QGraphicsItem):
     text_font = QtGui.QFont()
 
-    def __init__(self, label):
+    def __init__(self, label, provenance):
         QtGui.QGraphicsItem.__init__(self)
         self._label = label
+        self.provenance = provenance
         self.links = set()
         metrics = QtGui.QFontMetrics(self.text_font)
         width = metrics.width(label) + X_PADDING * 2
@@ -61,11 +62,11 @@ class LoaderProvenanceItem(ProvenanceItem):
 class ConstantProvenanceItem(ProvenanceItem):
     background_color = QtGui.QColor(250, 250, 164)
 
-    def __init__(self, value):
+    def __init__(self, value, provenance):
         value = repr(value)
         if len(value) > 10:
             value = value[:7] + '...'
-        ProvenanceItem.__init__(self, value)
+        ProvenanceItem.__init__(self, value, provenance)
 
     def draw_shape(self, painter, rect):
         painter.drawEllipse(rect)
@@ -104,7 +105,7 @@ class ProvenanceSceneLayout(object):
         item = None
         links = set()
         if isinstance(provenance, data_provenance.Operation):
-            item = OperationProvenanceItem(provenance['name'])
+            item = OperationProvenanceItem(provenance['name'], provenance)
             for arg in provenance['args'].itervalues():
                 self.populate(arg, row+1)
                 links.add(arg)
@@ -122,20 +123,20 @@ class ProvenanceSceneLayout(object):
                 warnings.warn(
                         "A variable (version %r) referenced from provenance "
                         "is missing!" % provenance['version'])
-                item = VariableProvenanceItem(varname)
+                item = VariableProvenanceItem(varname, provenance)
             elif varname is not None and varname[:8] == 'dat-var-':
                 self.populate(prev, row+1)
                 varname = varname[8:]
-                item = VariableProvenanceItem(varname)
+                item = VariableProvenanceItem(varname, provenance)
                 links.add(prev)
             else:
                 # If that variable has been deleted, we just skip it, like an
                 # intermediate result
                 self.populate(prev, row)
         elif isinstance(provenance, data_provenance.Loader):
-            item = LoaderProvenanceItem(provenance['name'])
+            item = LoaderProvenanceItem(provenance['name'], provenance)
         elif isinstance(provenance, data_provenance.Constant):
-            item = ConstantProvenanceItem(provenance['constant'])
+            item = ConstantProvenanceItem(provenance['constant'], provenance)
         else:
             raise TypeError("populate() got %r" % (provenance,))
 
@@ -180,11 +181,32 @@ class ProvenanceSceneLayout(object):
                 line_item.setZValue(-1)
 
         if sink is not None:
-            item = VariableProvenanceItem(sink)
+            item = VariableProvenanceItem(sink.name, sink.provenance)
             item.setPos(0, Y_MARGIN)
             scene.addItem(item)
             line_item = scene.addLine(0, Y_MARGIN, 0, 0)
             line_item.setZValue(-1)
+
+
+class KeyValuePanel(QtGui.QTableWidget):
+    def __init__(self, pairs):
+        if isinstance(pairs, dict):
+            pairs = pairs.items()
+
+        QtGui.QTableWidget.__init__(self, len(pairs), 2)
+
+        _ = translate(KeyValuePanel)
+
+        self.setHorizontalHeaderLabels([_("Key"), _("Value")])
+
+        pairs = sorted(pairs, key=lambda (k, v): k)
+        for i, (key, value) in enumerate(pairs):
+            key = QtGui.QTableWidgetItem(key)
+            key.setFlags(QtCore.Qt.NoItemFlags)
+            self.setItem(i, 0, key)
+            value = QtGui.QTableWidgetItem(str(value))
+            value.setFlags(QtCore.Qt.NoItemFlags)
+            self.setItem(i, 1, value)
 
 
 class DataProvenancePanel(QtGui.QWidget):
@@ -199,6 +221,8 @@ class DataProvenancePanel(QtGui.QWidget):
         self._viewer.setWordWrap(True)
         self._viewer.setAlignment(QtCore.Qt.AlignCenter)
 
+        self._key_value_panel = None
+
         layout = QtGui.QVBoxLayout()
         layout.addWidget(self._viewer)
         self.setLayout(layout)
@@ -209,15 +233,30 @@ class DataProvenancePanel(QtGui.QWidget):
             self._viewer.deleteLater()
             self._viewer = self._scene = None
 
+            if self._key_value_panel is not None:
+                self._key_value_panel.deleteLater()
+                self._key_value_panel = None
+
         if variable is None:
             return
 
         self._scene = QtGui.QGraphicsScene()
         self._viewer = ZoomPanGraphicsView(self._scene)
+        self.connect(self._viewer, QtCore.SIGNAL('itemClicked(QGraphicsItem*)'),
+                     self._item_clicked)
 
         self.layout().addWidget(self._viewer)
 
         # Create the scene recursively, starting at the bottom
         layout = ProvenanceSceneLayout(variable._controller)
         layout.populate(variable.provenance)
-        layout.addToScene(self._scene, sink=variable.name)
+        layout.addToScene(self._scene, sink=variable)
+
+    def _item_clicked(self, item):
+        if self._key_value_panel is not None:
+            self._key_value_panel.deleteLater()
+            self._key_value_panel = None
+
+        if item is not None:
+            self._key_value_panel = KeyValuePanel(item.provenance.data_dict)
+            self.layout().addWidget(self._key_value_panel)

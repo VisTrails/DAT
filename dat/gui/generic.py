@@ -360,6 +360,8 @@ class ZoomPanGraphicsView(QtGui.QGraphicsView):
     _PANNING = 1
     _ZOOMING = 2
 
+    itemClicked = QtCore.pyqtSignal('QGraphicsItem*')
+
     def mousePressEvent(self, event):
         if event.button() == QtCore.Qt.LeftButton:
             self._dragging = ZoomPanGraphicsView._PANNING
@@ -370,23 +372,23 @@ class ZoomPanGraphicsView(QtGui.QGraphicsView):
         else:
             event.ignore()
             return
-        self._start_x = event.x()
-        self._start_y = event.y()
+        self._start_x = self._cur_x = event.x()
+        self._start_y = self._cur_y = event.y()
         event.accept()
 
     def mouseMoveEvent(self, event):
         if self._dragging == ZoomPanGraphicsView._PANNING:
             hs = self.horizontalScrollBar()
-            hs.setValue(hs.value() - (event.x() - self._start_x))
+            hs.setValue(hs.value() - (event.x() - self._cur_x))
             vs = self.verticalScrollBar()
-            vs.setValue(vs.value() - (event.y() - self._start_y))
-            self._start_x = event.x()
-            self._start_y = event.y()
+            vs.setValue(vs.value() - (event.y() - self._cur_y))
+            self._cur_x = event.x()
+            self._cur_y = event.y()
             event.accept()
         elif self._dragging == ZoomPanGraphicsView._ZOOMING:
-            factor = pow(1.01, self._start_y - event.y())
+            factor = pow(1.01, self._cur_y - event.y())
             self.scale(factor, factor)
-            self._start_y = event.y()
+            self._cur_y = event.y()
             event.accept()
         else:
             event.ignore()
@@ -397,4 +399,9 @@ class ZoomPanGraphicsView(QtGui.QGraphicsView):
             self.setCursor(QtCore.Qt.ArrowCursor)
             event.accept()
         else:
-            event.ignore
+            event.ignore()
+        mlen = abs(event.x() - self._start_x) + abs(event.y() - self._start_y)
+        if event.button() == QtCore.Qt.LeftButton and mlen < 5:
+            # Click
+            self.itemClicked.emit(self.itemAt(event.pos()))
+            event.accept()
