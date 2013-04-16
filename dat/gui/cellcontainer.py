@@ -409,7 +409,7 @@ class DATCellContainer(QCellContainer):
                 RecipeParameterValue(constant=value)]
         self.update_pipeline()
 
-    def update_pipeline(self):
+    def update_pipeline(self, force_reexec=False):
         """Updates the recipe and execute the workflow if enough ports are set.
         """
         # Look this recipe up in the VistrailData
@@ -459,7 +459,7 @@ class DATCellContainer(QCellContainer):
                 vistraildata.created_pipeline(self.cellInfo, pipeline)
 
             # Nothing changed
-            else:
+            elif not force_reexec:
                 return True
 
             # Execute the new pipeline if possible
