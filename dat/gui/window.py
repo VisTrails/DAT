@@ -1,6 +1,7 @@
 from PyQt4 import QtCore, QtGui
 
 import dat.gui
+from dat.gui.data_provenance import DataProvenancePanel
 from dat.gui.operations import OperationPanel
 from dat.gui.plots import PlotPanel
 from dat.gui.variables import VariablePanel
@@ -62,6 +63,12 @@ class MainWindow(QtGui.QMainWindow):
         self._variables = VariablePanel(VistrailManager())
         self._plots = PlotPanel()
         self._operations = OperationPanel()
+        self._data_provenance = DataProvenancePanel()
+
+        self.connect(
+                self._variables,
+                QtCore.SIGNAL('variableSelected(PyQt_PyObject)'),
+                self._data_provenance.showVariable)
 
         def dock_panel(title, widget, pos):
             dock = QtGui.QDockWidget(title)
@@ -75,8 +82,12 @@ class MainWindow(QtGui.QMainWindow):
                    QtCore.Qt.LeftDockWidgetArea)
         self._variables_dock = dock_panel(_("Variables"), self._variables,
                                           QtCore.Qt.LeftDockWidgetArea)
-        dock_panel(_("Calculator"), self._operations,
+        ops_dock = dock_panel(_("Calculator"), self._operations,
                    QtCore.Qt.RightDockWidgetArea)
+        prov_dock = dock_panel(_("Data Provenance"), self._data_provenance,
+                               QtCore.Qt.RightDockWidgetArea)
+        self.tabifyDockWidget(ops_dock, prov_dock)
+        ops_dock.raise_()
 
         get_vistrails_application().register_notification(
                 'dat_controller_changed',
@@ -86,6 +97,11 @@ class MainWindow(QtGui.QMainWindow):
         self._variables.unregister_notifications()
         self._variables = VariablePanel(VistrailManager(controller))
         self._variables_dock.setWidget(self._variables)
+
+        self.connect(
+                self._variables,
+                QtCore.SIGNAL('variableSelected(PyQt_PyObject)'),
+                self._data_provenance.showVariable)
 
     def newFile(self):
         get_vistrails_application().builderWindow.new_vistrail()

@@ -16,12 +16,18 @@ def choose_operation(typecasts, source_descriptor, expected_descriptor,
     dialog.setWindowTitle(_("Type casting"))
     layout = QtGui.QVBoxLayout()
 
-    layout.addWidget(QtGui.QLabel(_(
+    label = QtGui.QLabel(_(
             "A {actual} variable was put in a {expected} port. These are not "
             "compatible, but the following operations can do the "
             "conversion:").format(
-                    actual=source_descriptor.module,
-                    expected=expected_descriptor.module)))
+                    actual="%s (%s)" % (
+                            source_descriptor.module.__name__,
+                            source_descriptor.identifier),
+                    expected="%s (%s)" % (
+                            expected_descriptor.module.__name__,
+                            expected_descriptor.identifier)))
+    label.setWordWrap(True)
+    layout.addWidget(label)
     list_widget = CategorizedListWidget()
     list_widget.setSelectionMode(QtGui.QAbstractItemView.SingleSelection)
     pm = get_package_manager()

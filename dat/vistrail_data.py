@@ -4,11 +4,13 @@ import warnings
 import weakref
 
 from dat import RecipeParameterValue, DATRecipe, PipelineInformation
+from dat import data_provenance
 from dat.global_data import GlobalManager
-from dat.vistrails_interface import Variable
+from dat.vistrails_interface import Variable, get_pipeline_location
 
 from vistrails.core.application import get_vistrails_application
 from vistrails.core.system import vistrails_default_file_type
+from vistrails.packages.spreadsheet.spreadsheet_cell import CellInformation
 from vistrails.packages.spreadsheet.spreadsheet_controller import \
     spreadsheetController
 from vistrails.packages.spreadsheet.spreadsheet_tab import \
@@ -40,10 +42,10 @@ class VistrailData(object):
     #           value="<portmap>" />
     #
     # Where <recipe> has the format (with added whitespace for clarity):
-    #   PlotName;
+    #   plot_package,PlotName;
     #       param1=v=
     #           varname1:CONN1,CONN2|
-    #           varname2:CONN3;
+    #           varname2,cast_op:CONN3;
     #       param2=c=value2
     #
     # And <portmap>:
@@ -62,16 +64,18 @@ class VistrailData(object):
     #   * CONN<M> with the id of a connection tying the plot input port to one
     #     of the parameters set to this port
     #   * value<N> is the string representation of a constant
+    #   * cast_op is the name of the variable operation used for typecasting
     #
     # Parameters which are not set are simply omitted from the list
     _RECIPE_KEY = 'dat-recipe'
     _PORTMAP_KEY = 'dat-ports'
+    _DATA_PROVENANCE_KEY = 'dat-data-provenance'
 
     @staticmethod
     def _build_recipe_annotation(recipe, conn_map):
         """Builds the recipe annotation value from the recipe and conn_map.
         """
-        value = recipe.plot.name
+        value = '%s,%s' % (recipe.plot.package_identifier, recipe.plot.name)
         for param, param_values in sorted(recipe.parameters.iteritems(),
                                           key=lambda (k, v): k):
             if not param_values:
@@ -92,6 +96,8 @@ class VistrailData(object):
                     value += urllib2.quote(param_val.constant, safe='')
                 else: # param_val.type == RecipeParameterValue.VARIABLE
                     value += param_val.variable.name
+                    if param_val.typecast is not None:
+                        value += ',%s' % param_val.typecast
                 value += ':' + ','.join(
                         '%d' % conn_id
                         for conn_id in conn_list)
@@ -106,7 +112,11 @@ class VistrailData(object):
 
         value = iter(value.split(';'))
         try:
-            plot = GlobalManager.get_plot(next(value)) # Might raise KeyError
+            plot = next(value)
+            plot = plot.split(',')
+            if len(plot) != 2:
+                raise ValueError
+            plot = GlobalManager.get_plot(*plot) # Might raise KeyError
             parameters = dict()
             conn_map = dict()
             for param in value:
@@ -119,12 +129,23 @@ class VistrailData(object):
                     raise ValueError
                 for val in pvals:
                     val = val.split(':')
+                    if len(val) != 2:
+                        raise ValueError
                     if t == 'c':
                         plist.append(RecipeParameterValue(
                                 constant=urllib2.unquote(val[0])))
                     else: # t == 'v':
-                        plist.append(RecipeParameterValue(
-                                variable=vistraildata.get_variable(val[0])))
+                        v = val[0].split(',')
+                        if len(v) not in (1, 2):
+                            raise ValueError
+                        variable = vistraildata.get_variable(v[0])
+                        if len(v) == 2:
+                            plist.append(RecipeParameterValue(
+                                    variable=variable,
+                                    typecast=v[1]))
+                        else:
+                            plist.append(RecipeParameterValue(
+                                    variable=variable))
                     cplist.append(read_connlist(val[1]))
                 parameters[param] = tuple(plist)
                 conn_map[param] = tuple(cplist)
@@ -182,10 +203,13 @@ class VistrailData(object):
         self._spreadsheet_tab = None
 
         self._variables = dict()
+        self._data_provenance = dict() # version: int -> provenance
 
         self._cell_to_version = dict() # CellInformation -> int
         self._version_to_pipeline = dict() # int -> PipelineInformation
         self._cell_to_pipeline = dict() # CellInformation-> PipelineInformation
+
+        self._failed_infer_calls = set() # [version: int]
 
         app = get_vistrails_application()
 
@@ -194,27 +218,41 @@ class VistrailData(object):
         # dat_removed_variable(varname: str)
         app.create_notification('dat_removed_variable')
 
+        annotations = self._controller.vistrail.action_annotations
+
         # Load variables from tagged versions
         if self._controller.vistrail.has_tag_str('dat-vars'):
+            # Load all data provenance annotations
+            # Loading from known variables is not enough, we also need deleted
+            # variables to form the complete graph
+            for an in annotations:
+                if an.key == self._DATA_PROVENANCE_KEY:
+                    version = an.action_id
+                    provenance = data_provenance.read_from_annotation(an.value)
+                    self._data_provenance[version] = provenance
+
             tagmap = self._controller.vistrail.get_tagMap()
             for version, tag in tagmap.iteritems():
                 if tag.startswith('dat-var-'):
                     varname = tag[8:]
+
                     # Get the type from the OutputPort module's spec input port
                     type = Variable.read_type(
                             self._controller.vistrail.getPipeline(version))
                     if type is None:
                         warnings.warn("Found invalid DAT variable pipeline "
                                       "%r, ignored" % tag)
-                    else:
-                        variable = Variable.VariableInformation(
-                                varname, self._controller, type)
+                        continue
+                    # Get the data provenance
+                    provenance = self._data_provenance.get(version)
 
-                        self._variables[varname] = variable
-                        self._add_variable(varname)
+                    variable = Variable.VariableInformation(
+                            varname, self._controller, type, provenance)
+
+                    self._variables[varname] = variable
+                    self._add_variable(varname)
 
         # Load mappings from annotations
-        annotations = self._controller.vistrail.action_annotations
         # First, read the recipes
         for an in annotations:
             if an.key == self._RECIPE_KEY:
@@ -242,6 +280,31 @@ class VistrailData(object):
                     if port_map is not None:
                         pipeline.port_map = port_map
 
+    def _discover_cell_pipelines(self):
+        # Get the cell location from the pipeline to fill in _cell_to_version
+        # and _cell_to_pipeline
+        cells = dict()
+        for pipeline in self._version_to_pipeline.itervalues():
+            try:
+                row, col = get_pipeline_location(
+                        self._controller,
+                        pipeline)
+            except ValueError:
+                continue
+            try:
+                p = cells[(row, col)]
+            except KeyError:
+                cells[(row, col)] = pipeline
+            else:
+                if pipeline.version > p.version:
+                    # Select the latest version for a given cell
+                    cells[(row, col)] = pipeline
+        spreadsheet_tab = self.spreadsheet_tab
+        for (row, col), pipeline in cells.iteritems():
+            cellInfo = CellInformation(spreadsheet_tab, row, col)
+            self._cell_to_pipeline[cellInfo] = pipeline
+            self._cell_to_version[cellInfo] = pipeline.version
+
     def _get_controller(self):
         return self._controller
     controller = property(_get_controller)
@@ -262,6 +325,8 @@ class VistrailData(object):
                 tab_controller.addTabWidget(tab, title)
                 self._spreadsheet_tab = tab
                 VistrailManager._tabs[tab] = self
+
+                self._discover_cell_pipelines()
         return self._spreadsheet_tab
     spreadsheet_tab = property(_get_spreadsheet_tab)
 
@@ -288,7 +353,15 @@ class VistrailData(object):
             raise ValueError("A variable named %s already exists!")
 
         # Materialize the Variable in the Vistrail
-        variable = variable.perform_operations(varname)
+        variable = variable.materialize(varname)
+
+        # Record the data provenance in an annotation
+        version = self.controller.vistrail.get_version_number(
+                'dat-var-%s' % varname)
+        self.controller.vistrail.set_action_annotation(
+                version,
+                self._DATA_PROVENANCE_KEY,
+                data_provenance.save_to_annotation(variable.provenance))
 
         self._variables[varname] = variable
 
@@ -343,7 +416,7 @@ class VistrailData(object):
 
                 # Remove the annotations from the vistrail
                 for key in (
-                        self._RECIPE_KEY, self._PORTMAP_KEY, self._VARMAP_KEY):
+                        self._RECIPE_KEY, self._PORTMAP_KEY):
                     self._controller.vistrail.set_action_annotation(
                             version,
                             key,
@@ -385,11 +458,22 @@ class VistrailData(object):
         self._add_variable(new_varname, renamed_from=old_varname)
 
     def get_variable(self, varname):
+        if not isinstance(varname, str):
+            raise ValueError
         return self._variables.get(varname)
 
     def _get_variables(self):
         return self._variables.iterkeys()
     variables = property(_get_variables)
+
+    def variable_provenance(self, version):
+        """Gets the provenance for a variable pipeline.
+
+        This is similar to get_variable(...).provenance except that it also
+        works for variables that have been deleted (VisTrails keeps every
+        version, along with their annotations excepts for tags).
+        """
+        return self._data_provenance.get(version)
 
     def created_pipeline(self, cellInfo, pipeline):
         """Registers a new pipeline as being the result of a DAT recipe.
@@ -432,19 +516,88 @@ class VistrailData(object):
                 self._PORTMAP_KEY,
                 self._build_portmap_annotation(pipeline.port_map))
 
-    def get_pipeline(self, param):
+    def _infer_pipelineinfo(self, version, cellInfo):
+        """Try to make up a pipelineInfo for a version and store it.
+
+        Returns the new pipelineInfo, or None if we failed.
+        """
+        # This ensures that we don't try to infer a DAT recipe from the same
+        # pipeline over and over again
+        if version in self._failed_infer_calls:
+            return None
+        def fail():
+            self._failed_infer_calls.add(version)
+            return None
+
+        # Recursively obtains the parent version's pipelineInfo
+        try:
+            parentId = self._controller.vistrail.actionMap[version].prevId
+        except KeyError:
+            return fail()
+        parentInfo = self.get_pipeline(parentId, infer_for_cell=cellInfo)
+        if parentInfo is None:
+            return fail()
+
+        # Here we loop on modules/connections to check that the required things
+        # from the old pipeline are still here
+
+        pipeline = self._controller.vistrail.getPipeline(version)
+
+        new_parameters = dict()
+        new_conn_map = dict()
+
+        # Check that the plot is still there by finding the plot ports
+        for name, port_list in parentInfo.port_map.iteritems():
+            for mod_id, portname in port_list:
+                if not pipeline.modules.has_key(mod_id):
+                    return fail()
+
+        # Loop on parameters to check they are still there
+        for name, parameter_list in parentInfo.recipe.parameters.iteritems():
+            conn_list = parentInfo.conn_map[name]
+            new_parameter_list = []
+            new_conn_list = []
+            for parameter, conns in itertools.izip(parameter_list, conn_list):
+                if all(
+                        pipeline.connections.has_key(conn_id)
+                        for conn_id in conns):
+                    new_parameter_list.append(parameter)
+                    new_conn_list.append(conns)
+            new_parameters[name] = new_parameter_list
+            new_conn_map[name] = new_conn_list
+
+        new_recipe = DATRecipe(parentInfo.recipe.plot, new_parameters)
+        pipelineInfo = PipelineInformation(version, new_recipe,
+                                           new_conn_map, parentInfo.port_map)
+        self.created_pipeline(cellInfo, pipelineInfo)
+        return pipelineInfo
+
+    def get_pipeline(self, param, infer_for_cell=None):
         """Get the pipeline information for a given cell or version.
 
         Returns None if nothing is found.
+
+        If infer_for_cell is set and the pipeline has no known recipe, but a
+        parent version had one, we'll try to make up something sensible and
+        store it. infer_for_cell should be the CellInformation of the cell
+        where this pipeline was found.
         """
         if isinstance(param, (int, long)):
-            return self._version_to_pipeline.get(param, None)
+            pipelineInfo = self._version_to_pipeline.get(param, None)
+            if pipelineInfo is not None or infer_for_cell is None:
+                return pipelineInfo
+
+            return self._infer_pipelineinfo(param, infer_for_cell)
         else:
             return self._cell_to_pipeline.get(param, None)
 
     def _get_all_pipelines(self):
         return self._version_to_pipeline.itervalues()
     all_pipelines = property(_get_all_pipelines)
+
+    def _get_all_cells(self):
+        return self._cell_to_pipeline.iteritems()
+    all_cells = property(_get_all_cells)
 
 
 class VistrailManager(object):

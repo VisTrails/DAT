@@ -13,7 +13,8 @@ import warnings
 
 from PyQt4 import QtCore, QtGui
 
-from dat import BaseVariableLoader, PipelineInformation, RecipeParameterValue
+from dat import BaseVariableLoader, DATRecipe, PipelineInformation, \
+    RecipeParameterValue, DEFAULT_VARIABLE_NAME
 from dat.gui import translate
 
 from vistrails.core import get_vistrails_application
@@ -158,12 +159,13 @@ class Variable(object):
         Because most of the logic/attribute in Variable become unnecessary once
         the Variable has been materialized in the pipeline, this is the actual
         class of the object we store. It is created by
-        Variable#perform_operations().
+        Variable#materialize().
         """
-        def __init__(self, name, controller, type):
+        def __init__(self, name, controller, type, provenance=None):
             self.name = name
             self._controller = controller
             self.type = type
+            self.provenance = provenance
 
         def remove(self):
             """Delete the pipeline from the Vistrail.
@@ -232,7 +234,8 @@ class Variable(object):
         outmod_id = outmod_id[0]
         return controller, root_version, outmod_id
 
-    def __init__(self, type, controller=None, generator=None, output=None):
+    def __init__(self, type, controller=None, generator=None, output=None,
+            provenance=None, materialized=None):
         """Create a new variable.
 
         type should be resolvable to a VisTrails module type.
@@ -242,10 +245,11 @@ class Variable(object):
                 Variable._get_variables_root(controller))
 
         self._output_module = None
+        self.provenance = provenance
 
-        if generator is None:
+        if generator is None and materialized is None:
             self._generator = PipelineGenerator(controller)
-    
+
             # Get the VisTrails package that's creating this Variable by inspecting
             # the stack
             caller = inspect.currentframe().f_back
@@ -259,11 +263,15 @@ class Variable(object):
                 self._vt_package_id = pkg.identifier
             except (ImportError, AttributeError):
                 self._vt_package_id = None
-        else:
+        elif generator is not None:
             self._generator = generator
             self._vt_package_id = None
             if output is not None:
                 self._output_module, self._outputport_name = output
+        else:
+            raise ValueError
+
+        self._materialized = materialized
 
         self.type = resolve_descriptor(type, self._vt_package_id)
 
@@ -310,7 +318,7 @@ class Variable(object):
         self._output_module = module._module
         self._outputport_name = outputport_name
 
-    def perform_operations(self, name):
+    def materialize(self, name):
         """Materialize this Variable in the Vistrail.
 
         Create a pipeline tagged as 'dat-var-<varname>' for this Variable,
@@ -318,6 +326,11 @@ class Variable(object):
 
         This is called by the VistrailData when the Variable is inserted.
         """
+        if self._materialized is not None:
+            raise ValueError("materialize() called on already materlialized "
+                             "variable %s (new name: %s)" % (
+                             self._materialized.name, name))
+
         if self._output_module is None:
             raise ValueError("Invalid Variable: select_output_port() was "
                              "never called")
@@ -337,7 +350,13 @@ class Variable(object):
                                     'dat-var-%s' % name)
         controller.change_selected_version(self._var_version)
 
-        return Variable.VariableInformation(name, controller, self.type)
+        variable_info = Variable.VariableInformation(
+                name,
+                controller,
+                self.type,
+                self.provenance)
+        self._materialized = variable_info
+        return variable_info
 
     @staticmethod
     def read_type(pipeline):
@@ -358,17 +377,22 @@ class Variable(object):
         return None
 
     @staticmethod
-    def from_pipeline(controller, varname, type=None):
+    def from_workflow(variable_info):
+        """Reads back a Variable from a pipeline, given a VariableInformation.
+        """
+        controller = variable_info._controller
+        varname = variable_info.name
         pipeline = controller.vistrail.getPipeline('dat-var-%s' % varname)
-        if type is None:
-            type = Variable.read_type(pipeline)
+
         generator = PipelineGenerator(controller)
         output = add_variable_subworkflow(generator, pipeline)
         return Variable(
-                type=type,
+                type=variable_info.type,
                 controller=controller,
                 generator=generator,
-                output=output)
+                materialized=variable_info,
+                output=output,
+                provenance=variable_info.provenance)
 
 
 class ArgumentWrapper(object):
@@ -477,6 +501,105 @@ def apply_operation_subworkflow(controller, op, subworkflow, args):
         output=output)
 
 
+class SimpleVariableLoaderMixin(object):
+    def __init__(self, filename=None):
+        super(SimpleVariableLoaderMixin, self).__init__()
+
+        if isinstance(self, CustomVariableLoader) and filename is not None:
+            raise TypeError
+        elif isinstance(self, FileVariableLoader):
+            if filename is None:
+                raise TypeError
+            self.__filename = filename
+
+        self.__parameters = dict()
+        if not self._simple_parameters:
+            _ = translate(SimpleVariableLoaderMixin)
+            layout = QtGui.QVBoxLayout()
+            layout.addWidget(QtGui.QLabel(_("This loader has no parameters.")))
+            self.setLayout(layout)
+            return
+
+        layout = QtGui.QFormLayout()
+        for name, opts in self._simple_parameters:
+            # Unpack options
+            if not isinstance(opts, (tuple, list)):
+                ptype, pdef, pdesc = opts, None, None
+            else:
+                ptype, pdef, pdesc = opts + (None,) * (3 - len(opts))
+
+            # Widgets
+            if issubclass(ptype, basestring):
+                widget = QtGui.QLineEdit()
+                if pdef is not None:
+                    widget.setText(pdef)
+                    resetter = lambda: widget.setText(pdef)
+                else:
+                    resetter = lambda: widget.setText('')
+                getter = lambda: widget.text()
+            elif ptype is int:
+                widget = QtGui.QSpinBox()
+                if pdef is None:
+                    resetter = lambda: widget.setValue(0)
+                elif isinstance(pdef, (tuple, list)):
+                    if len(pdef) != 3:
+                        raise ValueError
+                    widget.setRange(pdef[1], pdef[2])
+                    widget.setValue(pdef[0])
+                    resetter = lambda: widget.setValue(pdef[0])
+                else:
+                    widget.setValue(pdef)
+                    resetter = lambda: widget.setValue(pdef)
+                getter = lambda: widget.value()
+            elif ptype is bool:
+                widget = QtGui.QCheckBox()
+                if pdef:
+                    widget.setChecked(True)
+                    resetter = lambda: widget.setChecked(True)
+                else:
+                    resetter = lambda: widget.setChecked(False)
+                getter = lambda: widget.isChecked()
+            else:
+                raise ValueError("No simple widget type for parameter "
+                                 "type %r" % (ptype,))
+
+            # Store widget in layout and (widget,  getter) in a dict
+            if pdesc is not None:
+                layout.addRow(pdesc, widget)
+            else:
+                layout.addRow(name, widget)
+            self.__parameters[name] = (getter, resetter)
+
+        self.setLayout(layout)
+
+    def reset(self):
+        for name, (getter, resetter) in self.__parameters.iteritems():
+            resetter()
+
+    @classmethod
+    def can_load(cls, filename):
+        if cls._simple_extension is not None:
+            return filename.lower().endswith(cls._simple_extension)
+        else:
+            return True
+
+    def load(self):
+        if isinstance(self, CustomVariableLoader):
+            return self._simple_load()
+        else: # isinstance(self, FileVariableLoader):
+            return self._simple_load(self.__filename)
+
+    def get_default_variable_name(self):
+        if (isinstance(self, FileVariableLoader) and
+                self._simple_get_varname is not None):
+            return self._simple_get_varname(self.__filename)
+        return self._simple_default_varname
+
+    def get_parameter(self, name):
+        getter, resetter = self.__parameters[name]
+        return getter()
+
+
 class CustomVariableLoader(QtGui.QWidget, BaseVariableLoader):
     """Custom variable loading tab.
 
@@ -504,6 +627,38 @@ class CustomVariableLoader(QtGui.QWidget, BaseVariableLoader):
         a Variable object.
         """
         raise NotImplementedError
+
+    @staticmethod
+    def simple(parameters=dict(), default_varname=DEFAULT_VARIABLE_NAME,
+            load=None):
+        """Make a variable loader very simply.
+
+        This function can be used to create a CustomVariableLoader very simply,
+        without having to create a full class or to create a Qt widget.
+        Instead, 'parameters' are defined; the correct widget type will be
+        automatically created and their values will be accessible with
+        get_parameter() from the load callback.
+
+        parameters is a list of tuples with the form:
+            'param name', (type, default, description)
+        It should be thought of as a dict, but ordered, thus list of key-value
+        pairs.
+        Example:
+            [
+            ('url', str),
+            ('user', (str, 'admin')),
+            ('password', (str, '', "Password: (birthdate by default)"));
+            ]
+        load is the callback used to build the variable, it will be given the
+        filename as only argument.
+        """
+        return type(
+                'CustomVariableLoader.simple_',
+                (SimpleVariableLoaderMixin, CustomVariableLoader),
+                dict(
+                        _simple_parameters=parameters,
+                        _simple_default_varname=default_varname,
+                        _simple_load=load))
 
 
 class FileVariableLoader(QtGui.QWidget, BaseVariableLoader):
@@ -542,6 +697,44 @@ class FileVariableLoader(QtGui.QWidget, BaseVariableLoader):
         parameters.
         """
         raise NotImplementedError
+
+    @staticmethod
+    def simple(parameters=dict(), default_varname=DEFAULT_VARIABLE_NAME,
+            extension=None, load=None, get_varname=None):
+        """Make a variable loader very simply.
+
+        This function can be used to create a CustomVariableLoader very simply,
+        without having to create a full class or to create a Qt widget.
+        Instead, 'parameters' are defined; the correct widget type will be
+        automatically created and their values will be accessible with
+        get_parameter() from the load callback.
+
+        parameters is a list of tuples with the form:
+            'param name', (type, default, description)
+        It should be thought of as a dict, but ordered, thus list of key-value
+        pairs.
+        Example:
+            [
+            ('url', str),
+            ('user', (str, 'admin')),
+            ('password', (str, '', "Password: (birthdate by default)"));
+            ]
+        extension is the file extension of the files that will be accepted; if
+        None, every file is accepted.
+        load is the callback used to build the variable, it will be given the
+        filename as only argument.
+        get_varname is an optional callback used to get the new variable's
+        default name, it will be given the filename as only argument.
+        """
+        return type(
+                'CustomVariableLoader.simple_',
+                (SimpleVariableLoaderMixin, FileVariableLoader),
+                dict(
+                        _simple_parameters=parameters,
+                        _simple_default_varname=default_varname,
+                        _simple_extension=extension,
+                        _simple_load=load,
+                        _simple_get_varname=staticmethod(get_varname)))
 
 
 class Port(object):
@@ -671,15 +864,17 @@ class Plot(object):
                     optional = False
                 type = resolve_descriptor(spec, package_identifier)
                 if issubclass(type.module, Constant):
-                    self.ports.append(InputPort(
+                    currentport = ConstantPort(
                             name=name,
                             type=type,
-                            optional=optional))
+                            optional=optional)
                 else:
-                    self.ports.append(DataPort(
+                    currentport = DataPort(
                             name=name,
                             type=type,
-                            optional=optional))
+                            optional=optional)
+
+                self.ports.append(currentport)
             else:
                 currentspec = (currentport.type.identifier +
                                ':' +
@@ -690,6 +885,31 @@ class Plot(object):
                     warnings.warn("Declaration of port '%s' from plot '%s' "
                                   "differs from subworkflow contents" % (
                                   name, self.name))
+                spec = currentspec
+                type = resolve_descriptor(currentspec, package_identifier)
+
+            # Get info from the PortSpec
+            currentport.default_value = None
+            currentport.enumeration = None
+            try:
+                (default_type, default_value,
+                 entry_type, enum_values) = read_port_specs(
+                        pipeline,
+                        port)
+                if default_value is not None:
+                    if not issubclass(default_type, type.module):
+                        raise ValueError("incompatible type %r" % ((
+                                         default_type,
+                                         type.module),))
+                    elif default_type is type.module:
+                        currentport.default_value = default_value
+                currentport.entry_type = entry_type
+                currentport.enum_values = enum_values
+            except ValueError, e:
+                raise ValueError("Error reading specs for port '%s' "
+                                 "from plot '%s': %s" % (
+                                 name, self.name, e.args[0]))
+
             seenports.add(name)
 
         # If the package declared ports that we didn't see
@@ -775,6 +995,56 @@ def get_function(module, function_name):
             if len(function.params) > 0:
                 return function.params[0].strValue
     return None
+
+
+def read_port_specs(pipeline, port):
+    default_type = None
+    default_value = None
+
+    # First: try from the InputPort's 'Default' port
+    # Connections to the 'Default' port
+    connections = [c
+                   for c in pipeline.connection_list
+                   if c.destination.moduleId == port.id and
+                           c.destination.name == 'Default']
+    if len(connections) > 1:
+        raise ValueError("multiple default values set")
+    elif len(connections) == 1:
+        module = pipeline.modules[connections[0].source.moduleId]
+        module_type = module.module_descriptor.module
+        if not issubclass(module_type, Constant):
+            raise ValueError("not a Constant")
+        default_type, default_value = (
+                module_type, get_function(module, 'value'))
+
+    # Connections from the 'InternalPipe' port
+    connections = [c
+                   for c in pipeline.connection_list
+                   if c.source.moduleId == port.id and
+                           c.source.name == 'InternalPipe']
+    if len(connections) != 1:
+        # Can't guess anything here
+        return default_type, default_value, None, None
+    module = pipeline.modules[connections[0].destination.moduleId]
+    d_port_name = connections[0].destination.name
+    for d_port in module.destinationPorts():
+        if d_port.name != d_port_name:
+            continue
+        descriptors = d_port.descriptors()
+        if len(descriptors) != 1:
+            break
+        if ((default_type, default_value == None, None) and
+                d_port.defaults and d_port.defaults[0]):
+            default_type = descriptors[0].module
+            default_value = d_port.defaults[0]
+        psi = d_port.port_spec_items[0]
+        if psi.entry_type is not None and psi.entry_type.startswith('enum'):
+            entry_type, enum_values = psi.entry_type, psi.values
+        else:
+            entry_type, enum_values = None, None
+        return default_type, default_value, entry_type, enum_values
+
+    return default_type, default_type, None, None
 
 
 def walk_modules(pipeline, modules,
@@ -919,9 +1189,14 @@ class PipelineGenerator(object):
     """
     def __init__(self, controller):
         self.controller = controller
+        self._version = controller.current_version
         self.operations = []
         self.all_modules = set(controller.current_pipeline.module_list)
         self.all_connections = set(controller.current_pipeline.connection_list)
+
+    def _ensure_version(self):
+        if self.controller.current_version != self._version:
+            self.controller.change_selected_version(self._version)
 
     def append_operations(self, operations):
         for op in operations:
@@ -947,6 +1222,7 @@ class PipelineGenerator(object):
         self.all_modules.add(module)
 
     def connect_modules(self, src_mod, src_port, dest_mod, dest_port):
+        self._ensure_version()
         new_conn = self.controller.create_connection(
                 src_mod, src_port,
                 dest_mod, dest_port)
@@ -955,6 +1231,7 @@ class PipelineGenerator(object):
         return new_conn.id
 
     def update_function(self, module, portname, values):
+        self._ensure_version()
         self.operations.extend(self.controller.update_function_ops(
                 module, portname, values))
 
@@ -964,6 +1241,7 @@ class PipelineGenerator(object):
         This calls delete_linked with the controller and list of operations,
         and updates the internal list of all modules to be layout.
         """
+        self._ensure_version()
         deleted_ids = delete_linked(
                 self.controller, modules, self.operations, **kwargs)
         self.all_modules = set(
@@ -982,6 +1260,8 @@ class PipelineGenerator(object):
     def perform_action(self):
         """Layout all the modules and create the action.
         """
+        self._ensure_version()
+
         wf = LayoutPipeline()
         wf_iport_map = {}
         wf_oport_map = {}
@@ -1138,17 +1418,18 @@ def add_variable_subworkflow(generator, variable, plot_ports=None):
 def add_variable_subworkflow_typecast(generator, variable, plot_ports,
                                        expected_type, typecast):
     if issubclass(variable.type.module, expected_type.module):
-        return add_variable_subworkflow(
-                generator,
-                variable.name,
-                plot_ports)
+        return (
+                add_variable_subworkflow(
+                        generator,
+                        variable.name,
+                        plot_ports),
+                RecipeParameterValue(variable=variable))
     else:
         # Load the variable from the workflow
-        var_pipeline = Variable.from_pipeline(
-                generator.controller, variable.name)
+        var_pipeline = Variable.from_workflow(variable)
 
         # Apply the operation
-        var_pipeline = typecast(
+        var_pipeline, typecast_operation = typecast(
                 generator.controller, var_pipeline,
                 variable.type, expected_type)
 
@@ -1161,7 +1442,9 @@ def add_variable_subworkflow_typecast(generator, variable, plot_ports,
                         var_pipeline._outputport_name,
                         var_output_mod,
                         var_output_port))
-            return connection_ids
+            return connection_ids, RecipeParameterValue(
+                    variable=variable,
+                    typecast=typecast_operation.name)
         else:
             return (var_pipeline._output_module, var_pipeline._outputport_name)
 
@@ -1201,11 +1484,21 @@ def create_pipeline(controller, recipe, cell_info, typecast=None):
     version = vistrail.get_latest_version()
     plot_pipeline = vistrail.getPipeline(version)
 
-    # Copy every module but the InputPorts
+    connected_to_inputport = set(
+            c.source.moduleId
+            for c in plot_pipeline.connection_list
+            if plot_pipeline.modules[
+                    c.destination.moduleId
+                ].module_descriptor is inputport_desc)
+
+    # Copy every module but the InputPorts and up
     plot_modules_map = dict() # old module id -> new module
     for module in plot_pipeline.modules.itervalues():
-        if module.module_descriptor is not inputport_desc:
+        if (module.module_descriptor is not inputport_desc and
+                module.id not in connected_to_inputport):
             plot_modules_map[module.id] = generator.copy_module(module)
+
+    del connected_to_inputport
 
     def _get_or_create_module(moduleType):
         """Returns or creates a new module of the given type.
@@ -1261,7 +1554,10 @@ def create_pipeline(controller, recipe, cell_info, typecast=None):
     plot_params = dict() # param name -> [(module, input port name)]
     for connection in plot_pipeline.connection_list:
         src = plot_pipeline.modules[connection.source.moduleId]
-        if src.module_descriptor is inputport_desc:
+        dest = plot_pipeline.modules[connection.destination.moduleId]
+        if dest.module_descriptor is inputport_desc:
+            continue
+        elif src.module_descriptor is inputport_desc:
             param = get_function(src, 'name')
             ports = plot_params.setdefault(param, [])
             ports.append((
@@ -1274,24 +1570,36 @@ def create_pipeline(controller, recipe, cell_info, typecast=None):
                     plot_modules_map[connection.destination.moduleId],
                     connection.destination.name)
 
+    # Adds default values for unset constants
+    defaulted_parameters = dict(recipe.parameters)
+    for port in recipe.plot.ports:
+        if (isinstance(port, ConstantPort) and
+                port.default_value is not None and
+                port.name not in recipe.parameters):
+            defaulted_parameters[port.name] = [RecipeParameterValue(
+                    constant=port.default_value)]
+
     # Maps a port name to the list of parameters
     # for each parameter, we have a list of connections tying it to modules of
     # the plot
     conn_map = dict() # param: str -> [[conn_id: int]]
 
     name_to_port = {port.name: port for port in recipe.plot.ports}
-
-    for port_name, parameters in recipe.parameters.iteritems():
+    actual_parameters = {}
+    for port_name, parameters in defaulted_parameters.iteritems():
         plot_ports = plot_params.get(port_name, [])
         p_conns = conn_map[port_name] = []
+        actual_values = []
         for parameter in parameters:
             if parameter.type == RecipeParameterValue.VARIABLE:
-                p_conns.append(add_variable_subworkflow_typecast(
+                conns, actual_param = add_variable_subworkflow_typecast(
                         generator,
                         parameter.variable,
                         plot_ports,
                         name_to_port[port_name].type,
-                        typecast=typecast))
+                        typecast=typecast)
+                p_conns.append(conns)
+                actual_values.append(actual_param)
             else: # parameter.type == RecipeParameterValue.CONSTANT
                 desc = name_to_port[port_name].type
                 p_conns.append(add_constant_module(
@@ -1299,9 +1607,9 @@ def create_pipeline(controller, recipe, cell_info, typecast=None):
                         desc,
                         parameter.constant,
                         plot_ports))
+                actual_values.append(parameter)
+        actual_parameters[port_name] = actual_values
 
-    if controller.current_version != 0:
-        controller.change_selected_version(0)
     pipeline_version = generator.perform_action()
     controller.vistrail.change_description(
             "Created DAT plot %s" % recipe.plot.name,
@@ -1314,7 +1622,10 @@ def create_pipeline(controller, recipe, cell_info, typecast=None):
     for param, portlist in plot_params.iteritems():
         port_map[param] = [(module.id, port) for module, port in portlist]
 
-    return PipelineInformation(pipeline_version, recipe, conn_map, port_map)
+    return PipelineInformation(
+            pipeline_version,
+            DATRecipe(recipe.plot, actual_parameters),
+            conn_map, port_map)
 
 
 class UpdateError(ValueError):
@@ -1353,9 +1664,9 @@ def update_pipeline(controller, pipelineInfo, new_recipe, typecast=None):
     removed_params = []
 
     name_to_port = {port.name: port for port in new_recipe.plot.ports}
-
+    actual_parameters = {}
     for port_name in (set(old_recipe.parameters.iterkeys()) |
-                             set(new_recipe.parameters.iterkeys())):
+                      set(new_recipe.parameters.iterkeys())):
         # param -> [[conn_id]]
         old_params = dict()
         for i, param in enumerate(old_recipe.parameters.get(port_name, [])):
@@ -1365,6 +1676,7 @@ def update_pipeline(controller, pipelineInfo, new_recipe, typecast=None):
         conn_lists = conn_map.setdefault(port_name, [])
 
         # Loop on new parameters
+        actual_values = []
         for param in new_params:
             # Remove one from old_params
             old = old_params.get(param)
@@ -1374,6 +1686,7 @@ def update_pipeline(controller, pipelineInfo, new_recipe, typecast=None):
                     del old_params[param]
 
                 conn_lists.append(old_conns)
+                actual_values.append(param)
                 continue
 
             # Can't remove, meaning that there is more of this param than there
@@ -1383,12 +1696,14 @@ def update_pipeline(controller, pipelineInfo, new_recipe, typecast=None):
                           for mod_id, port in (
                                   pipelineInfo.port_map[port_name])]
             if param.type == RecipeParameterValue.VARIABLE:
-                conn_lists.append(add_variable_subworkflow_typecast(
+                conns, actual_param = add_variable_subworkflow_typecast(
                         generator,
                         param.variable,
                         plot_ports,
                         name_to_port[port_name].type,
-                        typecast=typecast))
+                        typecast=typecast)
+                conn_lists.append(conns)
+                actual_values.append(actual_param)
             else: #param.type == RecipeParameterValue.CONSTANT:
                 desc = name_to_port[port_name].type
                 conn_lists.append(add_constant_module(
@@ -1396,6 +1711,7 @@ def update_pipeline(controller, pipelineInfo, new_recipe, typecast=None):
                         desc,
                         param.constant,
                         plot_ports))
+                actual_values.append(param)
 
             added_params.append(port_name)
 
@@ -1404,24 +1720,23 @@ def update_pipeline(controller, pipelineInfo, new_recipe, typecast=None):
         # there were more of them in the old recipe
         for conn_lists in old_params.itervalues():
             for connections in conn_lists:
-                connections = set(pipeline.connections[c]
-                                  for c in connections)
-
                 # Remove the variable subworkflow
-                modules = set(pipeline.modules[c.source.moduleId]
-                              for c in connections)
+                modules = set(
+                        pipeline.modules[
+                                pipeline.connections[c].source.moduleId]
+                        for c in connections)
                 generator.delete_linked(
                         modules,
-                        connection_filter=lambda c: c not in connections)
+                        connection_filter=lambda c: c.id not in connections)
 
                 removed_params.append(port_name)
+
+        actual_parameters[port_name] = actual_values
 
     # We didn't find anything to change
     if not (added_params or removed_params):
         return pipelineInfo
 
-    if controller.current_version != pipelineInfo.version:
-        controller.change_selected_version(pipelineInfo.version)
     pipeline_version = generator.perform_action()
 
     controller.vistrail.change_description(
@@ -1430,8 +1745,10 @@ def update_pipeline(controller, pipelineInfo, new_recipe, typecast=None):
 
     controller.change_selected_version(pipeline_version, from_root=True)
 
-    return PipelineInformation(pipeline_version, new_recipe,
-                               conn_map, pipelineInfo.port_map)
+    return PipelineInformation(
+            pipeline_version,
+            DATRecipe(new_recipe.plot, actual_parameters),
+            conn_map, pipelineInfo.port_map)
 
 
 def describe_dat_update(added_params, removed_params):
@@ -1508,7 +1825,7 @@ def executePipeline(controller, pipeline,
     else:
         kwargs['module_executed_hook'] = [moduleExecuted]
 
-    controller.execute_workflow_list([(
+    results, changed = controller.execute_workflow_list([(
             locator,        # locator
             version,        # version
             pipeline,       # pipeline
@@ -1522,6 +1839,14 @@ def executePipeline(controller, pipeline,
     progress.hide()
     progress.deleteLater()
 
+    if not results[0].errors:
+        return None
+    else:
+        module_id, error = next(results[0].errors.iteritems())
+        return str(error)
+
+
+MISSING_PARAMS = object()
 
 def try_execute(controller, pipelineInfo, sheetname, recipe=None):
     if recipe is None:
@@ -1578,12 +1903,12 @@ def try_execute(controller, pipelineInfo, sheetname, recipe=None):
             pipeline.tmp_id.__class__.getNewId = orig_getNewId
 
         # Execute the new pipeline
-        executePipeline(
+        error = executePipeline(
                 controller,
                 pipeline,
                 reason="DAT recipe execution",
                 locator=controller.locator,
                 version=pipelineInfo.version)
-        return True
+        return error
     else:
-        return False
+        return MISSING_PARAMS

@@ -20,7 +20,8 @@ class Test_annotations(unittest.TestCase):
             def __eq__(self, other):
                 return self.name == other.name
 
-        cls.plot = FakeObj(name='My Plot')
+        cls.plot = FakeObj(name='My Plot',
+                           package_identifier='tests.dat.vistrail_data')
         cls.var1 = FakeVariable('var1')
         cls.var2 = FakeVariable('var2')
         cls.var3 = FakeVariable('var3')
@@ -71,13 +72,13 @@ class Test_annotations(unittest.TestCase):
             }
 
     def test_build_recipe(self):
-        """Tests the _build_annotation() method.
+        """Tests the _build_recipe_annotation() method.
         """
         self.assertEqual(
                 VistrailData._build_recipe_annotation(
                         self.recipe,
                         self.conn_map),
-                'My Plot'
+                'tests.dat.vistrail_data,My Plot'
                 ';param1=v='
                     'var1:1,2|'
                     'var2:5'
@@ -91,8 +92,8 @@ class Test_annotations(unittest.TestCase):
         """
         # Patch GlobalManager
         old_get_plot = GlobalManager.get_plot
-        def get_plot(name):
-            if name != 'My Plot':
+        def get_plot(pkg_id, name):
+            if name != 'My Plot' or pkg_id != 'tests.dat.vistrail_data':
                 self.fail()
             return self.plot
         GlobalManager.get_plot = get_plot
@@ -100,7 +101,7 @@ class Test_annotations(unittest.TestCase):
             self.assertEqual(
                     VistrailData._read_recipe_annotation(
                             self.vistraildata,
-                            'My Plot'
+                            'tests.dat.vistrail_data,My Plot'
                             ';param1=v='
                                 'var1:1,2|'
                                 'var2:5'
@@ -114,7 +115,7 @@ class Test_annotations(unittest.TestCase):
             GlobalManager.get_plot = old_get_plot
 
     def test_build_portmap(self):
-        """Tests the _build_annotation() method.
+        """Tests the _build_portmap_annotation() method.
         """
         self.assertEqual(
                 VistrailData._build_portmap_annotation(

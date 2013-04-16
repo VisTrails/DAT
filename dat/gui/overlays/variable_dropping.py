@@ -8,6 +8,7 @@ from dat.operations.typecasting import get_typecast_operations
 from dat.vistrail_data import VistrailManager
 from dat.vistrails_interface import DataPort
 
+from vistrails.core.vistrail.port_spec_item import PortSpecItem
 from vistrails.gui.ports_pane import Parameter as GuiParameter
 
 
@@ -63,7 +64,8 @@ DataParameter[targeted="no"][compatible="no"] {
 
 
 class DataParameter(QtGui.QPushButton):
-    def __init__(self, overlay, port_name, pos, variable, append=False):
+    def __init__(self, overlay, port_name, pos, variable, typecast=None,
+            append=False):
         QtGui.QPushButton.__init__(self)
 
         self.setSizePolicy(QtGui.QSizePolicy.Minimum,
@@ -72,7 +74,10 @@ class DataParameter(QtGui.QPushButton):
 
         self._variable = variable
         if variable is not None:
-            self.setText(variable.name)
+            if typecast is not None:
+                self.setText("(%s) %s" % (typecast, variable.name))
+            else:
+                self.setText(variable.name)
 
             self.connect(
                     self,
@@ -164,7 +169,8 @@ class VariableDroppingOverlay(Overlay):
                 for pos, variable in enumerate(
                         self._cell._parameters.get(port.name, [])):
                     param = DataParameter(self, port.name, pos,
-                                          variable=variable.variable)
+                                          variable=variable.variable,
+                                          typecast=variable.typecast)
                     param.setProperty('compatible', compatible)
                     param.setProperty('optional', port.optional)
                     param.setProperty('targeted', 'no')
@@ -172,7 +178,8 @@ class VariableDroppingOverlay(Overlay):
                     param_panel.layout().addWidget(param)
                 if ((port.multiple_values and compatible == 'yes') or
                         not self._cell._parameters.get(port.name)):
-                    param = DataParameter(self, port.name, pos, None,
+                    param = DataParameter(self, port.name, pos,
+                                          variable=None,
                                           append=compatible == 'yes')
                     param.setProperty('compatible', compatible)
                     param.setProperty('optional', port.optional)
@@ -181,6 +188,12 @@ class VariableDroppingOverlay(Overlay):
                     param_panel.layout().addWidget(param)
             else: # isinstance(port, ConstantPort):
                 gp = GuiParameter(port.type)
+                gp.port_spec_item = PortSpecItem(id=-1, pos=0,
+                                                 module=port.type.name,
+                                                 package=port.type.package,
+                                                 default=port.default_value,
+                                                 entry_type=port.entry_type,
+                                                 values=port.enum_values)
                 try:
                     gp.strValue = self._cell._parameters[port.name][0].constant
                     isset = True
@@ -217,8 +230,9 @@ class VariableDroppingOverlay(Overlay):
         self.setLayout(main_layout)
 
     def update(self):
-        for child in self._parameters:
-            child.update()
+        for panel in self._parameters:
+            for child in panel:
+                child.update()
         super(VariableDroppingOverlay, self).update()
 
     def set_mouse_position(self, x, y):
@@ -275,13 +289,13 @@ class VariableDroppingOverlay(Overlay):
 
     def constant_changed(self, args):
         widget, contents = args # params are packed as a tuple for some reason
-        self._cell.change_constant(self._constant_widgets[widget], contents)
         try:
-            label = self._unset_constant_labels[widget]
+            label = self._unset_constant_labels.pop(widget)
             label.setParent(None)
             label.deleteLater()
         except KeyError:
             pass
+        self._cell.change_constant(self._constant_widgets[widget], contents)
 
     def show_advanced_config(self):
         # Get the pipeline info for the cell

@@ -17,6 +17,8 @@ class VariablePanel(QtGui.QWidget):
     unregister_notifications() must be called if you intend this widget to be
     deleted, else it will still be referenced from the NotificationDispatcher.
     """
+    variableSelected = QtCore.pyqtSignal('PyQt_PyObject')
+
     def __init__(self, vistraildata):
         QtGui.QWidget.__init__(self)
 
@@ -49,6 +51,13 @@ class VariablePanel(QtGui.QWidget):
         layout.addWidget(toolbar)
 
         self._list_widget = DraggableListWidget(self, MIMETYPE_DAT_VARIABLE)
+        def select_variable(varname):
+            varname = str(varname)
+            self.variableSelected.emit(vistraildata.get_variable(varname))
+        self.connect(
+                self._list_widget,
+                QtCore.SIGNAL('currentTextChanged(QString)'),
+                select_variable)
         layout.addWidget(self._list_widget)
 
         self.setLayout(layout)
