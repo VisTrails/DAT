@@ -203,6 +203,7 @@ class VistrailData(object):
         self._spreadsheet_tab = None
 
         self._variables = dict()
+        self._data_provenance = dict() # version: int -> provenance
 
         self._cell_to_version = dict() # CellInformation -> int
         self._version_to_pipeline = dict() # int -> PipelineInformation
@@ -217,8 +218,19 @@ class VistrailData(object):
         # dat_removed_variable(varname: str)
         app.create_notification('dat_removed_variable')
 
+        annotations = self._controller.vistrail.action_annotations
+
         # Load variables from tagged versions
         if self._controller.vistrail.has_tag_str('dat-vars'):
+            # Load all data provenance annotations
+            # Loading from known variables is not enough, we also need deleted
+            # variables to form the complete graph
+            for an in annotations:
+                if an.key == self._DATA_PROVENANCE_KEY:
+                    version = an.action_id
+                    provenance = data_provenance.read_from_annotation(an.value)
+                    self._data_provenance[version] = provenance
+
             tagmap = self._controller.vistrail.get_tagMap()
             for version, tag in tagmap.iteritems():
                 if tag.startswith('dat-var-'):
@@ -231,17 +243,8 @@ class VistrailData(object):
                         warnings.warn("Found invalid DAT variable pipeline "
                                       "%r, ignored" % tag)
                         continue
-                    # Read the data provenance from the variable annotations
-                    an = self._controller.vistrail.get_action_annotation(
-                            version,
-                            self._DATA_PROVENANCE_KEY)
-                    provenance = None
-                    if an is not None:
-                        try:
-                            provenance = data_provenance.read_from_annotation(
-                                    an.value)
-                        except ValueError:
-                            pass
+                    # Get the data provenance
+                    provenance = self._data_provenance.get(version)
 
                     variable = Variable.VariableInformation(
                             varname, self._controller, type, provenance)
@@ -250,7 +253,6 @@ class VistrailData(object):
                     self._add_variable(varname)
 
         # Load mappings from annotations
-        annotations = self._controller.vistrail.action_annotations
         # First, read the recipes
         for an in annotations:
             if an.key == self._RECIPE_KEY:
@@ -463,6 +465,15 @@ class VistrailData(object):
     def _get_variables(self):
         return self._variables.iterkeys()
     variables = property(_get_variables)
+
+    def variable_provenance(self, version):
+        """Gets the provenance for a variable pipeline.
+
+        This is similar to get_variable(...).provenance except that it also
+        works for variables that have been deleted (VisTrails keeps every
+        version, along with their annotations excepts for tags).
+        """
+        return self._data_provenance.get(version)
 
     def created_pipeline(self, cellInfo, pipeline):
         """Registers a new pipeline as being the result of a DAT recipe.

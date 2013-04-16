@@ -98,6 +98,11 @@ class MainWindow(QtGui.QMainWindow):
         self._variables = VariablePanel(VistrailManager(controller))
         self._variables_dock.setWidget(self._variables)
 
+        self.connect(
+                self._variables,
+                QtCore.SIGNAL('variableSelected(PyQt_PyObject)'),
+                self._data_provenance.showVariable)
+
     def newFile(self):
         get_vistrails_application().builderWindow.new_vistrail()
 

@@ -72,6 +72,15 @@ class _DataProvenanceNode(object):
     def __init__(self, **data):
         self.data_dict = data
 
+    def __getitem__(self, key):
+        return self.data_dict[key]
+
+    def __repr__(self):
+        it = self.data_dict.iteritems()
+        return '%s(%s)' % (
+                self.__class__.__name__,
+                ', '.join('%s=%r' % (k, v) for k, v in it))
+
 
 ###############################################################################
 # Provenance tree nodes
