@@ -293,11 +293,6 @@ class VistrailData(object):
             return None
         tab_controller = sh_window.tabController
 
-        ctrl_name = self._controller.name
-        if not ctrl_name:
-            ctrl_name = "Untitled{ext}".format(
-                    ext=vistrails_default_file_type())
-
         # Get the cell location from the pipeline to fill in _cell_to_version
         # and _cell_to_pipeline
         cells = dict()
@@ -334,7 +329,7 @@ class VistrailData(object):
                         swflags=0)
                 tab_controller.addTabWidget(
                         tab,
-                        u'%s / %s' % (ctrl_name, sheetname))
+                        u'%s / %s' % (self.name, sheetname))
                 self._spreadsheet_tabs[sheetname] = tab
             cellInfo = CellInformation(spreadsheet_tab, row, col)
             self._cell_to_pipeline[cellInfo] = pipeline
@@ -347,7 +342,7 @@ class VistrailData(object):
                     col=2,
                     swflags=0)
             name = 'Sheet 1'
-            tab_controller.addTabWidget(tab, u'%s / %s' % (ctrl_name, name))
+            tab_controller.addTabWidget(tab, u'%s / %s' % (self.name, name))
             self._spreadsheet_tabs[name] = tab
             VistrailManager._tabs[tab] = self
 
@@ -363,11 +358,8 @@ class VistrailData(object):
         if tabs is not None:
             for title, tab in tabs.iteritems():
                 tabWidget = tab.tabWidget
-                ctrl_name = self._controller.name
-                if not ctrl_name:
-                    ctrl_name = u"Untitled{ext}".format(
-                            ext=vistrails_default_file_type())
-                title = u'%s / %s' % (ctrl_name, title)
+                title = u'%s / %s' % (self.name, title)
+                tab.setWindowTitle(title)
                 tabWidget.setTabText(tabWidget.indexOf(tab), title)
 
     def new_variable(self, varname, variable):
@@ -638,6 +630,7 @@ class VistrailManager(object):
     def __init__(self):
         self._vistrails = dict() # Controller -> VistrailData
         self._tabs = dict() # SpreadsheetTab -> VistrailData
+        self._names = dict() # name: unicode -> VistrailData
         self._current_controller = None
         self.initialized = False
         self._forgotten = weakref.WeakKeyDictionary()
@@ -656,6 +649,9 @@ class VistrailManager(object):
         app.register_notification(
                 'controller_closed',
                 self.forget_controller)
+        app.register_notification(
+                'vistrail_saved',
+                self.controller_name_changed)
         bw = get_vistrails_application().builderWindow
         self.set_controller(bw.get_current_controller())
         self.initialized = True
@@ -679,7 +675,11 @@ class VistrailManager(object):
             self._vistrails[controller]
             new = False
         except KeyError:
-            self._vistrails[controller] = VistrailData(controller)
+            vistraildata = VistrailData(controller)
+            name = self._make_name(controller.name)
+            vistraildata.name = name
+            self._names[name] = vistraildata
+            self._vistrails[controller] = vistraildata
             new = True
 
         get_vistrails_application().send_notification(
@@ -705,6 +705,31 @@ class VistrailManager(object):
             self._vistrails[controller] = vistraildata
             return vistraildata
 
+    def _make_name(self, ctrl_name):
+        if not ctrl_name:
+            ctrl_name = u"Untitled{ext}".format(
+                    ext=vistrails_default_file_type())
+
+        name = ctrl_name
+        i = 1
+        while name in self._names:
+            i += 1
+            name = u'%s (%d)' % (name, i)
+        return name
+
+    def controller_name_changed(self):
+        vistraildata = self()
+
+        old_name = vistraildata.name
+        del self._names[old_name]
+
+        mangled_name = self._make_name(self._current_controller.name)
+
+        vistraildata.name = mangled_name
+        self._names[mangled_name] = vistraildata
+
+        vistraildata.update_spreadsheet_tabs()
+
     def from_spreadsheet_tab(self, tab):
         return self._tabs.get(tab)
 
@@ -725,6 +750,7 @@ class VistrailManager(object):
                 del self._tabs[tab]
 
             del self._vistrails[controller]
+            del self._names[vistraildata.name]
 
             self._forgotten[controller] = True
 

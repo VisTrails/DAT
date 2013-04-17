@@ -202,11 +202,6 @@ class Application(QtGui.QApplication, NotificationDispatcher, VistrailsApplicati
                 'spreadsheet_sheet_changed',
                 self._sheet_changed)
 
-        # Update the title of a sheet when a vistrail is saved
-        self.register_notification(
-                'vistrail_saved',
-                self._vistrail_saved)
-
     def _controller_changed(self, controller, new=False):
         vistraildata = VistrailManager(controller)
 
@@ -248,12 +243,6 @@ class Application(QtGui.QApplication, NotificationDispatcher, VistrailsApplicati
         vistraildata = VistrailManager.from_spreadsheet_tab(tab)
         if vistraildata is not None:
             self.builderWindow.ensureController(vistraildata.controller)
-
-    def _vistrail_saved(self):
-        # The saved controller is not passed in the notification
-        # It should be the current one
-        controller = self.builderWindow.get_current_controller()
-        VistrailManager(controller).update_spreadsheet_tabs()
 
     def try_quit(self):
         return self.builderWindow.quit()
