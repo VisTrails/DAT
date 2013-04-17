@@ -36,6 +36,7 @@ class MarkerHighlighterLineEdit(SingleLineTextEdit):
             text = text.replace('&', '&amp;')
             text = text.replace('<', '&lt;')
             text = text.replace('>', '&gt;')
+            text = text.replace(' ', '&nbsp;')
             text = MarkerHighlighterLineEdit._html_marker_pattern.sub(
                     '<span style="background-color: #99F;">&lt;\\1&gt;</span>',
                     text)
