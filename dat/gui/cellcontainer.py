@@ -463,14 +463,10 @@ class DATCellContainer(QCellContainer):
                 return True
 
             # Execute the new pipeline if possible
-            spreadsheet_tab = vistraildata.spreadsheet_tab
-            tabWidget = spreadsheet_tab.tabWidget
-            sheetname = tabWidget.tabText(tabWidget.indexOf(spreadsheet_tab))
             error = vistrails_interface.try_execute(
                     self._controller,
                     pipeline,
-                    sheetname,
-                    recipe)
+                    vistraildata.name)
             if (error is vistrails_interface.MISSING_PARAMS and
                     self.widget() is not None):
                 # Clear the cell
