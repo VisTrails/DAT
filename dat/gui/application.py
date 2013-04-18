@@ -164,6 +164,7 @@ class Application(QtGui.QApplication, NotificationDispatcher, VistrailsApplicati
         vistrails.gui.theme.initializeCurrentTheme()
 
         VistrailsApplicationInterface.init(self)
+        vt_hooks.install()
         from vistrails.gui.vistrails_window import QVistrailsWindow
         self.builderWindow = QVistrailsWindow(ui_hooks=vt_hooks.hooks)
         self.builderWindow.closeEvent = lambda e: None

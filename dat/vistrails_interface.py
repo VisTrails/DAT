@@ -1800,6 +1800,52 @@ def executePipeline(controller, pipeline,
         return str(error)
 
 
+def fix_pipeline(pipeline, controllername):
+    pipeline = copy.copy(pipeline)
+
+    # Add the SheetReference to the pipeline
+    modules = find_modules_by_type(pipeline, [CellLocation])
+    for module in modules:
+        # Remove all SheetReference connected to this CellLocation
+        conns_to_delete = []
+        for conn_id, conn in pipeline.connections.iteritems():
+            if (conn.destinationId == module.id and
+                    pipeline.modules[conn.sourceId] is SheetReference):
+                conns_to_delete.append(conn_id)
+        for conn_id in conns_to_delete:
+            pipeline.delete_connection(conn_id)
+
+        # Fix the SheetName on the SheetReference module
+        sheetref_modules = find_modules_by_type(
+                pipeline,
+                [SheetReference])
+        for sheetref in sheetref_modules:
+            functions = [f
+                         for f in sheetref.functions
+                         if f.name == 'SheetName']
+            if len(functions) != 1:
+                # Somebody did weird stuff to the pipeline
+                warnings.warn("Multiple functions set on SheetName "
+                              "port of SheetReference module!")
+                continue
+            f = sheetref.functions[0]
+            if len(f.params) != 1:
+                # This one really cannot happen
+                warnings.warn("Multiple parameters set on SheetName "
+                              "function on SheetReference module!")
+                continue
+            param = f.params[0]
+            sheetname = param.strValue
+            sheetname = u'%s / %s' % (
+                    controllername,
+                    sheetname)
+
+            # TODO : is this safe? Pipeline has a change_parameter()
+            # method, but I don't know how it works
+            param.strValue = sheetname
+
+    return pipeline
+
 MISSING_PARAMS = object()
 
 def try_execute(controller, pipelineInfo, controllername):
@@ -1811,61 +1857,9 @@ def try_execute(controller, pipelineInfo, controllername):
         # Create a copy of that pipeline so we can change it
         controller.change_selected_version(pipelineInfo.version)
         pipeline = controller.current_pipeline
-        pipeline = copy.copy(pipeline)
-
-        # Add the SheetReference to the pipeline
-        modules = find_modules_by_type(pipeline, [CellLocation])
-
-        # Hack copied from spreadsheet_execute
-        create_module = VistrailController.create_module_static
-        create_function = VistrailController.create_function_static
-        create_connection = VistrailController.create_connection_static
-        id_scope = pipeline.tmp_id
-        orig_getNewId = pipeline.tmp_id.__class__.getNewId
-        def getNewId(self, objType):
-            return -orig_getNewId(self, objType)
-        pipeline.tmp_id.__class__.getNewId = getNewId
-        try:
-            for module in modules:
-                # Remove all SheetReference connected to this CellLocation
-                conns_to_delete = []
-                for conn_id, conn in pipeline.connections.iteritems():
-                    if (conn.destinationId == module.id and
-                            pipeline.modules[conn.sourceId] is SheetReference):
-                        conns_to_delete.append(conn_id)
-                for conn_id in conns_to_delete:
-                    pipeline.delete_connection(conn_id)
-
-                # Fix the SheetName on the SheetReference module
-                sheetref_modules = find_modules_by_type(
-                        pipeline,
-                        [SheetReference])
-                for sheetref in sheetref_modules:
-                    functions = [f
-                                 for f in sheetref.functions
-                                 if f.name == 'SheetName']
-                    if len(functions) != 1:
-                        # Somebody did weird stuff to the pipeline
-                        warnings.warn("Multiple functions set on SheetName "
-                                      "port of SheetReference module!")
-                        continue
-                    f = sheetref.functions[0]
-                    if len(f.params) != 1:
-                        # This one really cannot happen
-                        warnings.warn("Multiple parameters set on SheetName "
-                                      "function on SheetReference module!")
-                        continue
-                    param = f.params[0]
-                    sheetname = param.strValue
-                    sheetname = u'%s / %s' % (
-                            controllername,
-                            sheetname)
-
-                    # TODO : is this safe? Pipeline has a change_parameter()
-                    # method, but I don't know how it works
-                    param.strValue = sheetname
-        finally:
-            pipeline.tmp_id.__class__.getNewId = orig_getNewId
+        # This is not needed because it happens automatically through a hook
+        # on VistrailController
+        #     pipeline = fix_pipeline(pipeline, controllername)
 
         # Execute the new pipeline
         error = executePipeline(

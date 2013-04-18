@@ -3,6 +3,9 @@ from PyQt4 import QtCore, QtGui
 from dat import RecipeParameterValue
 from dat.gui import translate
 from dat.vistrail_data import VistrailManager
+from dat import vistrails_interface
+
+from vistrails.core.vistrail.controller import VistrailController
 
 
 def _color_version_nodes(node, action, tag, description):
@@ -88,3 +91,17 @@ def _get_custom_version_panels(controller, version):
 hooks = dict(
         version_node_theme=_color_version_nodes,
         version_prop_panels=_get_custom_version_panels)
+
+
+def install():
+    orig_execute = VistrailController.execute_workflow_list
+    def overridden_execute(controller, vistrails):
+        controllername = VistrailManager(controller).name
+        new_vistrails = []
+        for vis in vistrails:
+            pipeline = vistrails_interface.fix_pipeline(
+                    vis[2],
+                    controllername)
+            new_vistrails.append(vis[:2] + (pipeline,) + vis[3:])
+        return orig_execute(controller, new_vistrails)
+    VistrailController.execute_workflow_list = overridden_execute
