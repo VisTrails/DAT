@@ -20,8 +20,6 @@ from dat.gui import translate
 from vistrails.core import get_vistrails_application
 from vistrails.core.db.action import create_action
 from vistrails.core.db.locator import XMLFileLocator
-from vistrails.core.layout.workflow_layout import Pipeline as LayoutPipeline, \
-    WorkflowLayout
 from vistrails.core.modules.basic_modules import Constant
 from vistrails.core.modules.module_descriptor import ModuleDescriptor
 from vistrails.core.modules.module_registry import get_module_registry
@@ -31,10 +29,8 @@ from vistrails.core.modules.vistrails_module import Module
 from vistrails.core.utils import DummyView
 from vistrails.core.vistrail.controller import VistrailController
 from vistrails.core.vistrail.connection import Connection
-from vistrails.core.vistrail.location import Location
 from vistrails.core.vistrail.module import Module as PipelineModule
 from vistrails.core.vistrail.pipeline import Pipeline
-from vistrails.gui.theme import CurrentTheme
 from vistrails.gui.modules import get_widget_class
 from vistrails.packages.spreadsheet.basic_widgets import CellLocation, \
     SpreadsheetCell, SheetReference
@@ -1151,12 +1147,19 @@ def get_pipeline_location(controller, pipelineInfo):
     pipeline = controller.vistrail.getPipeline(pipelineInfo.version)
 
     location_modules = find_modules_by_type(pipeline, [CellLocation])
-    if len(location_modules) == 1:
-        loc = location_modules[0]
-        row = int(get_function(loc, 'Row')) - 1
-        col = int(get_function(loc, 'Column')) - 1
-        return row, col
-    raise ValueError
+    if len(location_modules) != 1:
+        raise ValueError
+    loc = location_modules[0]
+    row = int(get_function(loc, 'Row')) - 1
+    col = int(get_function(loc, 'Column')) - 1
+
+    sheetref_modules = find_modules_by_type(pipeline, [SheetReference])
+    if len(sheetref_modules) != 1:
+        raise ValueError
+    ref = sheetref_modules[0]
+    sheetname = str(get_function(ref, 'SheetName'))
+
+    return row, col, sheetname
 
 
 def get_plot_modules(pipelineInfo, pipeline):
@@ -1460,28 +1463,43 @@ def create_pipeline(controller, recipe, cell_info, typecast=None):
     cell_modules = find_modules_by_type(plot_pipeline,
                                         [SpreadsheetCell])
     if cell_modules:
+        cell_module = plot_modules_map[cell_modules[0].id]
+
         # Add a CellLocation module if the plot subworkflow didn't contain one
         location_module, new_location = _get_or_create_module(CellLocation)
 
         if new_location:
             # Connect the CellLocation to the SpreadsheetCell
-            cell_module = plot_modules_map[cell_modules[0].id]
             generator.connect_modules(
                     location_module, 'self',
                     cell_module, 'Location')
 
-        if location_module:
-            row, col = cell_info.row, cell_info.column
-            generator.update_function(
-                    location_module, 'Row', [str(row + 1)])
-            generator.update_function(
-                    location_module, 'Column', [str(col + 1)])
+        row, col = cell_info.row, cell_info.column
+        generator.update_function(
+                location_module, 'Row', [str(row + 1)])
+        generator.update_function(
+                location_module, 'Column', [str(col + 1)])
 
-            if len(cell_modules) > 1:
-                warnings.warn("Plot subworkflow '%s' contains more than "
-                              "one spreadsheet cell module. Only one "
-                              "was connected to a location module." %
-                              recipe.plot.name)
+        if len(cell_modules) > 1:
+            warnings.warn("Plot subworkflow '%s' contains more than "
+                          "one spreadsheet cell module. Only one "
+                          "was connected to a location module." %
+                          recipe.plot.name)
+
+        # Add a SheetReference module
+        sheetref_module, new_sheetref = _get_or_create_module(SheetReference)
+
+        if new_sheetref or new_location:
+            # Connection the SheetReference to the CellLocation
+            generator.connect_modules(
+                    sheetref_module, 'self',
+                    location_module, 'SheetReference')
+
+        tab = cell_info.tab
+        tabWidget = tab.tabWidget
+        sheetname = tabWidget.tabText(tabWidget.indexOf(tab))
+        sheetname = sheetname.split(u' / ', 1)[1]
+        generator.update_function(sheetref_module, 'SheetName', [sheetname])
     else:
         warnings.warn("Plot subworkflow '%s' does not contain a "
                       "spreadsheet cell module" % recipe.plot.name)
@@ -1784,9 +1802,8 @@ def executePipeline(controller, pipeline,
 
 MISSING_PARAMS = object()
 
-def try_execute(controller, pipelineInfo, sheetname, recipe=None):
-    if recipe is None:
-        recipe = pipelineInfo.recipe
+def try_execute(controller, pipelineInfo, controllername):
+    recipe = pipelineInfo.recipe
 
     if all(
             port.optional or recipe.parameters.has_key(port.name)
@@ -1819,22 +1836,34 @@ def try_execute(controller, pipelineInfo, sheetname, recipe=None):
                 for conn_id in conns_to_delete:
                     pipeline.delete_connection(conn_id)
 
-                # Add the SheetReference module
-                sheet_module = create_module(
-                        id_scope,
-                        'edu.utah.sci.vistrails.spreadsheet',
-                        'SheetReference')
-                sheet_name = create_function(id_scope, sheet_module,
-                                             'SheetName', [str(sheetname)])
-                sheet_module.add_function(sheet_name)
+                # Fix the SheetName on the SheetReference module
+                sheetref_modules = find_modules_by_type(
+                        pipeline,
+                        [SheetReference])
+                for sheetref in sheetref_modules:
+                    functions = [f
+                                 for f in sheetref.functions
+                                 if f.name == 'SheetName']
+                    if len(functions) != 1:
+                        # Somebody did weird stuff to the pipeline
+                        warnings.warn("Multiple functions set on SheetName "
+                                      "port of SheetReference module!")
+                        continue
+                    f = sheetref.functions[0]
+                    if len(f.params) != 1:
+                        # This one really cannot happen
+                        warnings.warn("Multiple parameters set on SheetName "
+                                      "function on SheetReference module!")
+                        continue
+                    param = f.params[0]
+                    sheetname = param.strValue
+                    sheetname = u'%s / %s' % (
+                            controllername,
+                            sheetname)
 
-                # Connect with the CellLocation
-                conn = create_connection(id_scope,
-                                         sheet_module, 'self',
-                                         module, 'SheetReference')
-
-                pipeline.add_module(sheet_module)
-                pipeline.add_connection(conn)
+                    # TODO : is this safe? Pipeline has a change_parameter()
+                    # method, but I don't know how it works
+                    param.strValue = sheetname
         finally:
             pipeline.tmp_id.__class__.getNewId = orig_getNewId
 
