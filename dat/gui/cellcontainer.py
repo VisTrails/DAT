@@ -169,10 +169,6 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
         if dragging:
             widget = self.containedWidget
             if widget is not None:
-                print "removes widget()"
-                widget.setParent(None)
-                self._saved_widget = widget
-
                 if hasattr(widget, 'grabWindowPixmap'):
                     pixmap = widget.grabWindowPixmap()
                 else:
@@ -187,6 +183,11 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
                     5, pixmap.height() - 10)
                 painter.end()
                 painter = None
+
+                print "removes widget()"
+                widget.setParent(None)
+                self._saved_widget = widget
+
                 self._fake_widget = QtGui.QLabel()
                 self._fake_widget.setPixmap(pixmap)
                 self._fake_widget.setAttribute(
