@@ -39,6 +39,7 @@ class DATCellContainer(QCellContainer):
         self._parameter_hovered = None
         self._insert_pos = None
         self._error = False
+        self._dragging = False
 
         self._overlay = None
         self._overlay_scrollarea = QtGui.QScrollArea()
@@ -89,6 +90,8 @@ class DATCellContainer(QCellContainer):
     def _set_dragging(self, dragging):
         """This is a hack to workaround issues related to dragging.
         """
+        self._dragging = dragging
+
         # Issue with Qt's mouse event propagation.
         #
         # If we don't set TransparentForMouseEvents on the overlay, when the
@@ -130,6 +133,10 @@ class DATCellContainer(QCellContainer):
                 self.layout().addWidget(self._fake_widget)
                 self._fake_widget.raise_()
                 #self._show_button.raise_()
+
+            self._overlay_scrollarea.setParent(self)
+            self._overlay_scrollarea.setVisible(True)
+            self._overlay_scrollarea.lower()
         else:
             if self._saved_widget is not None:
                 print "restores widget()"
@@ -140,6 +147,8 @@ class DATCellContainer(QCellContainer):
                 self._fake_widget.setParent(None)
                 self._fake_widget.deleteLater()
             self._fake_widget = None
+
+            self._set_overlay(None)
 
     def _variable_removed(self, controller, varname, renamed_to=None):
         if controller != self._controller:
@@ -248,18 +257,21 @@ class DATCellContainer(QCellContainer):
             self._overlay.deleteLater()
 
         if overlay_class is None:
-            print "removes overlay_scrollarea"
             self._overlay = None
-            self._overlay_scrollarea.setParent(None)
-            self._overlay_scrollarea.setVisible(False)
+            if not self._dragging:
+                print "removes overlay_scrollarea"
+                self._overlay_scrollarea.setParent(None)
+                self._overlay_scrollarea.setVisible(False)
             #self._show_button.raise_()
             #self._show_button.setVisible(self._plot is not None)
             #self._hide_button.setVisible(False)
         else:
-            print "creates overlay %s, adds overlay_scrollarea" % overlay_class.__name__
+            print "creates overlay %s" % overlay_class.__name__
             self._overlay = overlay_class(self, **kwargs)
-            self._overlay_scrollarea.setParent(self)
-            self._overlay_scrollarea.setVisible(True)
+            if not self._dragging:
+                print "adds overlay_scrollarea"
+                self._overlay_scrollarea.setParent(self)
+                self._overlay_scrollarea.setVisible(True)
             self._overlay_scrollarea.setWidget(self._overlay)
             self._overlay.show()
             self._overlay_scrollarea.raise_()
