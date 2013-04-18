@@ -316,8 +316,7 @@ class VistrailData(object):
             if sh_window is not None:
                 tab_controller = sh_window.tabController
                 tab = StandardWidgetSheetTab(
-                        tab_controller,
-                        swflags=0)
+                        tab_controller)
                 title = self._controller.name
                 if not title:
                     title = "Untitled{ext}".format(

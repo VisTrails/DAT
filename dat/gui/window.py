@@ -10,7 +10,6 @@ from dat.vistrail_data import VistrailManager
 from vistrails.core.application import get_vistrails_application
 from vistrails.packages.spreadsheet.spreadsheet_controller import \
     spreadsheetController
-from vistrails.packages.spreadsheet import spreadsheet_flags
 
 
 class MainWindow(QtGui.QMainWindow):
@@ -50,11 +49,26 @@ class MainWindow(QtGui.QMainWindow):
         self.connect(showBuilderAction, QtCore.SIGNAL('triggered()'),
                      get_vistrails_application().showBuilderWindow)
 
+        # Spreadsheet hooks
+        ss_hooks = dict(
+                window_menu_main=False,
+                window_menu_view=False,
+                window_menu_window=False,
+
+                window_quit_action=False,
+
+                window_create_first_sheet=False,
+                tab_create_sheet=False,
+                tab_rename_sheet=False,
+                tab_close_sheet=True,
+                close_tab_action=self.close_current_controller,
+                tab_delete_cell=False,
+        )
+
         # Embed the spreadsheet window as the central widget
+        spreadsheetController.set_hooks(ss_hooks)
         self.spreadsheetWindow = spreadsheetController.findSpreadsheetWindow(
-                show=False,
-                swflags=spreadsheet_flags.TAB_CLOSE_SHEET,
-                close_tab_action=self.close_current_controller)
+                show=False)
         self.setCentralWidget(self.spreadsheetWindow)
         self.spreadsheetWindow.setVisible(True)
 
