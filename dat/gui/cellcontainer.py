@@ -49,6 +49,7 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
 
         self._parameter_hovered = None
         self._insert_pos = None
+        self._dragging = False
         self._saved_widget = None
         self._fake_widget = None
 
@@ -150,6 +151,8 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
     def _set_dragging(self, dragging):
         """This is a hack to workaround issues related to dragging.
         """
+        self._dragging = dragging
+
         # Issue with Qt's mouse event propagation.
         #
         # If we don't set TransparentForMouseEvents on the overlay, when the
@@ -190,6 +193,10 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
                     QtCore.Qt.WA_TransparentForMouseEvents, True)
                 self._fake_widget.setParent(self)
                 self._fake_widget.raise_()
+
+            self._overlay_scrollarea.setParent(self)
+            self._overlay_scrollarea.setVisible(True)
+            self._overlay_scrollarea.lower()
         else:
             if self._saved_widget is not None:
                 print "restores widget()"
@@ -199,6 +206,8 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
                 self._fake_widget.setParent(None)
                 self._fake_widget.deleteLater()
             self._fake_widget = None
+
+            self._set_overlay(None)
 
     def _variable_added(self, controller, varname, renamed_from=None):
         if (renamed_from is None or
@@ -338,10 +347,11 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
             self._overlay.deleteLater()
 
         if overlay_class is None:
-            print "removes overlay_scrollarea"
             self._overlay = None
-            self._overlay_scrollarea.setParent(None)
-            self._overlay_scrollarea.setVisible(False)
+            if not self._dragging:
+                print "removes overlay_scrollarea"
+                self._overlay_scrollarea.setParent(None)
+                self._overlay_scrollarea.setVisible(False)
             if self._plot is not None:
                 self._set_toolbar_buttons(True)
             else:
@@ -353,10 +363,12 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
                 self.update_pipeline()
                 self._execute_pending = False
         else:
-            print "creates overlay %s, adds overlay_scrollarea" % overlay_class.__name__
+            print "creates overlay %s" % overlay_class.__name__
             self._overlay = overlay_class(self, **kwargs)
-            self._overlay_scrollarea.setParent(self)
-            self._overlay_scrollarea.setVisible(True)
+            if not self._dragging:
+                print "adds overlay_scrollarea"
+                self._overlay_scrollarea.setParent(self)
+                self._overlay_scrollarea.setVisible(True)
             self._overlay_scrollarea.setWidget(self._overlay)
             self._overlay.show()
             self._overlay_scrollarea.raise_()
