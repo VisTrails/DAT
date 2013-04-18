@@ -7,8 +7,6 @@ class Overlay(QtGui.QWidget):
 
     def __init__(self, cellcontainer, overlayed=True, **kwargs):
         QtGui.QWidget.__init__(self, cellcontainer)
-        if overlayed:
-            self.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents)
         self.setSizePolicy(QtGui.QSizePolicy.MinimumExpanding,
                            QtGui.QSizePolicy.MinimumExpanding)
         self._cell = cellcontainer
@@ -28,7 +26,7 @@ class Overlay(QtGui.QWidget):
     text                = QtGui.QColor(0, 0, 0)
 
     def draw(self, qp):
-        if self._cell._error:
+        if self._cell.has_error():
             color = Overlay.error_background
         else:
             color = Overlay.background

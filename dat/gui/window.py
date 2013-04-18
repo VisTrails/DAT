@@ -1,6 +1,7 @@
 from PyQt4 import QtCore, QtGui
 
 import dat.gui
+from dat.gui.data_provenance import DataProvenancePanel
 from dat.gui.operations import OperationPanel
 from dat.gui.plots import PlotPanel
 from dat.gui.variables import VariablePanel
@@ -9,7 +10,6 @@ from dat.vistrail_data import VistrailManager
 from vistrails.core.application import get_vistrails_application
 from vistrails.packages.spreadsheet.spreadsheet_controller import \
     spreadsheetController
-from vistrails.packages.spreadsheet import spreadsheet_flags
 
 
 class MainWindow(QtGui.QMainWindow):
@@ -49,11 +49,27 @@ class MainWindow(QtGui.QMainWindow):
         self.connect(showBuilderAction, QtCore.SIGNAL('triggered()'),
                      get_vistrails_application().showBuilderWindow)
 
+        # Spreadsheet hooks
+        ss_hooks = dict(
+                window_menu_main=False,
+                window_menu_view=False,
+                window_menu_window=False,
+
+                window_quit_action=False,
+
+                window_create_first_sheet=False,
+                tab_create_sheet=True,
+                create_sheet_action=VistrailManager.hook_create_tab,
+                tab_rename_sheet=False,
+                tab_close_sheet=True,
+                close_tab_action=VistrailManager.hook_close_tab,
+                tab_delete_cell=False,
+        )
+
         # Embed the spreadsheet window as the central widget
+        spreadsheetController.set_hooks(ss_hooks)
         self.spreadsheetWindow = spreadsheetController.findSpreadsheetWindow(
-                show=False,
-                swflags=spreadsheet_flags.TAB_CLOSE_SHEET,
-                close_tab_action=self.close_current_controller)
+                show=False)
         self.setCentralWidget(self.spreadsheetWindow)
         self.spreadsheetWindow.setVisible(True)
 
@@ -62,6 +78,12 @@ class MainWindow(QtGui.QMainWindow):
         self._variables = VariablePanel(VistrailManager())
         self._plots = PlotPanel()
         self._operations = OperationPanel()
+        self._data_provenance = DataProvenancePanel()
+
+        self.connect(
+                self._variables,
+                QtCore.SIGNAL('variableSelected(PyQt_PyObject)'),
+                self._data_provenance.showVariable)
 
         def dock_panel(title, widget, pos):
             dock = QtGui.QDockWidget(title)
@@ -75,8 +97,12 @@ class MainWindow(QtGui.QMainWindow):
                    QtCore.Qt.LeftDockWidgetArea)
         self._variables_dock = dock_panel(_("Variables"), self._variables,
                                           QtCore.Qt.LeftDockWidgetArea)
-        dock_panel(_("Calculator"), self._operations,
+        ops_dock = dock_panel(_("Calculator"), self._operations,
                    QtCore.Qt.RightDockWidgetArea)
+        prov_dock = dock_panel(_("Data Provenance"), self._data_provenance,
+                               QtCore.Qt.RightDockWidgetArea)
+        self.tabifyDockWidget(ops_dock, prov_dock)
+        ops_dock.raise_()
 
         get_vistrails_application().register_notification(
                 'dat_controller_changed',
@@ -87,12 +113,13 @@ class MainWindow(QtGui.QMainWindow):
         self._variables = VariablePanel(VistrailManager(controller))
         self._variables_dock.setWidget(self._variables)
 
+        self.connect(
+                self._variables,
+                QtCore.SIGNAL('variableSelected(PyQt_PyObject)'),
+                self._data_provenance.showVariable)
+
     def newFile(self):
         get_vistrails_application().builderWindow.new_vistrail()
-
-    def close_current_controller(self, tab):
-        get_vistrails_application().builderWindow.close_vistrail()
-        return False
 
     def openFile(self):
         get_vistrails_application().builderWindow.open_vistrail_default()

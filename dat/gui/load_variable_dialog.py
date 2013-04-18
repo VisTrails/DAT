@@ -2,6 +2,7 @@ import re
 from PyQt4 import QtCore, QtGui
 
 from dat import DEFAULT_VARIABLE_NAME, variable_format
+from dat import data_provenance
 from dat.gui import translate
 from dat.gui.generic import AdvancedLineEdit
 from dat.global_data import GlobalManager
@@ -147,7 +148,7 @@ class FileLoaderPanel(QtGui.QWidget):
                     # The order of these lines is important, because adding an
                     # item to the list emits a signal
                     self._loader_stack.addWidget(widget)
-                    self._loader_list.addItem(loader.loader_tab_name, widget)
+                    self._loader_list.addItem(loader.name, widget)
             if self._loader_stack.count() == 0:
                 self._loader_stack.addWidget(
                         QtGui.QLabel(_("No loader accepts this file")))
@@ -221,7 +222,12 @@ class FileLoaderPanel(QtGui.QWidget):
         if self._loader_list.currentIndex() == -1:
             return None
         loader = self._loader_stack.currentWidget()
-        return loader.load()
+        variable = loader.load()
+        if variable.provenance is None:
+            variable.provenance = data_provenance.Loader(
+                    loader=loader,
+                    file=str(self._file_edit.text()))
+        return variable
 
 
 class LoadVariableDialog(QtGui.QDialog):
@@ -335,7 +341,7 @@ class LoadVariableDialog(QtGui.QDialog):
             l = loader()
             l.default_variable_name_observer = (
                     self.default_variable_name_changed)
-            self._add_tab(l, loader.loader_tab_name)
+            self._add_tab(l, loader.name)
 
     def loader_removed(self, loader):
         """Called when a VariableLoader is removed.
@@ -402,6 +408,11 @@ class LoadVariableDialog(QtGui.QDialog):
 
         try:
             variable = loader.load()
+            # The Loader may provide a provenance node (i.e. to record the
+            # specific parameters it used), else we'll just store that it came
+            # from this loader
+            if variable.provenance is None:
+                variable.provenance = data_provenance.Loader(loader=loader)
         except Exception, e:
             _ = translate(LoadVariableDialog)
 

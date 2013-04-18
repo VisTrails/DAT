@@ -4,11 +4,13 @@ import warnings
 import weakref
 
 from dat import RecipeParameterValue, DATRecipe, PipelineInformation
+from dat import data_provenance
 from dat.global_data import GlobalManager
-from dat.vistrails_interface import Variable
+from dat.vistrails_interface import Variable, get_pipeline_location
 
 from vistrails.core.application import get_vistrails_application
 from vistrails.core.system import vistrails_default_file_type
+from vistrails.packages.spreadsheet.spreadsheet_cell import CellInformation
 from vistrails.packages.spreadsheet.spreadsheet_controller import \
     spreadsheetController
 from vistrails.packages.spreadsheet.spreadsheet_tab import \
@@ -67,6 +69,7 @@ class VistrailData(object):
     # Parameters which are not set are simply omitted from the list
     _RECIPE_KEY = 'dat-recipe'
     _PORTMAP_KEY = 'dat-ports'
+    _DATA_PROVENANCE_KEY = 'dat-data-provenance'
 
     @staticmethod
     def _build_recipe_annotation(recipe, conn_map):
@@ -197,9 +200,10 @@ class VistrailData(object):
         notifications for packages loaded in the future.
         """
         self._controller = controller
-        self._spreadsheet_tab = None
+        self._spreadsheet_tabs = None
 
         self._variables = dict()
+        self._data_provenance = dict() # version: int -> provenance
 
         self._cell_to_version = dict() # CellInformation -> int
         self._version_to_pipeline = dict() # int -> PipelineInformation
@@ -214,27 +218,41 @@ class VistrailData(object):
         # dat_removed_variable(varname: str)
         app.create_notification('dat_removed_variable')
 
+        annotations = self._controller.vistrail.action_annotations
+
         # Load variables from tagged versions
         if self._controller.vistrail.has_tag_str('dat-vars'):
+            # Load all data provenance annotations
+            # Loading from known variables is not enough, we also need deleted
+            # variables to form the complete graph
+            for an in annotations:
+                if an.key == self._DATA_PROVENANCE_KEY:
+                    version = an.action_id
+                    provenance = data_provenance.read_from_annotation(an.value)
+                    self._data_provenance[version] = provenance
+
             tagmap = self._controller.vistrail.get_tagMap()
             for version, tag in tagmap.iteritems():
                 if tag.startswith('dat-var-'):
                     varname = tag[8:]
+
                     # Get the type from the OutputPort module's spec input port
                     type = Variable.read_type(
                             self._controller.vistrail.getPipeline(version))
                     if type is None:
                         warnings.warn("Found invalid DAT variable pipeline "
                                       "%r, ignored" % tag)
-                    else:
-                        variable = Variable.VariableInformation(
-                                varname, self._controller, type)
+                        continue
+                    # Get the data provenance
+                    provenance = self._data_provenance.get(version)
 
-                        self._variables[varname] = variable
-                        self._add_variable(varname)
+                    variable = Variable.VariableInformation(
+                            varname, self._controller, type, provenance)
+
+                    self._variables[varname] = variable
+                    self._add_variable(varname)
 
         # Load mappings from annotations
-        annotations = self._controller.vistrail.action_annotations
         # First, read the recipes
         for an in annotations:
             if an.key == self._RECIPE_KEY:
@@ -266,38 +284,82 @@ class VistrailData(object):
         return self._controller
     controller = property(_get_controller)
 
-    def _get_spreadsheet_tab(self):
-        if self._spreadsheet_tab is None:
-            sh_window = spreadsheetController.findSpreadsheetWindow(
-                    create=False)
-            if sh_window is not None:
-                tab_controller = sh_window.tabController
+    def _get_spreadsheet_tabs(self):
+        if self._spreadsheet_tabs is not None:
+            return self._spreadsheet_tabs
+
+        sh_window = spreadsheetController.findSpreadsheetWindow(create=False)
+        if sh_window is None:
+            return None
+        tab_controller = sh_window.tabController
+
+        # Get the cell location from the pipeline to fill in _cell_to_version
+        # and _cell_to_pipeline
+        cells = dict()
+        sheet_sizes = dict()
+        for pipeline in self._version_to_pipeline.itervalues():
+            try:
+                row, col, sheetname = get_pipeline_location(
+                        self._controller,
+                        pipeline)
+            except ValueError:
+                continue
+            try:
+                p = cells[(row, col, sheetname)]
+            except KeyError:
+                cells[(row, col, sheetname)] = pipeline
+                rowCount, colCount = sheet_sizes.get(sheetname, (2, 2))
+                rowCount = max(rowCount, row + 1)
+                colCount = max(colCount, col + 1)
+                sheet_sizes[sheetname] = (rowCount, colCount)
+            else:
+                if pipeline.version > p.version:
+                    # Select the latest version for a given cell
+                    cells[(row, col, sheetname)] = pipeline
+        self._spreadsheet_tabs = dict()
+        for (row, col, sheetname), pipeline in cells.iteritems():
+            try:
+                spreadsheet_tab = self._spreadsheet_tabs[sheetname]
+            except KeyError:
+                rowCount, colCount = sheet_sizes.get(sheetname, (2, 2))
                 tab = StandardWidgetSheetTab(
                         tab_controller,
+                        row=rowCount,
+                        col=colCount,
                         swflags=0)
-                title = self._controller.name
-                if not title:
-                    title = "Untitled{ext}".format(
-                            ext=vistrails_default_file_type())
-                tab_controller.addTabWidget(tab, title)
-                self._spreadsheet_tab = tab
-                VistrailManager._tabs[tab] = self
-        return self._spreadsheet_tab
-    spreadsheet_tab = property(_get_spreadsheet_tab)
+                tab_controller.addTabWidget(
+                        tab,
+                        u'%s / %s' % (self.name, sheetname))
+                self._spreadsheet_tabs[sheetname] = tab
+            cellInfo = CellInformation(spreadsheet_tab, row, col)
+            self._cell_to_pipeline[cellInfo] = pipeline
+            self._cell_to_version[cellInfo] = pipeline.version
 
-    def update_spreadsheet_tab(self):
+        if not self._spreadsheet_tabs:
+            tab = StandardWidgetSheetTab(
+                    tab_controller,
+                    row=2,
+                    col=2)
+            name = 'Sheet 1'
+            tab_controller.addTabWidget(tab, u'%s / %s' % (self.name, name))
+            self._spreadsheet_tabs[name] = tab
+            VistrailManager._tabs[tab] = self
+
+        return self._spreadsheet_tabs
+    spreadsheet_tabs = property(_get_spreadsheet_tabs)
+
+    def update_spreadsheet_tabs(self):
         """Updates the title of the spreadsheet tab.
 
         Called when a controller changes name.
         """
-        tab = self.spreadsheet_tab
-        if tab is not None:
-            title = self._controller.name
-            if not title:
-                title = "Untitled{ext}".format(
-                        ext=vistrails_default_file_type())
-            tabWidget = tab.tabWidget
-            tabWidget.setTabText(tabWidget.indexOf(tab), title)
+        tabs = self.spreadsheet_tabs
+        if tabs is not None:
+            for title, tab in tabs.iteritems():
+                tabWidget = tab.tabWidget
+                title = u'%s / %s' % (self.name, title)
+                tab.setWindowTitle(title)
+                tabWidget.setTabText(tabWidget.indexOf(tab), title)
 
     def new_variable(self, varname, variable):
         """Register a new Variable with DAT.
@@ -308,7 +370,18 @@ class VistrailData(object):
             raise ValueError("A variable named %s already exists!")
 
         # Materialize the Variable in the Vistrail
-        variable = variable.perform_operations(varname)
+        variable = variable.materialize(varname)
+
+        # Record the data provenance in an annotation
+        version = self.controller.vistrail.get_version_number(
+                'dat-var-%s' % varname)
+        self.controller.vistrail.set_action_annotation(
+                version,
+                self._DATA_PROVENANCE_KEY,
+                data_provenance.save_to_annotation(variable.provenance))
+
+        # Add a record in our map of provenance data
+        self._data_provenance[version] = variable.provenance
 
         self._variables[varname] = variable
 
@@ -405,11 +478,22 @@ class VistrailData(object):
         self._add_variable(new_varname, renamed_from=old_varname)
 
     def get_variable(self, varname):
+        if not isinstance(varname, str):
+            raise ValueError
         return self._variables.get(varname)
 
     def _get_variables(self):
         return self._variables.iterkeys()
     variables = property(_get_variables)
+
+    def variable_provenance(self, version):
+        """Gets the provenance for a variable pipeline.
+
+        This is similar to get_variable(...).provenance except that it also
+        works for variables that have been deleted (VisTrails keeps every
+        version, along with their annotations excepts for tags).
+        """
+        return self._data_provenance.get(version)
 
     def created_pipeline(self, cellInfo, pipeline):
         """Registers a new pipeline as being the result of a DAT recipe.
@@ -531,6 +615,10 @@ class VistrailData(object):
         return self._version_to_pipeline.itervalues()
     all_pipelines = property(_get_all_pipelines)
 
+    def _get_all_cells(self):
+        return self._cell_to_pipeline.iteritems()
+    all_cells = property(_get_all_cells)
+
 
 class VistrailManager(object):
     """Keeps a list of VistrailData objects.
@@ -541,6 +629,7 @@ class VistrailManager(object):
     def __init__(self):
         self._vistrails = dict() # Controller -> VistrailData
         self._tabs = dict() # SpreadsheetTab -> VistrailData
+        self._names = dict() # name: unicode -> VistrailData
         self._current_controller = None
         self.initialized = False
         self._forgotten = weakref.WeakKeyDictionary()
@@ -559,6 +648,9 @@ class VistrailManager(object):
         app.register_notification(
                 'controller_closed',
                 self.forget_controller)
+        app.register_notification(
+                'vistrail_saved',
+                self.controller_name_changed)
         bw = get_vistrails_application().builderWindow
         self.set_controller(bw.get_current_controller())
         self.initialized = True
@@ -582,7 +674,11 @@ class VistrailManager(object):
             self._vistrails[controller]
             new = False
         except KeyError:
-            self._vistrails[controller] = VistrailData(controller)
+            vistraildata = VistrailData(controller)
+            name = self._make_name(controller.name)
+            vistraildata.name = name
+            self._names[name] = vistraildata
+            self._vistrails[controller] = vistraildata
             new = True
 
         get_vistrails_application().send_notification(
@@ -608,6 +704,31 @@ class VistrailManager(object):
             self._vistrails[controller] = vistraildata
             return vistraildata
 
+    def _make_name(self, ctrl_name):
+        if not ctrl_name:
+            ctrl_name = u"Untitled{ext}".format(
+                    ext=vistrails_default_file_type())
+
+        name = ctrl_name
+        i = 1
+        while name in self._names:
+            i += 1
+            name = u'%s (%d)' % (name, i)
+        return name
+
+    def controller_name_changed(self):
+        vistraildata = self()
+
+        old_name = vistraildata.name
+        del self._names[old_name]
+
+        mangled_name = self._make_name(self._current_controller.name)
+
+        vistraildata.name = mangled_name
+        self._names[mangled_name] = vistraildata
+
+        vistraildata.update_spreadsheet_tabs()
+
     def from_spreadsheet_tab(self, tab):
         return self._tabs.get(tab)
 
@@ -616,24 +737,54 @@ class VistrailManager(object):
 
         Called when a controller is closed.
         """
-        title = controller.name
-        if not title:
-            title = "Untitled{ext}".format(
-                    ext=vistrails_default_file_type())
         try:
             vistraildata = self._vistrails[controller]
         except KeyError:
             return
         else:
-            # Remove the spreadsheet
-            spreadsheet_tab = vistraildata.spreadsheet_tab
-            spreadsheet_tab.tabWidget.deleteSheet(spreadsheet_tab)
+            # Remove the spreadsheets
+            tabs = vistraildata.spreadsheet_tabs
+            for tab in tabs.itervalues():
+                tab.tabWidget.deleteSheet(tab)
+                del self._tabs[tab]
 
             del self._vistrails[controller]
+            del self._names[vistraildata.name]
 
             self._forgotten[controller] = True
 
         if self._current_controller == controller:
             self._current_controller = None
+
+    def hook_create_tab(self, tab_controller, default_name):
+        vistraildata = self()
+        if vistraildata is None:
+            return None
+        tab = StandardWidgetSheetTab(tab_controller)
+        names = set(unicode(s.windowTitle()) for s in self._tabs.iterkeys())
+        for i in itertools.count(1):
+            name = u"Sheet %d" % i
+            fullname = u'%s / %s' % (vistraildata.name, name)
+            if fullname not in names:
+                self._tabs[tab] = vistraildata
+                vistraildata._spreadsheet_tabs[name] = tab
+                return tab, fullname
+
+    def hook_close_tab(self, tab):
+        try:
+            vistraildata = self._tabs[tab]
+        except KeyError:
+            return True
+        else:
+            # Close the project if it was the last sheet
+            if vistraildata._spreadsheet_tabs.values() == [tab]:
+                get_vistrails_application().builderWindow.close_vistrail()
+                return False
+            else:
+                del self._tabs[tab]
+                # Remove the tab from the associated VistrailData
+                name = unicode(tab.windowTitle()).split(u' / ', 1)[1]
+                del vistraildata._spreadsheet_tabs[name]
+                return True
 
 VistrailManager = VistrailManager()

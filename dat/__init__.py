@@ -78,10 +78,6 @@ class DATRecipe(object):
     def __hash__(self):
         return self._hash
 
-    def get_plot_modules(self, plot, pipeline):
-        #TODO: implement
-        return pipeline.module_list
-
 
 class PipelineInformation(object):
     """All the information DAT has on a plot.

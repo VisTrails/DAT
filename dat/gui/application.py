@@ -13,6 +13,7 @@ from vistrails.core.application import (set_vistrails_application,
         VistrailsApplicationInterface)
 import vistrails.core.requirements
 import vistrails.gui.theme
+from vistrails.packages.spreadsheet.spreadsheet_cell import CellInformation
 from vistrails.packages.spreadsheet.spreadsheet_controller import \
     spreadsheetController
 
@@ -201,69 +202,47 @@ class Application(QtGui.QApplication, NotificationDispatcher, VistrailsApplicati
                 'spreadsheet_sheet_changed',
                 self._sheet_changed)
 
-        # Update the title of a sheet when a vistrail is saved
-        self.register_notification(
-                'vistrail_saved',
-                self._vistrail_saved)
-
     def _controller_changed(self, controller, new=False):
         vistraildata = VistrailManager(controller)
 
-        # Get the spreadsheet for this project
-        spreadsheet_tab = vistraildata.spreadsheet_tab
+        # Get the spreadsheets for this project
+        spreadsheet_tabs = vistraildata.spreadsheet_tabs
 
         if new:
-            # Find the existing visualization pipelines in this vistrail
-            cells = dict()
-            for pipeline in vistraildata.all_pipelines:
-                try:
-                    row, col = vistrails_interface.get_pipeline_location(
+            # Execute the pipelines
+            for tab in spreadsheet_tabs.itervalues():
+                for cellInfo, pipeline in vistraildata.all_cells:
+                    error = vistrails_interface.try_execute(
                             controller,
-                            pipeline)
-                except ValueError:
-                    continue
-                try:
-                    p = cells[(row, col)]
-                except KeyError:
-                    cells[(row, col)] = pipeline
-                else:
-                    if pipeline.version > p.version:
-                        # Select the latest version for a given cell
-                        cells[(row, col)] = pipeline
+                            pipeline,
+                            vistraildata.name)
+                    if error is not None:
+                        from dat.gui.cellcontainer import DATCellContainer
+                        tab.setCellWidget(
+                                cellInfo.row,
+                                cellInfo.column,
+                                DATCellContainer(
+                                        cellInfo=CellInformation(
+                                                tab,
+                                                cellInfo.row,
+                                                cellInfo.column),
+                                        error=error))
 
-            # Resize the spreadsheet
-            width, height = 2, 2
-            for row, col in cells.iterkeys():
-                if row >= height:
-                    height = row + 1
-                if col >= width:
-                    width = col + 1
-            spreadsheet_tab.setDimension(height, width)
-
-            # Execute these pipelines
-            tabWidget = spreadsheet_tab.tabWidget
-            sheetname = tabWidget.tabText(tabWidget.indexOf(spreadsheet_tab))
-            for pipeline in cells.itervalues():
-                vistrails_interface.try_execute(controller, pipeline, sheetname)
-
-        # Make that spreadsheet tab current
+        # Make one of these tabs current
         sh_window = spreadsheetController.findSpreadsheetWindow(
                 create=False)
         if sh_window is not None:
-            tab_controller = sh_window.tabController
-            tabidx = tab_controller.indexOf(spreadsheet_tab)
-            tab_controller.setCurrentIndex(tabidx)
+            tab = sh_window.tabController.currentWidget()
+            if tab not in spreadsheet_tabs.values():
+                tab_controller = sh_window.tabController
+                tab = next(spreadsheet_tabs.itervalues())
+                tabidx = tab_controller.indexOf(tab)
+                tab_controller.setCurrentIndex(tabidx)
 
     def _sheet_changed(self, tab):
         vistraildata = VistrailManager.from_spreadsheet_tab(tab)
         if vistraildata is not None:
             self.builderWindow.ensureController(vistraildata.controller)
-
-    def _vistrail_saved(self):
-        # The saved controller is not passed in the notification
-        # It should be the current one
-        controller = self.builderWindow.get_current_controller()
-        VistrailManager(controller).update_spreadsheet_tab()
 
     def try_quit(self):
         return self.builderWindow.quit()

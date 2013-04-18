@@ -8,6 +8,7 @@ from dat.operations.typecasting import get_typecast_operations
 from dat.vistrail_data import VistrailManager
 from dat.vistrails_interface import DataPort
 
+from vistrails.core.vistrail.port_spec_item import PortSpecItem
 from vistrails.gui.ports_pane import Parameter as GuiParameter
 
 
@@ -133,9 +134,16 @@ class VariableDroppingOverlay(Overlay):
     def setupUi(self):
         main_layout = QtGui.QVBoxLayout()
 
+        name_layout = QtGui.QHBoxLayout()
         name_label = QtGui.QLabel(self._cell._plot.name + " (")
         name_label.setObjectName('plot_name')
-        main_layout.addWidget(name_label)
+        name_layout.addWidget(name_label)
+        name_layout.addStretch()
+        show_adv_config = QtGui.QPushButton('config')
+        self.connect(show_adv_config, QtCore.SIGNAL('clicked()'),
+                     self.show_advanced_config)
+        name_layout.addWidget(show_adv_config)
+        main_layout.addLayout(name_layout)
 
         spacing_layout = QtGui.QHBoxLayout()
         spacing_layout.addSpacing(20)
@@ -180,6 +188,12 @@ class VariableDroppingOverlay(Overlay):
                     param_panel.layout().addWidget(param)
             else: # isinstance(port, ConstantPort):
                 gp = GuiParameter(port.type)
+                gp.port_spec_item = PortSpecItem(id=-1, pos=0,
+                                                 module=port.type.name,
+                                                 package=port.type.package,
+                                                 default=port.default_value,
+                                                 entry_type=port.entry_type,
+                                                 values=port.enum_values)
                 try:
                     gp.strValue = self._cell._parameters[port.name][0].constant
                     isset = True
@@ -216,8 +230,9 @@ class VariableDroppingOverlay(Overlay):
         self.setLayout(main_layout)
 
     def update(self):
-        for child in self._parameters:
-            child.update()
+        for panel in self._parameters:
+            for child in panel:
+                child.update()
         super(VariableDroppingOverlay, self).update()
 
     def set_mouse_position(self, x, y):
@@ -274,25 +289,18 @@ class VariableDroppingOverlay(Overlay):
 
     def constant_changed(self, args):
         widget, contents = args # params are packed as a tuple for some reason
-        self._cell.change_constant(self._constant_widgets[widget], contents)
         try:
-            label = self._unset_constant_labels[widget]
+            label = self._unset_constant_labels.pop(widget)
             label.setParent(None)
             label.deleteLater()
         except KeyError:
             pass
+        self._cell.change_constant(self._constant_widgets[widget], contents)
 
-    def mouseReleaseEvent(self, event):
-        metrics = self.fontMetrics()
-        height = metrics.height()
-        
-        #show advanced plot config
-        if event.y() > self._parameters[-1].height() + self._parameters[-1].y() + height*2:
-            #get pipeline of the cell
-            mngr = VistrailManager(self._cell._controller)
-            pipeline = mngr.get_pipeline(self._cell.cellInfo)
-            self._cell._set_overlay(pipeline.recipe.plot.configWidget)
-            self._cell._overlay.setup(self._cell, pipeline.recipe.plot)
-            return
-        
-        Overlay.mouseReleaseEvent(self, event)
+    def show_advanced_config(self):
+        # Get the pipeline info for the cell
+        vistraildata = VistrailManager(self._cell._controller)
+        pipeline = vistraildata.get_pipeline(self._cell.cellInfo)
+
+        self._cell._set_overlay(pipeline.recipe.plot.configWidget)
+        self._cell._overlay.setup(self._cell, pipeline.recipe.plot)

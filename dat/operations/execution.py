@@ -1,6 +1,7 @@
 import sys
 import warnings
 
+from dat import data_provenance
 from dat.global_data import GlobalManager
 from dat.operations import InvalidOperation, OperationWarning
 from dat.operations.parsing import SYMBOL, NUMBER, STRING, OP, parse_expression
@@ -25,13 +26,13 @@ class GetExistingVariable(ComputeVariable):
         self.type = self._variable.type
 
     def execute(self, controller):
-        return Variable.from_pipeline(controller, self._variable.name)
+        return Variable.from_workflow(self._variable)
 
 
 class BuildConstant(ComputeVariable):
     def __init__(self, value):
         self.value = value
-        if isinstance(value, basestring):
+        if isinstance(self.value, basestring):
             self.type = get_module_registry().get_descriptor_by_name(
                     'edu.utah.sci.vistrails.basic',
                     'String')
@@ -49,7 +50,8 @@ class BuildConstant(ComputeVariable):
                 type=self.type,
                 controller=controller,
                 generator=generator,
-                output=(module, 'value'))
+                output=(module, 'value'),
+                provenance=data_provenance.Constant(constant=self.value))
 
 
 class ApplyOperation(ComputeVariable):
@@ -137,11 +139,14 @@ def parent_modules(mod):
 def find_operation(name, args):
     """Choose the operation with the given name that accepts these arguments.
     """
+    from dat.operations.builtins import builtin_operations
+
     # Initial list of considered operations: correct name
     operations = set([
             op
             for op in GlobalManager.variable_operations
             if op.name == name])
+    operations.update(builtin_operations.get(name, []))
     if not operations:
         raise InvalidOperation("There is no operation %r" % name)
     operations = set([
@@ -210,10 +215,15 @@ def apply_operation(controller, op, args):
         if result is None:
             raise InvalidOperation("Package error: operation callback "
                                    "returned None")
-        return result
     else: # op.subworkflow is not None:
-        return vistrails_interface.apply_operation_subworkflow(
+        result = vistrails_interface.apply_operation_subworkflow(
                 controller,
                 op,
                 op.subworkflow,
                 args)
+
+    if result.provenance is None:
+        result.provenance = data_provenance.Operation(
+                operation=op,
+                arg_list=args)
+    return result
