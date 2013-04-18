@@ -232,10 +232,12 @@ class Application(QtGui.QApplication, NotificationDispatcher, VistrailsApplicati
         sh_window = spreadsheetController.findSpreadsheetWindow(
                 create=False)
         if sh_window is not None:
-            tab_controller = sh_window.tabController
-            tab = next(spreadsheet_tabs.itervalues())
-            tabidx = tab_controller.indexOf(tab)
-            tab_controller.setCurrentIndex(tabidx)
+            tab = sh_window.tabController.currentWidget()
+            if tab not in spreadsheet_tabs.values():
+                tab_controller = sh_window.tabController
+                tab = next(spreadsheet_tabs.itervalues())
+                tabidx = tab_controller.indexOf(tab)
+                tab_controller.setCurrentIndex(tabidx)
 
     def _sheet_changed(self, tab):
         vistraildata = VistrailManager.from_spreadsheet_tab(tab)
