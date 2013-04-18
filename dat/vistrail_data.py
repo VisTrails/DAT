@@ -339,8 +339,7 @@ class VistrailData(object):
             tab = StandardWidgetSheetTab(
                     tab_controller,
                     row=2,
-                    col=2,
-                    swflags=0)
+                    col=2)
             name = 'Sheet 1'
             tab_controller.addTabWidget(tab, u'%s / %s' % (self.name, name))
             self._spreadsheet_tabs[name] = tab

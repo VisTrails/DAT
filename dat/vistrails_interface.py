@@ -944,6 +944,7 @@ class VariableOperation(object):
     def __init__(self, name, args, return_type,
              callback=None, subworkflow=None, symmetric=False):
         self.name = name
+        self.package_identifier = None
         self.parameters = args
         self.return_type = return_type
         self.callback = self.subworkflow = None

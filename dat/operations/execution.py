@@ -139,11 +139,14 @@ def parent_modules(mod):
 def find_operation(name, args):
     """Choose the operation with the given name that accepts these arguments.
     """
+    from dat.operations.builtins import builtin_operations
+
     # Initial list of considered operations: correct name
     operations = set([
             op
             for op in GlobalManager.variable_operations
             if op.name == name])
+    operations.update(builtin_operations.get(name, []))
     if not operations:
         raise InvalidOperation("There is no operation %r" % name)
     operations = set([
