@@ -1404,11 +1404,6 @@ def add_constant_module(generator, descriptor, constant, plot_ports):
     return connection_ids
 
 
-# TODO-tabs : store the SheetReference in the pipeline, rewriting it when
-# executing
-# We'll store 'My Sheet' and rewrite it to 'CurrentController.xml / My Sheet'
-# when executing
-
 def create_pipeline(controller, recipe, cell_info, typecast=None):
     """Create a pipeline from a recipe and return its information.
     """
@@ -1804,8 +1799,6 @@ def executePipeline(controller, pipeline,
         module_id, error = next(results[0].errors.iteritems())
         return str(error)
 
-
-# TODO-tabs : rewrite SheetReferences instead of adding one
 
 MISSING_PARAMS = object()
 

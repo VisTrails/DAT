@@ -58,10 +58,11 @@ class MainWindow(QtGui.QMainWindow):
                 window_quit_action=False,
 
                 window_create_first_sheet=False,
-                tab_create_sheet=False,
+                tab_create_sheet=True,
+                create_sheet_action=VistrailManager.hook_create_tab,
                 tab_rename_sheet=False,
                 tab_close_sheet=True,
-                close_tab_action=self.close_current_controller,
+                close_tab_action=VistrailManager.hook_close_tab,
                 tab_delete_cell=False,
         )
 
@@ -119,10 +120,6 @@ class MainWindow(QtGui.QMainWindow):
 
     def newFile(self):
         get_vistrails_application().builderWindow.new_vistrail()
-
-    def close_current_controller(self, tab):
-        get_vistrails_application().builderWindow.close_vistrail()
-        return False
 
     def openFile(self):
         get_vistrails_application().builderWindow.open_vistrail_default()

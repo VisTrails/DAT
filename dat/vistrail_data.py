@@ -756,4 +756,35 @@ class VistrailManager(object):
         if self._current_controller == controller:
             self._current_controller = None
 
+    def hook_create_tab(self, tab_controller, default_name):
+        vistraildata = self()
+        if vistraildata is None:
+            return None
+        tab = StandardWidgetSheetTab(tab_controller)
+        names = set(unicode(s.windowTitle()) for s in self._tabs.iterkeys())
+        for i in itertools.count(1):
+            name = u"Sheet %d" % i
+            fullname = u'%s / %s' % (vistraildata.name, name)
+            if fullname not in names:
+                self._tabs[tab] = vistraildata
+                vistraildata._spreadsheet_tabs[name] = tab
+                return tab, fullname
+
+    def hook_close_tab(self, tab):
+        try:
+            vistraildata = self._tabs[tab]
+        except KeyError:
+            return True
+        else:
+            # Close the project if it was the last sheet
+            if vistraildata._spreadsheet_tabs.values() == [tab]:
+                get_vistrails_application().builderWindow.close_vistrail()
+                return False
+            else:
+                del self._tabs[tab]
+                # Remove the tab from the associated VistrailData
+                name = unicode(tab.windowTitle()).split(u' / ', 1)[1]
+                del vistraildata._spreadsheet_tabs[name]
+                return True
+
 VistrailManager = VistrailManager()
