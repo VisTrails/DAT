@@ -214,8 +214,7 @@ class Application(QtGui.QApplication, NotificationDispatcher, VistrailsApplicati
                 for cellInfo, pipeline in vistraildata.all_cells:
                     error = vistrails_interface.try_execute(
                             controller,
-                            pipeline,
-                            vistraildata.name)
+                            pipeline)
                     if error is not None:
                         from dat.gui.cellcontainer import DATCellContainer
                         tab.setCellWidget(

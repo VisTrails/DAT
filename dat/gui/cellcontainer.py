@@ -427,7 +427,9 @@ class DATCellContainer(QCellContainer):
                 pipeline = vistrails_interface.create_pipeline(
                         self._controller,
                         recipe,
-                        self.cellInfo,
+                        self.cellInfo.row,
+                        self.cellInfo.column,
+                        vistraildata.sheetname_var(self.cellInfo.tab),
                         typecast=self._typecast)
                 recipe = pipeline.recipe
                 new_params_it = recipe.parameters.iteritems()
@@ -450,7 +452,9 @@ class DATCellContainer(QCellContainer):
                     pipeline = vistrails_interface.create_pipeline(
                             self._controller,
                             recipe,
-                            self.cellInfo,
+                            self.cellInfo.row,
+                            self.cellInfo.column,
+                            vistraildata.sheetname_var(self.cellInfo.tab),
                             typecast=self._typecast)
                 recipe = pipeline.recipe
                 new_params_it = recipe.parameters.iteritems()
@@ -465,8 +469,7 @@ class DATCellContainer(QCellContainer):
             # Execute the new pipeline if possible
             error = vistrails_interface.try_execute(
                     self._controller,
-                    pipeline,
-                    vistraildata.name)
+                    pipeline)
             if (error is vistrails_interface.MISSING_PARAMS and
                     self.widget() is not None):
                 # Clear the cell
