@@ -200,7 +200,7 @@ class VistrailData(object):
         notifications for packages loaded in the future.
         """
         self._controller = controller
-        self._spreadsheet_tabs = None
+        self._spreadsheet_tabs = None # name: str -> tab
 
         self._variables = dict()
         self._data_provenance = dict() # version: int -> provenance
@@ -284,6 +284,29 @@ class VistrailData(object):
         return self._controller
     controller = property(_get_controller)
 
+    def new_tab(self, add, tab_controller, name=None, row=2, col=2):
+        tab = StandardWidgetSheetTab(
+                tab_controller,
+                row=row,
+                col=col)
+        if name is None:
+            names = set(unicode(s.windowTitle())
+                        for s in VistrailManager._tabs.iterkeys())
+            for i in itertools.count(1):
+                name = u"Sheet %d" % i
+                fullname = u'%s / %s' % (self.name, name)
+                if fullname not in names:
+                    break
+        else:
+            fullname = u'%s / %s' % (self.name, name)
+        if add:
+            tab_controller.addTabWidget(
+                    tab,
+                    fullname)
+        self._spreadsheet_tabs[name] = tab
+        VistrailManager._tabs[tab] = self
+        return tab, fullname
+
     def _get_spreadsheet_tabs(self):
         if self._spreadsheet_tabs is not None:
             return self._spreadsheet_tabs
@@ -322,28 +345,18 @@ class VistrailData(object):
                 spreadsheet_tab = self._spreadsheet_tabs[sheetname]
             except KeyError:
                 rowCount, colCount = sheet_sizes.get(sheetname, (2, 2))
-                tab = StandardWidgetSheetTab(
+                spreadsheet_tab = self.new_tab(
+                        True,
                         tab_controller,
+                        name=sheetname,
                         row=rowCount,
-                        col=colCount,
-                        swflags=0)
-                tab_controller.addTabWidget(
-                        tab,
-                        u'%s / %s' % (self.name, sheetname))
-                self._spreadsheet_tabs[sheetname] = tab
+                        col=colCount)[0]
             cellInfo = CellInformation(spreadsheet_tab, row, col)
             self._cell_to_pipeline[cellInfo] = pipeline
             self._cell_to_version[cellInfo] = pipeline.version
 
         if not self._spreadsheet_tabs:
-            tab = StandardWidgetSheetTab(
-                    tab_controller,
-                    row=2,
-                    col=2)
-            name = 'Sheet 1'
-            tab_controller.addTabWidget(tab, u'%s / %s' % (self.name, name))
-            self._spreadsheet_tabs[name] = tab
-            VistrailManager._tabs[tab] = self
+            self.new_tab(True, tab_controller)
 
         return self._spreadsheet_tabs
     spreadsheet_tabs = property(_get_spreadsheet_tabs)
@@ -760,15 +773,7 @@ class VistrailManager(object):
         vistraildata = self()
         if vistraildata is None:
             return None
-        tab = StandardWidgetSheetTab(tab_controller)
-        names = set(unicode(s.windowTitle()) for s in self._tabs.iterkeys())
-        for i in itertools.count(1):
-            name = u"Sheet %d" % i
-            fullname = u'%s / %s' % (vistraildata.name, name)
-            if fullname not in names:
-                self._tabs[tab] = vistraildata
-                vistraildata._spreadsheet_tabs[name] = tab
-                return tab, fullname
+        return vistraildata.new_tab(False, tab_controller)
 
     def hook_close_tab(self, tab):
         try:

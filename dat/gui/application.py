@@ -210,23 +210,23 @@ class Application(QtGui.QApplication, NotificationDispatcher, VistrailsApplicati
 
         if new:
             # Execute the pipelines
-            for tab in spreadsheet_tabs.itervalues():
-                for cellInfo, pipeline in vistraildata.all_cells:
-                    error = vistrails_interface.try_execute(
-                            controller,
-                            pipeline,
-                            vistraildata.name)
-                    if error is not None:
-                        from dat.gui.cellcontainer import DATCellContainer
-                        tab.setCellWidget(
-                                cellInfo.row,
-                                cellInfo.column,
-                                DATCellContainer(
-                                        cellInfo=CellInformation(
-                                                tab,
-                                                cellInfo.row,
-                                                cellInfo.column),
-                                        error=error))
+            for cellInfo, pipeline in vistraildata.all_cells:
+                tab = cellInfo.tab
+                error = vistrails_interface.try_execute(
+                        controller,
+                        pipeline,
+                        vistraildata.name)
+                if error is not None:
+                    from dat.gui.cellcontainer import DATCellContainer
+                    tab.setCellWidget(
+                            cellInfo.row,
+                            cellInfo.column,
+                            DATCellContainer(
+                                    cellInfo=CellInformation(
+                                            tab,
+                                            cellInfo.row,
+                                            cellInfo.column),
+                                    error=error))
 
         # Make one of these tabs current
         sh_window = spreadsheetController.findSpreadsheetWindow(
