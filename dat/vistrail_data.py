@@ -336,11 +336,12 @@ class VistrailData(object):
             if not changed:
                 self.controller.set_changed(False)
 
-    def new_tab(self, tab_controller, sheet_id=None):
+    def new_tab(self, add, tab_controller, sheet_id=None):
         tab = StandardWidgetSheetTab(tab_controller)
         if sheet_id is None:
             sheet_id = self._get_sheet_id()
-        tab_controller.addTabWidget(tab, self.get_sheetname(sheet_id))
+        if add:
+            tab_controller.addTabWidget(tab, self.get_sheetname(sheet_id))
         self._spreadsheet_tabs[sheet_id] = tab
         self._spreadsheet_tabs_rev[tab] = sheet_id
         VistrailManager._tabs[tab] = (self, sheet_id)
@@ -389,13 +390,16 @@ class VistrailData(object):
                 spreadsheet_tab = self._spreadsheet_tabs[sheet_id]
             except KeyError:
                 rowCount, colCount = sheet_sizes.get(sheet_id, (2, 2))
-                spreadsheet_tab = self.new_tab(tab_controller, sheet_id)[0]
+                spreadsheet_tab = self.new_tab(
+                        True,
+                        tab_controller,
+                        sheet_id)[0]
             cellInfo = CellInformation(spreadsheet_tab, row, col)
             self._cell_to_pipeline[cellInfo] = pipeline
             self._cell_to_version[cellInfo] = pipeline.version
 
         if not self._spreadsheet_tabs:
-            self.new_tab(tab_controller)
+            self.new_tab(True, tab_controller)
 
         return self._spreadsheet_tabs
     spreadsheet_tabs = property(_get_spreadsheet_tabs)
@@ -822,7 +826,7 @@ class VistrailManager(object):
         vistraildata = self()
         if vistraildata is None:
             return None
-        tab, sheet_id = vistraildata.new_tab(tab_controller)
+        tab, sheet_id = vistraildata.new_tab(False, tab_controller)
         return tab, vistraildata.get_sheetname(sheet_id)
 
     def hook_close_tab(self, tab):
