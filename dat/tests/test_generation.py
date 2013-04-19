@@ -110,7 +110,7 @@ class Test_generation(unittest.TestCase):
 
         cellInfo = FakeObj(
                 row=0,
-                col=0,
+                column=0,
                 tab=FakeObj(
                         tabWidget=FakeObj(
                                 tabText=lambda w: 'Sheet 1')))
