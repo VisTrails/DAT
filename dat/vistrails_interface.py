@@ -323,7 +323,7 @@ class Variable(object):
         This is called by the VistrailData when the Variable is inserted.
         """
         if self._materialized is not None:
-            raise ValueError("materialize() called on already materlialized "
+            raise ValueError("materialize() called on already materialized "
                              "variable %s (new name: %s)" % (
                              self._materialized.name, name))
 
@@ -373,7 +373,7 @@ class Variable(object):
         return None
 
     @staticmethod
-    def from_workflow(variable_info):
+    def from_workflow(variable_info, record_materialized=True):
         """Reads back a Variable from a pipeline, given a VariableInformation.
         """
         controller = variable_info._controller
@@ -382,13 +382,16 @@ class Variable(object):
 
         generator = PipelineGenerator(controller)
         output = add_variable_subworkflow(generator, pipeline)
-        return Variable(
+
+        kwargs = dict(
                 type=variable_info.type,
                 controller=controller,
                 generator=generator,
-                materialized=variable_info,
                 output=output,
                 provenance=variable_info.provenance)
+        if record_materialized:
+            kwargs['materialized'] = variable_info
+        return Variable(**kwargs)
 
 
 class ArgumentWrapper(object):

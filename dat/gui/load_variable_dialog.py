@@ -223,7 +223,7 @@ class FileLoaderPanel(QtGui.QWidget):
             return None
         loader = self._loader_stack.currentWidget()
         variable = loader.load()
-        if variable.provenance is None:
+        if variable is not None and variable.provenance is None:
             variable.provenance = data_provenance.Loader(
                     loader=loader,
                     file=str(self._file_edit.text()))
@@ -411,7 +411,7 @@ class LoadVariableDialog(QtGui.QDialog):
             # The Loader may provide a provenance node (i.e. to record the
             # specific parameters it used), else we'll just store that it came
             # from this loader
-            if variable.provenance is None:
+            if variable is not None and variable.provenance is None:
                 variable.provenance = data_provenance.Loader(loader=loader)
         except Exception, e:
             _ = translate(LoadVariableDialog)
