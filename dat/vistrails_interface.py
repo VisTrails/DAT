@@ -798,13 +798,13 @@ class Plot(object):
         self.ports = kwargs.get('ports', [])
 
         # Set the plot config widget, ensuring correct parent class
-        from dat.gui.overlays import PlotConfigOverlay, \
-            DefaultPlotConfigOverlay
-        self.configWidget = kwargs.get('configWidget', DefaultPlotConfigOverlay)
-        if not issubclass(self.configWidget, PlotConfigOverlay): 
+        from dat.gui.plot_config import PlotConfigBase, \
+            DefaultPlotConfig
+        self.configWidget = kwargs.get('configWidget', DefaultPlotConfig)
+        if not issubclass(self.configWidget, PlotConfigBase): 
             warnings.warn("Config widget of plot '%s' does not subclass "
-                          "'PlotConfigOverlay'. Using default." % self.name)
-            self.configWidget = DefaultPlotConfigOverlay
+                          "'PlotConfigBase'. Using default." % self.name)
+            self.configWidget = DefaultPlotConfig
 
     def _read_metadata(self, package_identifier):
         """Reads a plot's ports from the subworkflow file

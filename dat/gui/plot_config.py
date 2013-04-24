@@ -1,16 +1,14 @@
 from PyQt4 import QtCore, QtGui
 
 from dat import PipelineInformation
-from dat.gui.overlays import Overlay
 from dat.vistrail_data import VistrailManager
-from dat.vistrails_interface import get_plot_modules
 
 from vistrails.core.modules.module_registry import get_module_registry, \
     ModuleRegistryException
 from vistrails.gui.ports_pane import PortsList, PortItem
 
 
-class PlotConfigOverlay(Overlay):
+class PlotConfigBase(QtGui.QWidget):
     """Base class for high level plot editors
 
     Must implement setup(self, cell, plot), which is called
@@ -20,21 +18,25 @@ class PlotConfigOverlay(Overlay):
     def setup(self, cell, plot):
         raise NotImplementedError
 
-
-class DefaultPlotConfigOverlay(PlotConfigOverlay):
+class DefaultPlotConfig(PlotConfigBase):
     """Default widget for editing 'advanced' plot settings.
 
     Shows PortList widget for each module in plot. If the module has an
     advanced editor, that is shown instead.
     """
-    def __init__(self, cellcontainer):
-        Overlay.__init__(self, cellcontainer, False)
+    def __init__(self, parent=None):
+        PlotConfigBase.__init__(self, parent)
 
         self.setSizePolicy(QtGui.QSizePolicy.Ignored,
                            QtGui.QSizePolicy.Ignored)
 
-        # Create tab widget
-        self.tabWidget = QtGui.QTabWidget()
+        # Create tree widget
+        self.treeWidget = QtGui.QTreeWidget()
+        self.treeWidget.itemSelectionChanged.connect(self.itemSelectionChanged)
+        
+        # Create horizontal layout for tree and module widget
+        self.horizontalLayout = QtGui.QHBoxLayout()
+        self.horizontalLayout.addWidget(self.treeWidget)
 
         # Create buttons
         btnApply = QtGui.QPushButton("&Apply")
@@ -49,68 +51,105 @@ class DefaultPlotConfigOverlay(PlotConfigOverlay):
         # Add buttons to layout
         layoutButtons = QtGui.QHBoxLayout()
         layoutButtons.addWidget(btnReset)
-        layoutButtons.addStretch()
         layoutButtons.addWidget(btnApply)
+        layoutButtons.addStretch()
         layoutButtons.addWidget(btnOk)
 
-        # Add tabwidget above buttons
+        # Add tree/module widgets above buttons
         vLayout = QtGui.QVBoxLayout()
-        vLayout.addWidget(self.tabWidget)
+        vLayout.addLayout(self.horizontalLayout)
         vLayout.addLayout(layoutButtons)
 
         self.setLayout(vLayout)
 
         self.cell = None
         self.plot = None
+        self.module_widget = None
+        self.item_module_map = dict()
 
     def setup(self, cell, plot):
+        
         self.cell = cell
         self.plot = plot
 
         # Get pipeline of the cell
         mngr = VistrailManager(cell._controller)
         pipelineInfo = mngr.get_pipeline(cell.cellInfo)
+        pipeline = cell._controller.current_pipeline
+        
+        #setup the tree
+        self.treeWidget.clear()
+        
+        #get input modules
+        input_modules = set(pipeline.modules[mod_id]
+                            for lp in pipelineInfo.port_map.itervalues()
+                            for mod_id, _ in lp)
+        
+        connections_from = cell._controller.get_connections_from
+        connections_to = cell._controller.get_connections_to
 
-        # Clear old tabs
-        self.tabWidget.clear()
-
-        # Get all of the plot modules in the pipeline
-        plot_modules = get_plot_modules(
-                pipelineInfo,
-                cell._controller.current_pipeline)
-
-        registry = get_module_registry()
-        getter = registry.get_configuration_widget
-        for module in plot_modules:
-            widgetType = None
-            widget = None
-
-            # Try to get custom config widget for the module
-            try:
-                widgetType = \
-                    getter(module.package, module.name, module.namespace)
-            except ModuleRegistryException:
-                pass
-
-            if widgetType:
-                # Use custom widget
-                widget = widgetType(module, cell._controller)
-                self.connect(widget, QtCore.SIGNAL("doneConfigure"),
-                             self.configureDone)
-                self.connect(widget, QtCore.SIGNAL("stateChanged"),
-                             self.stateChanged)
+        def add_to_tree(module, parent=None):
+            
+            item = QtGui.QTreeWidgetItem()
+            item.setText(0, module.name)
+            item.vt_module = module
+            self.item_module_map[item] = module
+            
+            if parent is not None:
+                parent.addChild(item)
             else:
-                # Use PortsList widget, only if module has ports
-                widget = DATPortsList(self)
-                widget.update_module(module)
-                if len(widget.port_spec_items) > 0:
-                    widget.set_controller(cell._controller)
-                else:
-                    widget = None
+                self.treeWidget.addTopLevelItem(item)
+            
+            if module not in input_modules:
+                for c in connections_to(pipeline, [module.id]):
+                    add_to_tree(pipeline.modules[c.sourceId], item)
+               
+        for m_id in pipeline.modules:
+            if len(connections_from(pipeline, [m_id])) == 0:
+                add_to_tree(pipeline.modules[m_id])
+                
+        self.treeWidget.setCurrentItem(self.treeWidget.topLevelItem(0))
 
-            # Add widget in new tab
-            if widget:
-                self.tabWidget.addTab(widget, module.name)
+    def itemSelectionChanged(self):
+        module = self.item_module_map[self.treeWidget.selectedItems()[0]]
+        
+        if self.module_widget is not None:
+            self.horizontalLayout.removeWidget(self.module_widget)
+            self.module_widget.deleteLater()
+            self.module_widget = None
+            
+        registry = get_module_registry()
+        
+        widgetType = None
+        widget = None
+
+        # Try to get custom config widget for the module
+        try:
+            widgetType = registry.get_configuration_widget(
+                    module.package, module.name, module.namespace)
+        except ModuleRegistryException:
+            pass
+
+        if widgetType:
+            # Use custom widget
+            widget = widgetType(module, self.cell._controller)
+            self.connect(widget, QtCore.SIGNAL("doneConfigure"),
+                         self.configureDone)
+            self.connect(widget, QtCore.SIGNAL("stateChanged"),
+                         self.stateChanged)
+        else:
+            # Use PortsList widget, only if module has ports
+            widget = DATPortsList(self)
+            widget.update_module(module)
+            if len(widget.port_spec_items) > 0:
+                widget.set_controller(self.cell._controller)
+            else:
+                widget = None
+
+        # Add widget to the layout
+        if widget:
+            self.module_widget = widget
+            self.horizontalLayout.addWidget(widget)
 
     def stateChanged(self):
         pass
@@ -119,15 +158,6 @@ class DefaultPlotConfigOverlay(PlotConfigOverlay):
         pass
 
     def applyClicked(self):
-        self.okClicked()
-
-        # Bring this overlay back up
-        self.cell._set_overlay(DefaultPlotConfigOverlay)
-        mngr = VistrailManager(self.cell._controller)
-        pipeline = mngr.get_pipeline(self.cell.cellInfo)
-        self.cell._overlay.setup(self.cell, pipeline.recipe.plot)
-
-    def okClicked(self):
         mngr = VistrailManager(self.cell._controller)
         pipeline = mngr.get_pipeline(self.cell.cellInfo)
         if pipeline.version != self.cell._controller.current_version:
@@ -138,8 +168,10 @@ class DefaultPlotConfigOverlay(PlotConfigOverlay):
                     pipeline.port_map)
             mngr.created_pipeline(self.cell.cellInfo, new_pipeline)
             self.cell.update_pipeline(force_reexec=True)
-        else:
-            self.cell._set_overlay(None)
+
+    def okClicked(self):
+        self.applyClicked()
+        self.close()
 
     def resetClicked(self):
         mngr = VistrailManager(self.cell._controller)
@@ -149,7 +181,6 @@ class DefaultPlotConfigOverlay(PlotConfigOverlay):
             currentTabIndex = self.tabWidget.currentIndex()
             self.setup(self.cell, self.plot)
             self.tabWidget.setCurrentIndex(currentTabIndex)
-
 
 class DATPortItem(PortItem):
 

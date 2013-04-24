@@ -46,4 +46,3 @@ class Overlay(QtGui.QWidget):
 from dat.gui.overlays.simple import PlotPromptOverlay, VariableDropEmptyCell, \
     PlotDroppingOverlay
 from dat.gui.overlays.variable_dropping import VariableDroppingOverlay
-from dat.gui.overlays.plot_config import PlotConfigOverlay, DefaultPlotConfigOverlay

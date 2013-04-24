@@ -301,6 +301,14 @@ class VariableDroppingOverlay(Overlay):
         # Get the pipeline info for the cell
         vistraildata = VistrailManager(self._cell._controller)
         pipeline = vistraildata.get_pipeline(self._cell.cellInfo)
-
-        self._cell._set_overlay(pipeline.recipe.plot.configWidget)
-        self._cell._overlay.setup(self._cell, pipeline.recipe.plot)
+        
+#        dialog = QtGui.QDialog()
+#        layout = QtGui.QVBoxLayout()
+        plot = pipeline.recipe.plot
+        configWidgetClass = plot.configWidget
+        configWidget = configWidgetClass()#dialog)
+        configWidget.show()
+        configWidget.setup(self._cell, plot)
+#        layout.addWidget(configWidget)
+#        dialog.setLayout(layout)
+#        dialog.exec_()
