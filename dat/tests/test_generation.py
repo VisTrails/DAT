@@ -135,7 +135,9 @@ class Test_generation(unittest.TestCase):
         pipelineInfo = vistrails_interface.create_pipeline(
                 controller,
                 recipe,
-                cellInfo)
+                cellInfo.row,
+                cellInfo.column,
+                None) # This plot has no cell module so this is fine
 
         controller.change_selected_version(pipelineInfo.version)
 

@@ -3,7 +3,6 @@
 This module contains most of the code that deals with VisTrails pipelines.
 """
 
-import copy
 import importlib
 import inspect
 from itertools import chain, izip
@@ -27,7 +26,6 @@ from vistrails.core.modules.sub_module import InputPort
 from vistrails.core.modules.utils import parse_descriptor_string
 from vistrails.core.modules.vistrails_module import Module
 from vistrails.core.utils import DummyView
-from vistrails.core.vistrail.controller import VistrailController
 from vistrails.core.vistrail.connection import Connection
 from vistrails.core.vistrail.module import Module as PipelineModule
 from vistrails.core.vistrail.pipeline import Pipeline
@@ -1160,9 +1158,13 @@ def get_pipeline_location(controller, pipelineInfo):
     if len(sheetref_modules) != 1:
         raise ValueError
     ref = sheetref_modules[0]
-    sheetname = str(get_function(ref, 'SheetName'))
-
-    return row, col, sheetname
+    for connection in pipeline.connection_list:
+        src = pipeline.modules[connection.source.moduleId]
+        if connection.destination.moduleId == ref.id and src.is_vistrail_var():
+            var_uuid = src.get_vistrail_var()
+            sheetname_var = controller.get_vistrail_variable_by_uuid(var_uuid)
+            return row, col, sheetname_var
+    raise ValueError
 
 
 def get_plot_modules(pipelineInfo, pipeline):
@@ -1236,6 +1238,30 @@ class PipelineGenerator(object):
         self.operations.append(('add', new_conn))
         self.all_connections.add(new_conn)
         return new_conn.id
+
+    def connect_var(self, vt_var, dest_module, dest_portname):
+        self._ensure_version()
+        var_type_desc = get_module_registry().get_descriptor_by_name(
+                vt_var.package, vt_var.module, vt_var.namespace)
+        x = dest_module.location.x
+        y = dest_module.location.y
+
+        # Adapted from VistrailController#connect_vistrail_var()
+        var_module = self.controller.find_vistrail_var_module(vt_var.uuid)
+        if var_module is None:
+            var_module = self.controller.create_vistrail_var_module(
+                    var_type_desc,
+                    x, y,
+                    vt_var.uuid)
+            self.operations.append(('add', var_module))
+        elif self.controller.check_vistrail_var_connected(
+                    var_module,
+                    dest_module,
+                    dest_portname):
+            return
+        connection = self.controller.create_connection(
+                var_module, 'value', dest_module, dest_portname)
+        self.operations.append(('add', connection))
 
     def update_function(self, module, portname, values):
         self._ensure_version()
@@ -1407,7 +1433,8 @@ def add_constant_module(generator, descriptor, constant, plot_ports):
     return connection_ids
 
 
-def create_pipeline(controller, recipe, cell_info, typecast=None):
+def create_pipeline(controller, recipe, row, column, var_sheetname,
+        typecast=None):
     """Create a pipeline from a recipe and return its information.
     """
     # Build from the root version
@@ -1477,11 +1504,10 @@ def create_pipeline(controller, recipe, cell_info, typecast=None):
                     location_module, 'self',
                     cell_module, 'Location')
 
-        row, col = cell_info.row, cell_info.column
         generator.update_function(
                 location_module, 'Row', [str(row + 1)])
         generator.update_function(
-                location_module, 'Column', [str(col + 1)])
+                location_module, 'Column', [str(column + 1)])
 
         if len(cell_modules) > 1:
             warnings.warn("Plot subworkflow '%s' contains more than "
@@ -1498,11 +1524,10 @@ def create_pipeline(controller, recipe, cell_info, typecast=None):
                     sheetref_module, 'self',
                     location_module, 'SheetReference')
 
-        tab = cell_info.tab
-        tabWidget = tab.tabWidget
-        sheetname = tabWidget.tabText(tabWidget.indexOf(tab))
-        sheetname = sheetname.split(u' / ', 1)[1]
-        generator.update_function(sheetref_module, 'SheetName', [sheetname])
+        generator.connect_var(
+                var_sheetname,
+                sheetref_module,
+                'SheetName')
     else:
         warnings.warn("Plot subworkflow '%s' does not contain a "
                       "spreadsheet cell module" % recipe.plot.name)
@@ -1805,70 +1830,15 @@ def executePipeline(controller, pipeline,
 
 MISSING_PARAMS = object()
 
-def try_execute(controller, pipelineInfo, controllername):
+def try_execute(controller, pipelineInfo):
     recipe = pipelineInfo.recipe
 
     if all(
             port.optional or recipe.parameters.has_key(port.name)
             for port in recipe.plot.ports):
-        # Create a copy of that pipeline so we can change it
+        # Get the pipeline
         controller.change_selected_version(pipelineInfo.version)
         pipeline = controller.current_pipeline
-        pipeline = copy.copy(pipeline)
-
-        # Add the SheetReference to the pipeline
-        modules = find_modules_by_type(pipeline, [CellLocation])
-
-        # Hack copied from spreadsheet_execute
-        create_module = VistrailController.create_module_static
-        create_function = VistrailController.create_function_static
-        create_connection = VistrailController.create_connection_static
-        id_scope = pipeline.tmp_id
-        orig_getNewId = pipeline.tmp_id.__class__.getNewId
-        def getNewId(self, objType):
-            return -orig_getNewId(self, objType)
-        pipeline.tmp_id.__class__.getNewId = getNewId
-        try:
-            for module in modules:
-                # Remove all SheetReference connected to this CellLocation
-                conns_to_delete = []
-                for conn_id, conn in pipeline.connections.iteritems():
-                    if (conn.destinationId == module.id and
-                            pipeline.modules[conn.sourceId] is SheetReference):
-                        conns_to_delete.append(conn_id)
-                for conn_id in conns_to_delete:
-                    pipeline.delete_connection(conn_id)
-
-                # Fix the SheetName on the SheetReference module
-                sheetref_modules = find_modules_by_type(
-                        pipeline,
-                        [SheetReference])
-                for sheetref in sheetref_modules:
-                    functions = [f
-                                 for f in sheetref.functions
-                                 if f.name == 'SheetName']
-                    if len(functions) != 1:
-                        # Somebody did weird stuff to the pipeline
-                        warnings.warn("Multiple functions set on SheetName "
-                                      "port of SheetReference module!")
-                        continue
-                    f = sheetref.functions[0]
-                    if len(f.params) != 1:
-                        # This one really cannot happen
-                        warnings.warn("Multiple parameters set on SheetName "
-                                      "function on SheetReference module!")
-                        continue
-                    param = f.params[0]
-                    sheetname = param.strValue
-                    sheetname = u'%s / %s' % (
-                            controllername,
-                            sheetname)
-
-                    # TODO : is this safe? Pipeline has a change_parameter()
-                    # method, but I don't know how it works
-                    param.strValue = sheetname
-        finally:
-            pipeline.tmp_id.__class__.getNewId = orig_getNewId
 
         # Execute the new pipeline
         error = executePipeline(
