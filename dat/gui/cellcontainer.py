@@ -165,6 +165,20 @@ class DATCellContainer(QCellContainer):
 
         self.contentsUpdated()
 
+    def get_pipeline(self):
+        if self.widget() is not None:
+            # Get pipeline info from VisTrails
+            pipelineInfo = self.cellInfo.tab.getCellPipelineInfo(
+                    self.cellInfo.row, self.cellInfo.column)
+            version = pipelineInfo[0]['version']
+            return VistrailManager(self._controller).get_pipeline(
+                    version,
+                    infer_for_cell=self.cellInfo)
+        else:
+            # Get pipeline info from DAT: we might be building something here
+            return VistrailManager(self._controller).get_pipeline(
+                    self.cellInfo)
+
     def contentsUpdated(self):
         """Notifies that this cell's pipeline changed.
 
@@ -175,18 +189,7 @@ class DATCellContainer(QCellContainer):
 
         It is also called by setWidget() here.
         """
-        if self.widget() is not None:
-            # Get pipeline info from VisTrails
-            pipelineInfo = self.cellInfo.tab.getCellPipelineInfo(
-                    self.cellInfo.row, self.cellInfo.column)
-            version = pipelineInfo[0]['version']
-            pipeline = VistrailManager(self._controller).get_pipeline(
-                    version,
-                    infer_for_cell=self.cellInfo)
-        else:
-            # Get pipeline info from DAT: we might be building something here
-            pipeline = VistrailManager(self._controller).get_pipeline(
-                    self.cellInfo)
+        pipeline = self.get_pipeline()
 
         if pipeline is not None:
             self._plot = pipeline.recipe.plot
@@ -417,9 +420,7 @@ class DATCellContainer(QCellContainer):
         recipe = DATRecipe(self._plot, self._parameters)
 
         # Try to get an existing pipeline for this cell
-        pipeline = vistraildata.get_pipeline(
-                self.cellInfo,
-                infer_for_cell=self.cellInfo)
+        pipeline = self.get_pipeline()
 
         try:
             # No pipeline: build one
