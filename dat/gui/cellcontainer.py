@@ -28,6 +28,7 @@ class DATCellContainer(QCellContainer):
     def __init__(self, cellInfo=None, widget=None, error=None, parent=None):
         self._parameters = dict() # param name -> [RecipeParameterValue]
         self._plot = None # dat.vistrails_interface:Plot
+        self._execute_pending = False
 
         app = get_vistrails_application()
         app.register_notification(
@@ -227,6 +228,12 @@ class DATCellContainer(QCellContainer):
             self._show_button.raise_()
             self._show_button.setVisible(self._plot is not None)
             self._hide_button.setVisible(False)
+
+            # Now that we are done with the overlay, we can go on with a
+            # deferred execution
+            if self._execute_pending:
+                self.update_pipeline()
+                self._execute_pending = False
         else:
             self._overlay = overlay_class(self, **kwargs)
             self._overlay_scrollarea.setWidget(self._overlay)
@@ -400,17 +407,18 @@ class DATCellContainer(QCellContainer):
         if constant and constant[0].type != RecipeParameterValue.CONSTANT:
             # The overlay shouldn't do this
             warnings.warn("change_constant() on port where variables are set")
-            return
+            return False
         elif constant is not None:
             constant = constant[0]
             if value is None:
                 del self._parameters[port_name]
-                return
+                return True
             elif constant.constant == value:
-                return
+                return False
         self._parameters[port_name] = [
                 RecipeParameterValue(constant=value)]
-        self.update_pipeline()
+        self._execute_pending = True
+        return True
 
     def update_pipeline(self, force_reexec=False):
         """Updates the recipe and execute the workflow if enough ports are set.
@@ -466,6 +474,9 @@ class DATCellContainer(QCellContainer):
             # Nothing changed
             elif not force_reexec:
                 return True
+
+            # Clear pending flag as we're about to execute
+            self._execute_pending = False
 
             # Execute the new pipeline if possible
             error = vistrails_interface.try_execute(
