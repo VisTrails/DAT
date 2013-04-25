@@ -14,10 +14,10 @@ from dat.gui.overlays import PlotPromptOverlay, VariableDropEmptyCell, \
     PlotDroppingOverlay, VariableDroppingOverlay
 
 from vistrails.core.application import get_vistrails_application
-from vistrails.packages.spreadsheet.spreadsheet_cell import QCellContainer
+from vistrails.packages.spreadsheet.spreadsheet_cell import CellContainerInterface
 
 
-class DATCellContainer(QCellContainer):
+class DATCellContainer(CellContainerInterface, QtGui.QWidget):
     """Cell container used in the spreadsheet.
 
     This is created by the spreadsheet for each cell, thus allowing us to tap
@@ -26,10 +26,21 @@ class DATCellContainer(QCellContainer):
     variables and plots.
     """
     def __init__(self, cellInfo=None, widget=None, error=None, parent=None):
+        # Parent constructors
+        CellContainerInterface.__init__(self, cellInfo)
+        QtGui.QWidget.__init__(self, parent)
+
+        self.setAcceptDrops(True)
+
+        # Attributes
         self._parameters = dict() # param name -> [RecipeParameterValue]
         self._plot = None # dat.vistrails_interface:Plot
         self._execute_pending = False
 
+        self._parameter_hovered = None
+        self._insert_pos = None
+
+        # Notifications
         app = get_vistrails_application()
         app.register_notification(
                 'dat_new_variable', self._variable_added)
@@ -39,11 +50,9 @@ class DATCellContainer(QCellContainer):
                 'dragging_to_overlays', self._set_dragging)
         self._controller = app.get_controller()
 
-        self._parameter_hovered = None
-        self._insert_pos = None
-
+        # Overlay
         self._overlay = None
-        self._overlay_scrollarea = QtGui.QScrollArea()
+        self._overlay_scrollarea = QtGui.QScrollArea(self)
         self._overlay_scrollarea.setObjectName('overlay_scrollarea')
         self._overlay_scrollarea.setStyleSheet(
                 'QScrollArea#overlay_scrollarea {'
@@ -53,33 +62,64 @@ class DATCellContainer(QCellContainer):
                 '    background-color: transparent;'
                 '}')
         self._overlay_scrollarea.setWidgetResizable(True)
-        self._show_button = QtGui.QPushButton()
-        self._show_button.setIcon(get_icon('show_overlay.png'))
-        self._hide_button = QtGui.QPushButton()
-        self._hide_button.setIcon(get_icon('hide_overlay.png'))
-        self._error_icon = QtGui.QLabel()
+
+        # Toolbar
+        self._container_toolbar = QtGui.QToolBar(self)
+        self._container_toolbar.hide()
+
+        self._show_action = QtGui.QAction(
+                get_icon('show_overlay.png'),
+                "Show overlay",
+                self)
+        self.connect(self._show_action, QtCore.SIGNAL('triggered()'),
+                     self.show_overlay)
+        self._show_action_enabled = False
+
+        self._hide_action = QtGui.QAction(
+                get_icon('hide_overlay.png'),
+                "Hide overlay",
+                self)
+        self.connect(self._hide_action, QtCore.SIGNAL('triggered()'),
+                     lambda: self._set_overlay(None))
+        self._hide_action_enabled = False
+
+        # Error icon
+        self._error_icon = QtGui.QLabel(self)
         self._error_icon.setPixmap(get_icon('error.png').pixmap(24, 24))
         self._set_error(error)
 
-        QCellContainer.__init__(self, cellInfo, widget, parent)
-        self.setAcceptDrops(True)
+        # Setup cell
+        if widget is not None:
+            self.setWidget(widget)
+        else:
+            self.contentsUpdated()
 
-        self._overlay_scrollarea.setParent(self)
+    def containerToolBar(self):
+        if self._plot:
+            return self._container_toolbar
+        else:
+            return None
 
-        self._show_button.setParent(self)
-        self.connect(self._show_button, QtCore.SIGNAL('clicked()'),
-                     self.show_overlay)
-        self._show_button.setGeometry(self.width() - 24, 0, 24, 24)
+    def _set_toolbar_buttons(self, button):
+        display_hide = button is False
+        display_show = button is not False
+        self._show_action.setEnabled(button is not None)
+        if display_hide != self._hide_action_enabled:
+            if not display_hide:
+                self._container_toolbar.removeAction(self._hide_action)
+            else:
+                self._container_toolbar.addAction(self._hide_action)
+            self._hide_action_enabled = display_hide
 
-        self._hide_button.setParent(self)
-        self.connect(self._hide_button, QtCore.SIGNAL('clicked()'),
-                     lambda: self._set_overlay(None))
-        self._hide_button.setGeometry(self.width() - 24, 0, 24, 24)
-        self._hide_button.setVisible(False)
-
-        self._error_icon.setParent(self)
-
-        self.contentsUpdated()
+        if display_show != self._show_action_enabled:
+            if not display_show:
+                self._container_toolbar.removeAction(self._show_action)
+            elif self._hide_action_enabled:
+                self._container_toolbar.insertAction(self._hide_action,
+                                                     self._show_action)
+            else:
+                self._container_toolbar.addAction(self._show_action)
+            self._show_action_enabled = display_show
 
     def setCellInfo(self, cellInfo):
         super(DATCellContainer, self).setCellInfo(cellInfo)
@@ -157,14 +197,30 @@ class DATCellContainer(QCellContainer):
         This is called by the spreadsheet to put or remove a visualization in
         this cell.
         """
-        super(DATCellContainer, self).setWidget(widget)
+        if widget != self.containedWidget:
+            if self.containedWidget:
+                self.containedWidget.setParent(None)
+                self.containedWidget.deleteLater()
+                self.toolBar = None
+            if widget:
+                widget.setParent(self)
+                widget.show()
+            self.containedWidget = widget
+
         if widget is None:
             return
-
         widget.raise_()
-        self._show_button.raise_()
+        self._set_toolbar_buttons(True)
 
         self.contentsUpdated()
+
+    def takeWidget(self):
+        widget = self.containedWidget
+        if widget is not None:
+            widget.setParent(None)
+            self.containedWidget = None
+        self.toolBar = None
+        return widget
 
     def get_pipeline(self):
         if self.widget() is not None:
@@ -207,8 +263,7 @@ class DATCellContainer(QCellContainer):
             # Default overlay
             if self._plot is not None and self.has_error():
                 self._set_overlay(VariableDroppingOverlay, overlayed=False)
-                self._hide_button.setVisible(False)
-                self._show_button.setVisible(False)
+                self._set_toolbar_buttons(None)
                 self._error_icon.raise_()
                 return
             elif self.widget() is None and self._plot is not None:
@@ -225,9 +280,10 @@ class DATCellContainer(QCellContainer):
         if overlay_class is None:
             self._overlay = None
             self._overlay_scrollarea.lower()
-            self._show_button.raise_()
-            self._show_button.setVisible(self._plot is not None)
-            self._hide_button.setVisible(False)
+            if self._plot is not None:
+                self._set_toolbar_buttons(True)
+            else:
+                self._set_toolbar_buttons(None)
 
             # Now that we are done with the overlay, we can go on with a
             # deferred execution
@@ -241,11 +297,10 @@ class DATCellContainer(QCellContainer):
             self._overlay_scrollarea.raise_()
             self._overlay_scrollarea.setGeometry(0, 0,
                                                  self.width(), self.height())
-            self._show_button.setVisible(False)
-            self._hide_button.setVisible(False)
+            self._set_toolbar_buttons(None)
 
     def show_overlay(self):
-        """Shows the overlay from the button in the corner.
+        """Shows the overlay from the button in the toolbar.
 
         It will remain shown until something gets dragged or the other button
         is clicked.
@@ -255,8 +310,7 @@ class DATCellContainer(QCellContainer):
             warnings.warn("show_overlay() while cell is empty!")
             return
         self._set_overlay(VariableDroppingOverlay, overlayed=False)
-        self._hide_button.setVisible(True)
-        self._hide_button.raise_()
+        self._set_toolbar_buttons(False)
 
     def _set_error(self, error):
         self._error = error
@@ -264,8 +318,10 @@ class DATCellContainer(QCellContainer):
             self._error_icon.setToolTip(error)
             self._error_icon.show()
             self._error_icon.raise_()
+            self._set_toolbar_buttons(None)
         else:
             self._error_icon.hide()
+        self._set_overlay(None)
 
     def has_error(self):
         return (self._error is not None and
@@ -275,9 +331,10 @@ class DATCellContainer(QCellContainer):
         """Reacts to a resize by laying out the overlay and buttons.
         """
         super(DATCellContainer, self).resizeEvent(event)
+        if self.containedWidget is not None:
+            self.containedWidget.setGeometry(0, 0,
+                                             self.width(), self.height())
         self._overlay_scrollarea.setGeometry(0, 0, self.width(), self.height())
-        self._show_button.setGeometry(self.width() - 24, 0, 24, 24)
-        self._hide_button.setGeometry(self.width() - 24, 0, 24, 24)
         self._error_icon.setGeometry(self.width() - 24, 0, 24, 24)
 
     def dragEnterEvent(self, event):
