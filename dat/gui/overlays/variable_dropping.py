@@ -230,15 +230,28 @@ class VariableDroppingOverlay(Overlay):
         main_layout.addLayout(spacing_layout)
         main_layout.addStretch(1)
 
-        if not overlayed and self._constant_widgets:
+        if (not overlayed and self._cell.widget() is not None and
+                self._constant_widgets):
             self._execute_button = QtGui.QPushButton(_("Execute"))
             self.connect(self._execute_button, QtCore.SIGNAL('clicked()'),
                          lambda: self._cell._set_overlay(None))
             self._execute_button.setEnabled(False)
-            main_layout.addWidget(self._execute_button,
-                                  0, QtCore.Qt.AlignHCenter)
+            self._cancel_button = QtGui.QPushButton(_("Cancel changes"))
+            def cancel_pending():
+                self._cell._cancel_pending()
+                self._execute_button.setEnabled(False)
+                self._cancel_button.setEnabled(False)
+            self.connect(self._cancel_button, QtCore.SIGNAL('clicked()'),
+                         cancel_pending)
+            self._cancel_button.setEnabled(False)
+            buttons = QtGui.QHBoxLayout()
+            buttons.addStretch(1)
+            buttons.addWidget(self._execute_button)
+            buttons.addWidget(self._cancel_button)
+            main_layout.addLayout(buttons)
         else:
             self._execute_button = None
+            self._cancel_button = None
 
         self.setLayout(main_layout)
 
@@ -312,6 +325,7 @@ class VariableDroppingOverlay(Overlay):
                 contents)
         if changed and self._execute_button is not None:
             self._execute_button.setEnabled(True)
+            self._cancel_button.setEnabled(True)
 
     def show_advanced_config(self):
         # Get the pipeline info for the cell

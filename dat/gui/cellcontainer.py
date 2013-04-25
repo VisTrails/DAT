@@ -420,6 +420,12 @@ class DATCellContainer(QCellContainer):
         self._execute_pending = True
         return True
 
+    def _cancel_pending(self):
+        """Cancels the pending execution (returns to
+        """
+        self.contentsUpdated()  # Reset the cell's recipe to whatever pipeline
+                                # is already in it
+
     def update_pipeline(self, force_reexec=False):
         """Updates the recipe and execute the workflow if enough ports are set.
         """
