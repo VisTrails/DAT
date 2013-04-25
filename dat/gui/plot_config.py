@@ -11,11 +11,11 @@ from dat.vistrail_data import VistrailManager
 class PlotConfigBase(QtGui.QWidget):
     """Base class for high level plot editors
 
-    Must implement setup(self, cell, plot), which is called
+    Must implement setup(self, cell), which is called
     when the widget is shown.
     """
 
-    def setup(self, cell, plot):
+    def setup(self, cell):
         raise NotImplementedError
     
     def __init__(self, *args, **kwargs):
@@ -51,7 +51,6 @@ class DefaultPlotConfig(PlotConfigBase):
         PlotConfigBase.__init__(self, parent)
 
         self.cell = None
-        self.plot = None
         self.config_version = None
         self.item_index = dict()
         
@@ -101,17 +100,15 @@ class DefaultPlotConfig(PlotConfigBase):
         self.setLayout(vLayout)
         self.resize(640,480)
 
-    def setup(self, cell, plot):
+    def setup(self, cell):
         
         self.cell = cell
-        self.plot = plot
 
         # Get pipeline of the cell
-        mngr = VistrailManager(cell._controller)
-        pipelineInfo = mngr.get_pipeline(cell.cellInfo)
+        pipelineInfo = cell.get_pipeline()
+        self.config_version = pipelineInfo.version
+        cell._controller.change_selected_version(self.config_version)
         pipeline = cell._controller.current_pipeline
-        
-        self.config_version = cell._controller.current_version
         
         #clear old items
         self.treeWidget.clear()
@@ -196,7 +193,8 @@ class DefaultPlotConfig(PlotConfigBase):
         QtGui.QApplication.focusWidget().clearFocus()
         mngr = VistrailManager(self.cell._controller)
         pipeline = mngr.get_pipeline(self.cell.cellInfo)
-        if self.config_version != self.cell._controller.current_version:
+        if (self.config_version == self.cell.version !=
+                self.cell._controller.current_version):
             self.config_version = self.cell._controller.current_version
             new_pipeline = PipelineInformation(
                     self.cell._controller.current_version,
@@ -212,12 +210,11 @@ class DefaultPlotConfig(PlotConfigBase):
 
     def resetClicked(self):
         QtGui.QApplication.focusWidget().clearFocus()
-        if self.config_version != self.cell._controller.current_version:
+        if (self.config_version == self.cell.version !=
+                self.cell._controller.current_version):
             self.cell._controller.change_selected_version(self.config_version)
-            self.setup(self.cell, self.plot)
-            
-            
-        
+        self.setup(self.cell)
+
     def version_changed(self, _):
         if not self.isAncestorOf(QtGui.QApplication.focusWidget()):
             self.close()

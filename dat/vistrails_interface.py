@@ -796,17 +796,21 @@ class Plot(object):
         self.ports = kwargs.get('ports', [])
 
         # Set the plot config widget, ensuring correct parent class
-        from dat.gui.plot_config import PlotConfigBase, \
-            DefaultPlotConfig
-        self.configWidget = kwargs.get('configWidget', DefaultPlotConfig)
-        if not issubclass(self.configWidget, PlotConfigBase): 
-            warnings.warn("Config widget of plot '%s' does not subclass "
-                          "'PlotConfigBase'. Using default." % self.name)
+        from dat.gui.plot_config import PlotConfigBase, DefaultPlotConfig
+        try:
+            self.configWidget = kwargs['configWidget']
+        except KeyError:
             self.configWidget = DefaultPlotConfig
+        else:
+            if not issubclass(self.configWidget, PlotConfigBase):
+                warnings.warn("A plot config widget should subclass "
+                              "PlotConfigBase; plot %s uses %r instead!" % (
+                              self.name, self.configWidget))
+                self.configWidget = DefaultPlotConfig
 
     def _read_metadata(self, package_identifier):
         """Reads a plot's ports from the subworkflow file
-    
+
         Finds each InputPort module and gets the parameter name, optional flag
         and type from its 'name', 'optional' and 'spec' input functions.
 
