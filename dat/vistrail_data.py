@@ -336,8 +336,8 @@ class VistrailData(object):
             if not changed:
                 self.controller.set_changed(False)
 
-    def new_tab(self, add, tab_controller, sheet_id=None):
-        tab = StandardWidgetSheetTab(tab_controller)
+    def new_tab(self, add, tab_controller, rows=2, cols=2, sheet_id=None):
+        tab = StandardWidgetSheetTab(tab_controller, rows, cols)
         if sheet_id is None:
             sheet_id = self._get_sheet_id()
         if add:
@@ -393,6 +393,8 @@ class VistrailData(object):
                 spreadsheet_tab = self.new_tab(
                         True,
                         tab_controller,
+                        rowCount,
+                        colCount,
                         sheet_id)[0]
             cellInfo = CellInformation(spreadsheet_tab, row, col)
             self._cell_to_pipeline[cellInfo] = pipeline
