@@ -1,12 +1,12 @@
 from PyQt4 import QtCore, QtGui
 
-from dat import PipelineInformation
-from dat.vistrail_data import VistrailManager
-
+from vistrails.core.application import get_vistrails_application
 from vistrails.core.modules.module_registry import get_module_registry, \
     ModuleRegistryException
 from vistrails.gui.ports_pane import PortsList, PortItem
 
+from dat import PipelineInformation
+from dat.vistrail_data import VistrailManager
 
 class PlotConfigBase(QtGui.QWidget):
     """Base class for high level plot editors
@@ -17,7 +17,30 @@ class PlotConfigBase(QtGui.QWidget):
 
     def setup(self, cell, plot):
         raise NotImplementedError
-
+    
+    def __init__(self, *args, **kwargs):
+        QtGui.QWidget.__init__(self, *args, **kwargs)
+        
+        app = get_vistrails_application()
+        app.register_notification(
+                'controller_changed',
+                self.controller_changed)
+        app.register_notification(
+                'controller_closed',
+                self.controller_closed)
+        app.register_notification(
+                'version_changed',
+                self.version_changed)
+    
+    def controller_changed(self, _):
+        self.close()
+        
+    def controller_closed(self, _):
+        self.close()
+        
+    def version_changed(self, _):
+        self.close()
+    
 class DefaultPlotConfig(PlotConfigBase):
     """Default widget for editing 'advanced' plot settings.
 
@@ -27,6 +50,15 @@ class DefaultPlotConfig(PlotConfigBase):
     def __init__(self, parent=None):
         PlotConfigBase.__init__(self, parent)
 
+        self.cell = None
+        self.plot = None
+        self.config_version = None
+        self.item_index = dict()
+        
+        self.setup_ui()
+        
+    def setup_ui(self):
+
         self.setSizePolicy(QtGui.QSizePolicy.Ignored,
                            QtGui.QSizePolicy.Ignored)
 
@@ -34,9 +66,15 @@ class DefaultPlotConfig(PlotConfigBase):
         self.treeWidget = QtGui.QTreeWidget()
         self.treeWidget.itemSelectionChanged.connect(self.itemSelectionChanged)
         
-        # Create horizontal layout for tree and module widget
-        self.horizontalLayout = QtGui.QHBoxLayout()
-        self.horizontalLayout.addWidget(self.treeWidget)
+        #Create stacked widget
+        self.stackedWidget = QtGui.QStackedWidget()
+        
+        # Create splitter for tree and stacked widget
+        self.splitter = QtGui.QSplitter()
+        self.splitter.addWidget(self.treeWidget)
+        self.splitter.addWidget(self.stackedWidget)
+        self.splitter.setStretchFactor(0,0)
+        self.splitter.setStretchFactor(1,1)
 
         # Create buttons
         btnApply = QtGui.QPushButton("&Apply")
@@ -57,15 +95,11 @@ class DefaultPlotConfig(PlotConfigBase):
 
         # Add tree/module widgets above buttons
         vLayout = QtGui.QVBoxLayout()
-        vLayout.addLayout(self.horizontalLayout)
+        vLayout.addWidget(self.splitter)
         vLayout.addLayout(layoutButtons)
 
         self.setLayout(vLayout)
-
-        self.cell = None
-        self.plot = None
-        self.module_widget = None
-        self.item_module_map = dict()
+        self.resize(640,480)
 
     def setup(self, cell, plot):
         
@@ -77,8 +111,12 @@ class DefaultPlotConfig(PlotConfigBase):
         pipelineInfo = mngr.get_pipeline(cell.cellInfo)
         pipeline = cell._controller.current_pipeline
         
-        #setup the tree
+        self.config_version = cell._controller.current_version
+        
+        #clear old items
         self.treeWidget.clear()
+        for i in reversed(range(self.stackedWidget.count())):
+            self.stackedWidget.removeWidget(self.stackedWidget.widget(i))
         
         #get input modules
         input_modules = set(pipeline.modules[mod_id]
@@ -88,68 +126,65 @@ class DefaultPlotConfig(PlotConfigBase):
         connections_from = cell._controller.get_connections_from
         connections_to = cell._controller.get_connections_to
 
-        def add_to_tree(module, parent=None):
+        def add_to_tree_and_stack(module, parent=None):
             
             item = QtGui.QTreeWidgetItem()
             item.setText(0, module.name)
             item.vt_module = module
-            self.item_module_map[item] = module
             
             if parent is not None:
                 parent.addChild(item)
             else:
                 self.treeWidget.addTopLevelItem(item)
+                
+            registry = get_module_registry()
+            widgetType = None
+            widget = None
+    
+            # Try to get custom config widget for the module
+            try:
+                widgetType = registry.get_configuration_widget(
+                        module.package, module.name, module.namespace)
+            except ModuleRegistryException:
+                pass
+    
+            if widgetType:
+                # Use custom widget
+                widget = widgetType(module, self.cell._controller)
+                self.connect(widget, QtCore.SIGNAL("doneConfigure"),
+                             self.configureDone)
+                self.connect(widget, QtCore.SIGNAL("stateChanged"),
+                             self.stateChanged)
+            else:
+                # Use PortsList widget, only if module has ports
+                widget = DATPortsList(self)
+                widget.update_module(module)
+                if len(widget.port_spec_items) > 0:
+                    widget.set_controller(self.cell._controller)
+                else:
+                    widget = QtGui.QLabel("No Settings available for this module.")
+
+            # Add widget to the stack
+            if widget is not None:
+                self.stackedWidget.addWidget(widget)
+                self.item_index[item] = self.stackedWidget.count()-1
             
             if module not in input_modules:
                 for c in connections_to(pipeline, [module.id]):
-                    add_to_tree(pipeline.modules[c.sourceId], item)
+                    add_to_tree_and_stack(pipeline.modules[c.sourceId], item)
                
         for m_id in pipeline.modules:
             if len(connections_from(pipeline, [m_id])) == 0:
-                add_to_tree(pipeline.modules[m_id])
+                add_to_tree_and_stack(pipeline.modules[m_id])
                 
         self.treeWidget.setCurrentItem(self.treeWidget.topLevelItem(0))
 
     def itemSelectionChanged(self):
-        module = self.item_module_map[self.treeWidget.selectedItems()[0]]
-        
-        if self.module_widget is not None:
-            self.horizontalLayout.removeWidget(self.module_widget)
-            self.module_widget.deleteLater()
-            self.module_widget = None
-            
-        registry = get_module_registry()
-        
-        widgetType = None
-        widget = None
-
-        # Try to get custom config widget for the module
-        try:
-            widgetType = registry.get_configuration_widget(
-                    module.package, module.name, module.namespace)
-        except ModuleRegistryException:
-            pass
-
-        if widgetType:
-            # Use custom widget
-            widget = widgetType(module, self.cell._controller)
-            self.connect(widget, QtCore.SIGNAL("doneConfigure"),
-                         self.configureDone)
-            self.connect(widget, QtCore.SIGNAL("stateChanged"),
-                         self.stateChanged)
-        else:
-            # Use PortsList widget, only if module has ports
-            widget = DATPortsList(self)
-            widget.update_module(module)
-            if len(widget.port_spec_items) > 0:
-                widget.set_controller(self.cell._controller)
-            else:
-                widget = None
-
-        # Add widget to the layout
-        if widget:
-            self.module_widget = widget
-            self.horizontalLayout.addWidget(widget)
+        items = self.treeWidget.selectedItems()
+        if len(items) > 0:
+            item = items[0]
+            if item in self.item_index:
+                self.stackedWidget.setCurrentIndex(self.item_index[item])
 
     def stateChanged(self):
         pass
@@ -158,9 +193,11 @@ class DefaultPlotConfig(PlotConfigBase):
         pass
 
     def applyClicked(self):
+        QtGui.QApplication.focusWidget().clearFocus()
         mngr = VistrailManager(self.cell._controller)
         pipeline = mngr.get_pipeline(self.cell.cellInfo)
-        if pipeline.version != self.cell._controller.current_version:
+        if self.config_version != self.cell._controller.current_version:
+            self.config_version = self.cell._controller.current_version
             new_pipeline = PipelineInformation(
                     self.cell._controller.current_version,
                     pipeline.recipe,
@@ -174,21 +211,25 @@ class DefaultPlotConfig(PlotConfigBase):
         self.close()
 
     def resetClicked(self):
-        mngr = VistrailManager(self.cell._controller)
-        pipeline = mngr.get_pipeline(self.cell.cellInfo)
-        if pipeline.version != self.cell._controller.current_version:
-            self.cell._controller.change_selected_version(pipeline.version)
-            currentTabIndex = self.tabWidget.currentIndex()
+        QtGui.QApplication.focusWidget().clearFocus()
+        if self.config_version != self.cell._controller.current_version:
+            self.cell._controller.change_selected_version(self.config_version)
             self.setup(self.cell, self.plot)
-            self.tabWidget.setCurrentIndex(currentTabIndex)
+            
+            
+        
+    def version_changed(self, _):
+        if not self.isAncestorOf(QtGui.QApplication.focusWidget()):
+            self.close()
+            #TODO: select last item in tree
 
-class DATPortItem(PortItem):
-
-    def build_item(self, port_spec, is_connected, is_optional, is_visible):
-        PortItem.build_item(self, port_spec, is_connected,
-                            is_optional, is_visible)
-        self.setIcon(0, PortItem.null_icon)
-        self.setIcon(1, PortItem.null_icon)
+#class DATPortItem(PortItem):
+#
+#    def build_item(self, port_spec, is_connected, is_optional, is_visible):
+#        PortItem.build_item(self, port_spec, is_connected,
+#                            is_optional, is_visible)
+#        self.setIcon(0, PortItem.null_icon)
+#        self.setIcon(1, PortItem.null_icon)
 
 
 class DATPortsList(PortsList):
