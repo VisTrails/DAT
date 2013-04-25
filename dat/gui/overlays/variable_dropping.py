@@ -129,9 +129,11 @@ class VariableDroppingOverlay(Overlay):
 
         self._cell._parameter_hovered = None
 
-        self.setupUi()
+        self.setupUi(kwargs.get('overlayed', True))
 
-    def setupUi(self):
+    def setupUi(self, overlayed):
+        _ = translate(DataParameter)
+
         main_layout = QtGui.QVBoxLayout()
 
         name_layout = QtGui.QHBoxLayout()
@@ -207,7 +209,7 @@ class VariableDroppingOverlay(Overlay):
                 param_panel.setLayout(QtGui.QHBoxLayout())
                 param_panel.layout().addWidget(param)
                 if not isset:
-                    label = QtGui.QLabel("(not set)")
+                    label = QtGui.QLabel(_("(not set)"))
                     if not port.optional:
                         label.setStyleSheet('QLabel { color: red; }')
                     else:
@@ -226,7 +228,31 @@ class VariableDroppingOverlay(Overlay):
         spacing_layout.addLayout(ports_layout)
 
         main_layout.addLayout(spacing_layout)
-        main_layout.addStretch(0)
+        main_layout.addStretch(1)
+
+        if (not overlayed and self._cell.widget() is not None and
+                self._constant_widgets):
+            self._execute_button = QtGui.QPushButton(_("Execute"))
+            self.connect(self._execute_button, QtCore.SIGNAL('clicked()'),
+                         lambda: self._cell._set_overlay(None))
+            self._execute_button.setEnabled(False)
+            self._cancel_button = QtGui.QPushButton(_("Cancel changes"))
+            def cancel_pending():
+                self._cell._cancel_pending()
+                self._execute_button.setEnabled(False)
+                self._cancel_button.setEnabled(False)
+            self.connect(self._cancel_button, QtCore.SIGNAL('clicked()'),
+                         cancel_pending)
+            self._cancel_button.setEnabled(False)
+            buttons = QtGui.QHBoxLayout()
+            buttons.addStretch(1)
+            buttons.addWidget(self._execute_button)
+            buttons.addWidget(self._cancel_button)
+            main_layout.addLayout(buttons)
+        else:
+            self._execute_button = None
+            self._cancel_button = None
+
         self.setLayout(main_layout)
 
     def update(self):
@@ -287,15 +313,19 @@ class VariableDroppingOverlay(Overlay):
     def remove_parameter(self, port_name, pos):
         self._cell.remove_parameter(port_name, pos)
 
-    def constant_changed(self, args):
-        widget, contents = args # params are packed as a tuple for some reason
+    def constant_changed(self, (widget, contents)):
         try:
             label = self._unset_constant_labels.pop(widget)
             label.setParent(None)
             label.deleteLater()
         except KeyError:
             pass
-        self._cell.change_constant(self._constant_widgets[widget], contents)
+        changed = self._cell.change_constant(
+                self._constant_widgets[widget],
+                contents)
+        if changed and self._execute_button is not None:
+            self._execute_button.setEnabled(True)
+            self._cancel_button.setEnabled(True)
 
     def show_advanced_config(self):
         # Get the pipeline info for the cell

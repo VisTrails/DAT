@@ -53,6 +53,17 @@ class RecipeParameterValue(object):
         else: # self.type == self.CONSTANT:
             return hash((self.type, self.constant))
 
+    def __repr__(self):
+        if self.type == self.VARIABLE:
+            if self.typecast is not None:
+                typecast = ', typecast=%s)' % self.typecast
+            else:
+                typecast = ''
+            return 'RecipeParameterValue(variable=%s%s)' % (
+                    self.variable.name, typecast)
+        else:
+            return 'RecipeParameterValue(constant=%r)' % self.constant
+
 
 class DATRecipe(object):
     """Just a simple class holding a Plot and its parameters.
@@ -77,6 +88,12 @@ class DATRecipe(object):
 
     def __hash__(self):
         return self._hash
+
+    def __repr__(self):
+        return 'DATRecipe(plot=%r, parameters={%s})' % (
+                self.plot.name,
+                ', '.join('%s: %r' % (k, v) for
+                          k, v in self.parameters.iteritems()))
 
 
 class PipelineInformation(object):
