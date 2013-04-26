@@ -335,6 +335,5 @@ class VariableDroppingOverlay(Overlay):
         plot = pipeline.recipe.plot
         print "showing advanced config for plot: %s" % plot.name
         configWidgetClass = plot.configWidget
-        configWidget = configWidgetClass()
+        configWidget = configWidgetClass(self._cell)
         configWidget.show()
-        configWidget.setup(self._cell)

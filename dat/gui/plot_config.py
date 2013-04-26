@@ -8,19 +8,33 @@ from vistrails.gui.ports_pane import PortsList, PortItem
 from dat import PipelineInformation
 from dat.vistrail_data import VistrailManager
 
+cellModuleHistory = {}
+
 class PlotConfigBase(QtGui.QWidget):
     """Base class for high level plot editors
-
-    Must implement setup(self, cell), which is called
-    when the widget is shown.
     """
-
-    def setup(self, cell):
-        raise NotImplementedError
     
-    def __init__(self, *args, **kwargs):
+    def __init__(self, cell, *args, **kwargs):
         QtGui.QWidget.__init__(self, *args, **kwargs)
+        self.cell = cell;
+    
+    def controller_changed(self, controller):
+        if controller != self.cell._controller:
+            self.close()
         
+    def controller_closed(self, _):
+        self.close()
+        
+    def version_changed(self, _):
+        self.close()
+        
+    def closeEvent(self, event):
+        QtGui.QWidget.closeEvent(self, event)
+        self.unregister_notifications()
+        print "Closing %s" % self.__class__.__name__
+        #self.deleteLater()
+        
+    def register_notifications(self):        
         app = get_vistrails_application()
         app.register_notification(
                 'controller_changed',
@@ -31,15 +45,18 @@ class PlotConfigBase(QtGui.QWidget):
         app.register_notification(
                 'version_changed',
                 self.version_changed)
-    
-    def controller_changed(self, _):
-        self.close()
         
-    def controller_closed(self, _):
-        self.close()
-        
-    def version_changed(self, _):
-        self.close()
+    def unregister_notifications(self):      
+        app = get_vistrails_application()
+        app.unregister_notification(
+                'controller_changed',
+                self.controller_changed)
+        app.unregister_notification(
+                'controller_closed',
+                self.controller_closed)
+        app.unregister_notification(
+                'version_changed',
+                self.version_changed)
     
 class DefaultPlotConfig(PlotConfigBase):
     """Default widget for editing 'advanced' plot settings.
@@ -47,14 +64,17 @@ class DefaultPlotConfig(PlotConfigBase):
     Shows PortList widget for each module in plot. If the module has an
     advanced editor, that is shown instead.
     """
-    def __init__(self, parent=None):
-        PlotConfigBase.__init__(self, parent)
-
-        self.cell = None
-        self.config_version = None
-        self.item_index = dict()
-        
+    
+    def __init__(self, cell, *args, **kwargs):
+        PlotConfigBase.__init__(self, cell, *args, **kwargs)
+        if cell not in cellModuleHistory:
+            cellModuleHistory[cell] = None
+        self.selectedItem = None
         self.setup_ui()
+        
+    def showEvent(self, event):
+        PlotConfigBase.showEvent(self, event)
+        self.setup_widgets()
         
     def setup_ui(self):
 
@@ -99,16 +119,14 @@ class DefaultPlotConfig(PlotConfigBase):
 
         self.setLayout(vLayout)
         self.resize(640,480)
-
-    def setup(self, cell):
         
-        self.cell = cell
+    def setup_widgets(self):
 
         # Get pipeline of the cell
-        pipelineInfo = cell.get_pipeline()
+        pipelineInfo = self.cell.get_pipeline()
         self.config_version = pipelineInfo.version
-        cell._controller.change_selected_version(self.config_version)
-        pipeline = cell._controller.current_pipeline
+        self.cell._controller.change_selected_version(self.config_version)
+        pipeline = self.cell._controller.current_pipeline
         
         #clear old items
         self.treeWidget.clear()
@@ -120,25 +138,18 @@ class DefaultPlotConfig(PlotConfigBase):
                             for lp in pipelineInfo.port_map.itervalues()
                             for mod_id, _ in lp)
         
-        connections_from = cell._controller.get_connections_from
-        connections_to = cell._controller.get_connections_to
+        connections_from = self.cell._controller.get_connections_from
+        connections_to = self.cell._controller.get_connections_to
 
+        registry = get_module_registry()
         def add_to_tree_and_stack(module, parent=None):
             
-            item = QtGui.QTreeWidgetItem()
-            item.setText(0, module.name)
-            item.vt_module = module
+            if module.name == "CellLocation":
+                return
             
-            if parent is not None:
-                parent.addChild(item)
-            else:
-                self.treeWidget.addTopLevelItem(item)
-                
-            registry = get_module_registry()
+            # Try to get custom config widget for the module
             widgetType = None
             widget = None
-    
-            # Try to get custom config widget for the module
             try:
                 widgetType = registry.get_configuration_widget(
                         module.package, module.name, module.namespace)
@@ -159,12 +170,24 @@ class DefaultPlotConfig(PlotConfigBase):
                 if len(widget.port_spec_items) > 0:
                     widget.set_controller(self.cell._controller)
                 else:
-                    widget = QtGui.QLabel("No Settings available for this module.")
+                    widget = None
 
-            # Add widget to the stack
+            # Add to tree and stack
             if widget is not None:
+                item = QtGui.QTreeWidgetItem()
+                item.setText(0, module.name)
+                if parent is not None:
+                    parent.addChild(item)
+                else:
+                    self.treeWidget.addTopLevelItem(item)
+                
                 self.stackedWidget.addWidget(widget)
-                self.item_index[item] = self.stackedWidget.count()-1
+                item._mStackWidget = widget
+                item._mModule = module
+                if module == cellModuleHistory[self.cell]:
+                    self.selectedItem = item
+            else:
+                item = parent
             
             if module not in input_modules:
                 for c in connections_to(pipeline, [module.id]):
@@ -174,14 +197,14 @@ class DefaultPlotConfig(PlotConfigBase):
             if len(connections_from(pipeline, [m_id])) == 0:
                 add_to_tree_and_stack(pipeline.modules[m_id])
                 
-        self.treeWidget.setCurrentItem(self.treeWidget.topLevelItem(0))
+        if self.selectedItem is not None:
+            self.treeWidget.setCurrentItem(self.selectedItem)
 
     def itemSelectionChanged(self):
         items = self.treeWidget.selectedItems()
         if len(items) > 0:
-            item = items[0]
-            if item in self.item_index:
-                self.stackedWidget.setCurrentIndex(self.item_index[item])
+            self.stackedWidget.setCurrentWidget(items[0]._mStackWidget)
+            cellModuleHistory[self.cell] = items[0]._mModule
 
     def stateChanged(self):
         pass
@@ -193,9 +216,12 @@ class DefaultPlotConfig(PlotConfigBase):
         QtGui.QApplication.focusWidget().clearFocus()
         mngr = VistrailManager(self.cell._controller)
         pipeline = mngr.get_pipeline(self.cell.cellInfo)
+        print 'cfg: %d cell: %d ctrl: %d' % (self.config_version, 
+                                             self.cell.version,
+                                             self.cell._controller.current_version)
         if (self.config_version == self.cell.version !=
                 self.cell._controller.current_version):
-            self.config_version = self.cell._controller.current_version
+            self.config_version = self.cell.version = self.cell._controller.current_version
             new_pipeline = PipelineInformation(
                     self.cell._controller.current_version,
                     pipeline.recipe,
@@ -207,27 +233,25 @@ class DefaultPlotConfig(PlotConfigBase):
     def okClicked(self):
         self.applyClicked()
         self.close()
+        self.deleteLater()
 
     def resetClicked(self):
         QtGui.QApplication.focusWidget().clearFocus()
         if (self.config_version == self.cell.version !=
                 self.cell._controller.current_version):
             self.cell._controller.change_selected_version(self.config_version)
-        self.setup(self.cell)
+        self.setup_widgets()
+        #TODO: select last item in tree
 
-    def version_changed(self, _):
-        if not self.isAncestorOf(QtGui.QApplication.focusWidget()):
-            self.close()
-            #TODO: select last item in tree
-
-#class DATPortItem(PortItem):
-#
-#    def build_item(self, port_spec, is_connected, is_optional, is_visible):
-#        PortItem.build_item(self, port_spec, is_connected,
-#                            is_optional, is_visible)
-#        self.setIcon(0, PortItem.null_icon)
-#        self.setIcon(1, PortItem.null_icon)
-
+    def version_changed(self, version):
+        if (self.config_version != version):
+            if not self.isActiveWindow():
+                print 'closing widget, version changed while "%s" had focus' % str(QtGui.QApplication.focusWidget())
+                self.close()
+                
+    def closeEvent(self, event):
+        PlotConfigBase.closeEvent(self, event)
+        
 
 class DATPortsList(PortsList):
     """ Only input ports of constant type that aren't connected show up.
