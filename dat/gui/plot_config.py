@@ -10,12 +10,12 @@ from dat.vistrail_data import VistrailManager
 
 cellModuleHistory = {}
 
-class PlotConfigBase(QtGui.QWidget):
+class PlotConfigBase(QtGui.QDialog):
     """Base class for high level plot editors
     """
     
     def __init__(self, cell, *args, **kwargs):
-        QtGui.QWidget.__init__(self, *args, **kwargs)
+        QtGui.QDialog.__init__(self, *args, **kwargs)
         self.cell = cell;
     
     def controller_changed(self, controller):
@@ -33,6 +33,9 @@ class PlotConfigBase(QtGui.QWidget):
         self.unregister_notifications()
         print "Closing %s" % self.__class__.__name__
         #self.deleteLater()
+        
+    def sizeHint(self):
+        return QtCore.QSize(640,480)
         
     def register_notifications(self):        
         app = get_vistrails_application()
@@ -213,7 +216,8 @@ class DefaultPlotConfig(PlotConfigBase):
         pass
 
     def applyClicked(self):
-        QtGui.QApplication.focusWidget().clearFocus()
+        if QtGui.QApplication.focusWidget():
+            QtGui.QApplication.focusWidget().clearFocus()
         mngr = VistrailManager(self.cell._controller)
         pipeline = mngr.get_pipeline(self.cell.cellInfo)
         print 'cfg: %d cell: %d ctrl: %d' % (self.config_version, 
@@ -233,10 +237,10 @@ class DefaultPlotConfig(PlotConfigBase):
     def okClicked(self):
         self.applyClicked()
         self.close()
-        self.deleteLater()
 
     def resetClicked(self):
-        QtGui.QApplication.focusWidget().clearFocus()
+        if QtGui.QApplication.focusWidget():
+            QtGui.QApplication.focusWidget().clearFocus()
         if (self.config_version == self.cell.version !=
                 self.cell._controller.current_version):
             self.cell._controller.change_selected_version(self.config_version)
@@ -248,9 +252,6 @@ class DefaultPlotConfig(PlotConfigBase):
             if not self.isActiveWindow():
                 print 'closing widget, version changed while "%s" had focus' % str(QtGui.QApplication.focusWidget())
                 self.close()
-                
-    def closeEvent(self, event):
-        PlotConfigBase.closeEvent(self, event)
         
 
 class DATPortsList(PortsList):
