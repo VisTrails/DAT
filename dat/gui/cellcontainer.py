@@ -474,7 +474,10 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
                 return False
         self._parameters[port_name] = [
                 RecipeParameterValue(constant=value)]
-        self._execute_pending = True
+        if self.widget() is not None:
+            self._execute_pending = True
+        else:
+            self.update_pipeline()
         return True
 
     def _cancel_pending(self):
