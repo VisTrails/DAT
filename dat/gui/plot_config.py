@@ -10,12 +10,12 @@ from dat.vistrail_data import VistrailManager
 
 cellModuleHistory = {}
 
-class PlotConfigBase(QtGui.QDialog):
+class PlotConfigBase(QtGui.QWidget):
     """Base class for high level plot editors
     """
     
     def __init__(self, cell, *args, **kwargs):
-        QtGui.QDialog.__init__(self, *args, **kwargs)
+        QtGui.QWidget.__init__(self, *args, **kwargs)
         self.cell = cell;
     
     def controller_changed(self, controller):
@@ -33,9 +33,6 @@ class PlotConfigBase(QtGui.QDialog):
         self.unregister_notifications()
         print "Closing %s" % self.__class__.__name__
         #self.deleteLater()
-        
-    def sizeHint(self):
-        return QtCore.QSize(640,480)
         
     def register_notifications(self):        
         app = get_vistrails_application()
@@ -72,7 +69,6 @@ class DefaultPlotConfig(PlotConfigBase):
         PlotConfigBase.__init__(self, cell, *args, **kwargs)
         if cell not in cellModuleHistory:
             cellModuleHistory[cell] = None
-        self.selectedItem = None
         self.setup_ui()
         
     def showEvent(self, event):
@@ -85,18 +81,20 @@ class DefaultPlotConfig(PlotConfigBase):
                            QtGui.QSizePolicy.Ignored)
 
         # Create tree widget
-        self.treeWidget = QtGui.QTreeWidget()
-        self.treeWidget.itemSelectionChanged.connect(self.itemSelectionChanged)
+        treeWidget = QtGui.QTreeWidget()
+        treeWidget.itemSelectionChanged.connect(self.itemSelectionChanged)
+        treeWidget.setObjectName("PlotModuleTree")
         
         #Create stacked widget
-        self.stackedWidget = QtGui.QStackedWidget()
+        stackedWidget = QtGui.QStackedWidget()
+        stackedWidget.setObjectName("PlotModuleStack")
         
         # Create splitter for tree and stacked widget
-        self.splitter = QtGui.QSplitter()
-        self.splitter.addWidget(self.treeWidget)
-        self.splitter.addWidget(self.stackedWidget)
-        self.splitter.setStretchFactor(0,0)
-        self.splitter.setStretchFactor(1,1)
+        splitter = QtGui.QSplitter()
+        splitter.addWidget(treeWidget)
+        splitter.addWidget(stackedWidget)
+        splitter.setStretchFactor(0,0)
+        splitter.setStretchFactor(1,1)
 
         # Create buttons
         btnApply = QtGui.QPushButton("&Apply")
@@ -117,11 +115,10 @@ class DefaultPlotConfig(PlotConfigBase):
 
         # Add tree/module widgets above buttons
         vLayout = QtGui.QVBoxLayout()
-        vLayout.addWidget(self.splitter)
+        vLayout.addWidget(splitter)
         vLayout.addLayout(layoutButtons)
 
         self.setLayout(vLayout)
-        self.resize(640,480)
         
     def setup_widgets(self):
 
@@ -132,9 +129,11 @@ class DefaultPlotConfig(PlotConfigBase):
         pipeline = self.cell._controller.current_pipeline
         
         #clear old items
-        self.treeWidget.clear()
-        for i in reversed(range(self.stackedWidget.count())):
-            self.stackedWidget.removeWidget(self.stackedWidget.widget(i))
+        treeWidget = self.findChild(QtGui.QTreeWidget, "PlotModuleTree")
+        treeWidget.clear()
+        stackedWidget = self.findChild(QtGui.QStackedWidget, "PlotModuleStack")
+        for i in reversed(range(stackedWidget.count())):
+            stackedWidget.removeWidget(stackedWidget.widget(i))
         
         #get input modules
         input_modules = set(pipeline.modules[mod_id]
@@ -145,6 +144,7 @@ class DefaultPlotConfig(PlotConfigBase):
         connections_to = self.cell._controller.get_connections_to
 
         registry = get_module_registry()
+        selectedItem = [] #using list for scope
         def add_to_tree_and_stack(module, parent=None):
             
             if module.name == "CellLocation":
@@ -182,13 +182,13 @@ class DefaultPlotConfig(PlotConfigBase):
                 if parent is not None:
                     parent.addChild(item)
                 else:
-                    self.treeWidget.addTopLevelItem(item)
+                    treeWidget.addTopLevelItem(item)
                 
-                self.stackedWidget.addWidget(widget)
-                item._mStackWidget = widget
+                stackedWidget.addWidget(widget)
+                item._mIndex = stackedWidget.count()-1
                 item._mModule = module
                 if module == cellModuleHistory[self.cell]:
-                    self.selectedItem = item
+                    selectedItem.push(item)
             else:
                 item = parent
             
@@ -200,13 +200,18 @@ class DefaultPlotConfig(PlotConfigBase):
             if len(connections_from(pipeline, [m_id])) == 0:
                 add_to_tree_and_stack(pipeline.modules[m_id])
                 
-        if self.selectedItem is not None:
-            self.treeWidget.setCurrentItem(self.selectedItem)
+        if len(selectedItem) > 0:
+            treeWidget.setCurrentItem(selectedItem[0])
+            
+        #discovered this due to prior bug in line above
+        #raise Exception("This saves the day")
 
     def itemSelectionChanged(self):
-        items = self.treeWidget.selectedItems()
+        treeWidget = self.findChild(QtGui.QTreeWidget, "PlotModuleTree")
+        items = treeWidget.selectedItems()
         if len(items) > 0:
-            self.stackedWidget.setCurrentWidget(items[0]._mStackWidget)
+            stackedWidget = self.findChild(QtGui.QStackedWidget, "PlotModuleStack")
+            stackedWidget.setCurrentIndex(items[0]._mIndex)
             cellModuleHistory[self.cell] = items[0]._mModule
 
     def stateChanged(self):
@@ -254,6 +259,8 @@ class DefaultPlotConfig(PlotConfigBase):
                 print 'closing widget, version changed while "%s" had focus' % str(QtGui.QApplication.focusWidget())
                 self.close()
         
+    def sizeHint(self):
+        return QtCore.QSize(640,480)
 
 class DATPortsList(PortsList):
     """ Only input ports of constant type that aren't connected show up.

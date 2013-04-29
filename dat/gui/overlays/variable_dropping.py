@@ -336,5 +336,5 @@ class VariableDroppingOverlay(Overlay):
         print "showing advanced config for plot: %s" % plot.name
         configWidgetClass = plot.configWidget
         configWidget = configWidgetClass(self._cell)
-        configWidget.exec_()
+        configWidget.show()
         
