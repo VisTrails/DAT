@@ -26,7 +26,11 @@ class GetExistingVariable(ComputeVariable):
         self.type = self._variable.type
 
     def execute(self, controller):
-        return Variable.from_workflow(self._variable)
+        # Here we explicitely don't record that the Variable is already
+        # materialized in the workflow, because we allow the user to copy
+        # variables (i.e. enter an expression without any operation)
+        return Variable.from_workflow(self._variable,
+                                      record_materialized=False)
 
 
 class BuildConstant(ComputeVariable):

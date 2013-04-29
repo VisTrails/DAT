@@ -1,7 +1,7 @@
 import logging
 import sys
 import warnings
-from PyQt4 import QtGui
+from PyQt4 import QtCore, QtGui
 
 from dat.gui import vt_hooks
 from dat.gui.window import MainWindow
@@ -9,8 +9,8 @@ from dat.global_data import GlobalManager
 from dat.vistrail_data import VistrailManager
 from dat import vistrails_interface
 
-from vistrails.core.application import (set_vistrails_application,
-        VistrailsApplicationInterface)
+from vistrails.core.application import set_vistrails_application, \
+    VistrailsApplicationInterface
 import vistrails.core.requirements
 import vistrails.gui.theme
 from vistrails.packages.spreadsheet.spreadsheet_cell import CellInformation
@@ -203,6 +203,19 @@ class Application(QtGui.QApplication, NotificationDispatcher, VistrailsApplicati
                 self._sheet_changed)
 
     def _controller_changed(self, controller, new=False):
+        QtCore.QMetaObject.invokeMethod(
+                self,
+                '_controller_changed_deferred',
+                QtCore.Qt.QueuedConnection,
+                QtCore.Q_ARG(object, controller),
+                QtCore.Q_ARG(bool, new))
+        # We defer this signal because we need all VisTrails components to
+        # notice that the controller changed before we execute something, else
+        # components might receive the 'set_pipeline' signal before
+        # 'set_controller'
+
+    @QtCore.pyqtSlot(object, bool)
+    def _controller_changed_deferred(self, controller, new):
         vistraildata = VistrailManager(controller)
 
         # Get the spreadsheets for this project
@@ -210,23 +223,22 @@ class Application(QtGui.QApplication, NotificationDispatcher, VistrailsApplicati
 
         if new:
             # Execute the pipelines
-            for tab in spreadsheet_tabs.itervalues():
-                for cellInfo, pipeline in vistraildata.all_cells:
-                    error = vistrails_interface.try_execute(
-                            controller,
-                            pipeline,
-                            vistraildata.name)
-                    if error is not None:
-                        from dat.gui.cellcontainer import DATCellContainer
-                        tab.setCellWidget(
-                                cellInfo.row,
-                                cellInfo.column,
-                                DATCellContainer(
-                                        cellInfo=CellInformation(
-                                                tab,
-                                                cellInfo.row,
-                                                cellInfo.column),
-                                        error=error))
+            for cellInfo, pipeline in vistraildata.all_cells:
+                tab = cellInfo.tab
+                error = vistrails_interface.try_execute(
+                        controller,
+                        pipeline)
+                if error is not None:
+                    from dat.gui.cellcontainer import DATCellContainer
+                    tab.setCellWidget(
+                            cellInfo.row,
+                            cellInfo.column,
+                            DATCellContainer(
+                                    cellInfo=CellInformation(
+                                            tab,
+                                            cellInfo.row,
+                                            cellInfo.column),
+                                    error=error))
 
         # Make one of these tabs current
         sh_window = spreadsheetController.findSpreadsheetWindow(

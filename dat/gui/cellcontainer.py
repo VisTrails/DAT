@@ -14,10 +14,10 @@ from dat.gui.overlays import PlotPromptOverlay, VariableDropEmptyCell, \
     PlotDroppingOverlay, VariableDroppingOverlay
 
 from vistrails.core.application import get_vistrails_application
-from vistrails.packages.spreadsheet.spreadsheet_cell import QCellContainer
+from vistrails.packages.spreadsheet.spreadsheet_cell import CellContainerInterface
 
 
-class DATCellContainer(QCellContainer):
+class DATCellContainer(CellContainerInterface, QtGui.QWidget):
     """Cell container used in the spreadsheet.
 
     This is created by the spreadsheet for each cell, thus allowing us to tap
@@ -26,9 +26,22 @@ class DATCellContainer(QCellContainer):
     variables and plots.
     """
     def __init__(self, cellInfo=None, widget=None, error=None, parent=None):
+        # Parent constructors
+        CellContainerInterface.__init__(self, cellInfo)
+        QtGui.QWidget.__init__(self, parent)
+
+        self.setAcceptDrops(True)
+
+        # Attributes
         self._parameters = dict() # param name -> [RecipeParameterValue]
         self._plot = None # dat.vistrails_interface:Plot
+        self._execute_pending = False
 
+        self._parameter_hovered = None
+        self._insert_pos = None
+        self._dragging = False
+
+        # Notifications
         app = get_vistrails_application()
         app.register_notification(
                 'dat_new_variable', self._variable_added)
@@ -38,12 +51,9 @@ class DATCellContainer(QCellContainer):
                 'dragging_to_overlays', self._set_dragging)
         self._controller = app.get_controller()
 
-        self._parameter_hovered = None
-        self._insert_pos = None
-        self._dragging = False
-
+        # Overlay
         self._overlay = None
-        self._overlay_scrollarea = QtGui.QScrollArea()
+        self._overlay_scrollarea = QtGui.QScrollArea(None)
         self._overlay_scrollarea.setObjectName('overlay_scrollarea')
         self._overlay_scrollarea.setStyleSheet(
                 'QScrollArea#overlay_scrollarea {'
@@ -54,34 +64,68 @@ class DATCellContainer(QCellContainer):
                 '}')
         self._overlay_scrollarea.setWidgetResizable(True)
         self._overlay_scrollarea.setVisible(False)
-        #self._show_button = QtGui.QPushButton()
-        #self._show_button.setIcon(get_icon('show_overlay.png'))
-        #self._hide_button = QtGui.QPushButton()
-        #self._hide_button.setIcon(get_icon('hide_overlay.png'))
-        #self._error_icon = QtGui.QLabel()
+
+        # Toolbar
+        self._container_toolbar = QtGui.QToolBar(self)
+        self._container_toolbar.layout().setMargin(0)
+        self._container_toolbar.hide()
+
+        self._show_action = QtGui.QAction(
+                get_icon('show_overlay.png'),
+                "Show overlay",
+                self)
+        self.connect(self._show_action, QtCore.SIGNAL('triggered()'),
+                     self.show_overlay)
+        self._show_action_enabled = False
+
+        self._hide_action = QtGui.QAction(
+                get_icon('hide_overlay.png'),
+                "Hide overlay",
+                self)
+        self.connect(self._hide_action, QtCore.SIGNAL('triggered()'),
+                     lambda: self._set_overlay(None))
+        self._hide_action_enabled = False
+
+        # Error icon
+        #self._error_icon = QtGui.QLabel(self)
         #self._error_icon.setPixmap(get_icon('error.png').pixmap(24, 24))
         self._set_error(error)
 
-        QCellContainer.__init__(self, cellInfo, widget, parent)
-        self.setAcceptDrops(True)
-
-        #self._show_button.setParent(self)
-        #self.connect(self._show_button, QtCore.SIGNAL('clicked()'),
-        #             self.show_overlay)
-        #self._show_button.setGeometry(self.width() - 24, 0, 24, 24)
-
-        #self._hide_button.setParent(self)
-        #self.connect(self._hide_button, QtCore.SIGNAL('clicked()'),
-        #             lambda: self._set_overlay(None))
-        #self._hide_button.setGeometry(self.width() - 24, 0, 24, 24)
-        #self._hide_button.setVisible(False)
-
-        self._saved_widget = None
+        self._displayed_widget = None
         self._fake_widget = None
 
-        #self._error_icon.setParent(self)
+        # Setup cell
+        if widget is not None:
+            self.setWidget(widget)
+        else:
+            self.contentsUpdated()
 
-        self.contentsUpdated()
+    def containerToolBar(self):
+        if self._plot:
+            return self._container_toolbar
+        else:
+            return None
+
+    def _set_toolbar_buttons(self, button):
+        display_hide = button is False
+        display_show = button is not False
+        self._show_action.setEnabled(button is not None)
+        if display_hide != self._hide_action_enabled:
+            if not display_hide:
+                self._container_toolbar.removeAction(self._hide_action)
+            else:
+                self._container_toolbar.addAction(self._hide_action)
+            self._hide_action_enabled = display_hide
+
+        if display_show != self._show_action_enabled:
+            if not display_show:
+                self._container_toolbar.removeAction(self._show_action)
+            elif self._hide_action_enabled:
+                self._container_toolbar.insertAction(self._hide_action,
+                                                     self._show_action)
+            else:
+                self._container_toolbar.addAction(self._show_action)
+            self._show_action_enabled = display_show
 
     def setCellInfo(self, cellInfo):
         super(DATCellContainer, self).setCellInfo(cellInfo)
@@ -133,28 +177,30 @@ class DATCellContainer(QCellContainer):
 
                 print "removes widget()"
                 widget.setParent(None)
-                self._saved_widget = widget
+                widget.hide()
 
-                self._fake_widget = QtGui.QLabel()
+                self._fake_widget = QtGui.QLabel(self)
                 self._fake_widget.setPixmap(pixmap)
                 self._fake_widget.setAttribute(
                         QtCore.Qt.WA_TransparentForMouseEvents, True)
-                self.layout().addWidget(self._fake_widget)
                 self._fake_widget.raise_()
-                #self._show_button.raise_()
+                self._fake_widget.show()
+                self._displayed_widget = self._fake_widget
+                self._do_layout()
 
             self._overlay_scrollarea.setParent(self)
             self._overlay_scrollarea.setVisible(True)
             self._overlay_scrollarea.lower()
         else:
-            if self._saved_widget is not None:
+            if self._fake_widget is not None:
                 print "restores widget()"
-                self.layout().addWidget(self._saved_widget)
-                self._saved_widget.raise_()
-                #self._show_button.raise_()
-                self._saved_widget = None
+                self.containedWidget.setParent(self)
+                self.containedWidget.show()
+                self.containedWidget.raise_()
+                self._displayed_widget = self.containedWidget
                 self._fake_widget.setParent(None)
                 self._fake_widget.deleteLater()
+                self._do_layout()
             self._fake_widget = None
 
             self._set_overlay(None)
@@ -212,14 +258,44 @@ class DATCellContainer(QCellContainer):
         This is called by the spreadsheet to put or remove a visualization in
         this cell.
         """
-        super(DATCellContainer, self).setWidget(widget)
+        if widget != self.containedWidget:
+            if self.containedWidget:
+                self.containedWidget.setParent(None)
+                self.containedWidget.deleteLater()
+                self.toolBar = None
+            if widget:
+                widget.setParent(self)
+                widget.show()
+            self._displayed_widget = self.containedWidget = widget
+
         if widget is None:
             return
-
         widget.raise_()
-        #self._show_button.raise_()
+        self._set_toolbar_buttons(True)
 
         self.contentsUpdated()
+
+    def takeWidget(self):
+        widget = self.containedWidget
+        if widget is not None:
+            widget.setParent(None)
+            self.containedWidget = None
+        self.toolBar = None
+        return widget
+
+    def get_pipeline(self):
+        if self.widget() is not None:
+            # Get pipeline info from VisTrails
+            pipelineInfo = self.cellInfo.tab.getCellPipelineInfo(
+                    self.cellInfo.row, self.cellInfo.column)
+            version = pipelineInfo[0]['version']
+            return VistrailManager(self._controller).get_pipeline(
+                    version,
+                    infer_for_cell=self.cellInfo)
+        else:
+            # Get pipeline info from DAT: we might be building something here
+            return VistrailManager(self._controller).get_pipeline(
+                    self.cellInfo)
 
     def contentsUpdated(self):
         """Notifies that this cell's pipeline changed.
@@ -231,18 +307,7 @@ class DATCellContainer(QCellContainer):
 
         It is also called by setWidget() here.
         """
-        if self.widget() is not None:
-            # Get pipeline info from VisTrails
-            pipelineInfo = self.cellInfo.tab.getCellPipelineInfo(
-                    self.cellInfo.row, self.cellInfo.column)
-            version = pipelineInfo[0]['version']
-            pipeline = VistrailManager(self._controller).get_pipeline(
-                    version,
-                    infer_for_cell=self.cellInfo)
-        else:
-            # Get pipeline info from DAT: we might be building something here
-            pipeline = VistrailManager(self._controller).get_pipeline(
-                    self.cellInfo)
+        pipeline = self.get_pipeline()
 
         if pipeline is not None:
             self._plot = pipeline.recipe.plot
@@ -259,8 +324,7 @@ class DATCellContainer(QCellContainer):
             # Default overlay
             if self._plot is not None and self.has_error():
                 self._set_overlay(VariableDroppingOverlay, overlayed=False)
-                #self._hide_button.setVisible(False)
-                #self._show_button.setVisible(False)
+                self._set_toolbar_buttons(None)
                 #self._error_icon.raise_()
                 return
             elif self.widget() is None and self._plot is not None:
@@ -281,9 +345,16 @@ class DATCellContainer(QCellContainer):
                 print "removes overlay_scrollarea"
                 self._overlay_scrollarea.setParent(None)
                 self._overlay_scrollarea.setVisible(False)
-            #self._show_button.raise_()
-            #self._show_button.setVisible(self._plot is not None)
-            #self._hide_button.setVisible(False)
+            if self._plot is not None:
+                self._set_toolbar_buttons(True)
+            else:
+                self._set_toolbar_buttons(None)
+
+            # Now that we are done with the overlay, we can go on with a
+            # deferred execution
+            if self._execute_pending:
+                self.update_pipeline()
+                self._execute_pending = False
         else:
             print "creates overlay %s" % overlay_class.__name__
             self._overlay = overlay_class(self, **kwargs)
@@ -296,11 +367,10 @@ class DATCellContainer(QCellContainer):
             self._overlay_scrollarea.raise_()
             self._overlay_scrollarea.setGeometry(0, 0,
                                                  self.width(), self.height())
-            #self._show_button.setVisible(False)
-            #self._hide_button.setVisible(False)
+            self._set_toolbar_buttons(None)
 
     def show_overlay(self):
-        """Shows the overlay from the button in the corner.
+        """Shows the overlay from the button in the toolbar.
 
         It will remain shown until something gets dragged or the other button
         is clicked.
@@ -310,29 +380,34 @@ class DATCellContainer(QCellContainer):
             warnings.warn("show_overlay() while cell is empty!")
             return
         self._set_overlay(VariableDroppingOverlay, overlayed=False)
-        #self._hide_button.setVisible(True)
-        #self._hide_button.raise_()
+        self._set_toolbar_buttons(False)
 
     def _set_error(self, error):
         self._error = error
-        #if self.has_error():
-        #    self._error_icon.setToolTip(error)
-        #    self._error_icon.show()
-        #    self._error_icon.raise_()
+        if self.has_error():
+            #self._error_icon.setToolTip(error)
+            #self._error_icon.show()
+            #self._error_icon.raise_()
+            self._set_toolbar_buttons(None)
         #else:
         #    self._error_icon.hide()
+        self._set_overlay(None)
 
     def has_error(self):
         return (self._error is not None and
                 self._error is not vistrails_interface.MISSING_PARAMS)
 
     def resizeEvent(self, event):
-        """Reacts to a resize by laying out the overlay and buttons.
+        """Reacts to a resize by laying out the widget.
         """
         super(DATCellContainer, self).resizeEvent(event)
+        self._do_layout()
+
+    def _do_layout(self):
+        if self._displayed_widget is not None:
+            self._displayed_widget.setGeometry(0, 0,
+                                               self.width(), self.height())
         self._overlay_scrollarea.setGeometry(0, 0, self.width(), self.height())
-        #self._show_button.setGeometry(self.width() - 24, 0, 24, 24)
-        #self._hide_button.setGeometry(self.width() - 24, 0, 24, 24)
         #self._error_icon.setGeometry(self.width() - 24, 0, 24, 24)
 
     def dragEnterEvent(self, event):
@@ -462,17 +537,27 @@ class DATCellContainer(QCellContainer):
         if constant and constant[0].type != RecipeParameterValue.CONSTANT:
             # The overlay shouldn't do this
             warnings.warn("change_constant() on port where variables are set")
-            return
+            return False
         elif constant is not None:
             constant = constant[0]
             if value is None:
                 del self._parameters[port_name]
-                return
+                return True
             elif constant.constant == value:
-                return
+                return False
         self._parameters[port_name] = [
                 RecipeParameterValue(constant=value)]
-        self.update_pipeline()
+        if self.widget() is not None:
+            self._execute_pending = True
+        else:
+            self.update_pipeline()
+        return True
+
+    def _cancel_pending(self):
+        """Cancels the pending execution (returns to
+        """
+        self.contentsUpdated()  # Reset the cell's recipe to whatever pipeline
+                                # is already in it
 
     def update_pipeline(self, force_reexec=False):
         """Updates the recipe and execute the workflow if enough ports are set.
@@ -482,9 +567,7 @@ class DATCellContainer(QCellContainer):
         recipe = DATRecipe(self._plot, self._parameters)
 
         # Try to get an existing pipeline for this cell
-        pipeline = vistraildata.get_pipeline(
-                self.cellInfo,
-                infer_for_cell=self.cellInfo)
+        pipeline = self.get_pipeline()
 
         try:
             # No pipeline: build one
@@ -492,7 +575,9 @@ class DATCellContainer(QCellContainer):
                 pipeline = vistrails_interface.create_pipeline(
                         self._controller,
                         recipe,
-                        self.cellInfo,
+                        self.cellInfo.row,
+                        self.cellInfo.column,
+                        vistraildata.sheetname_var(self.cellInfo.tab),
                         typecast=self._typecast)
                 recipe = pipeline.recipe
                 new_params_it = recipe.parameters.iteritems()
@@ -515,7 +600,9 @@ class DATCellContainer(QCellContainer):
                     pipeline = vistrails_interface.create_pipeline(
                             self._controller,
                             recipe,
-                            self.cellInfo,
+                            self.cellInfo.row,
+                            self.cellInfo.column,
+                            vistraildata.sheetname_var(self.cellInfo.tab),
                             typecast=self._typecast)
                 recipe = pipeline.recipe
                 new_params_it = recipe.parameters.iteritems()
@@ -527,11 +614,13 @@ class DATCellContainer(QCellContainer):
             elif not force_reexec:
                 return True
 
+            # Clear pending flag as we're about to execute
+            self._execute_pending = False
+
             # Execute the new pipeline if possible
             error = vistrails_interface.try_execute(
                     self._controller,
-                    pipeline,
-                    vistraildata.name)
+                    pipeline)
             if (error is vistrails_interface.MISSING_PARAMS and
                     self.widget() is not None):
                 # Clear the cell
