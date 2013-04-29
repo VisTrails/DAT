@@ -59,10 +59,12 @@ class MainWindow(QtGui.QMainWindow):
 
                 window_create_first_sheet=False,
                 tab_create_sheet=True,
-                create_sheet_action=VistrailManager.hook_create_tab,
-                tab_rename_sheet=False,
+                tab_create_sheet_action=VistrailManager.hook_create_tab,
+                tab_rename_sheet=True,
+                tab_begin_rename_action=VistrailManager.hook_rename_tab_begin,
+                tab_end_rename_action=VistrailManager.hook_rename_tab_end,
                 tab_close_sheet=True,
-                close_tab_action=VistrailManager.hook_close_tab,
+                tab_close_sheet_action=VistrailManager.hook_close_tab,
                 tab_delete_cell=False,
         )
 

@@ -324,7 +324,7 @@ class VistrailData(object):
                                 'dat-sheet-%d' % sheet_id,
                                 VistrailVariable(
                                         'dat-sheet-%d' % sheet_id,
-                                        uuid.uuid1(),
+                                        str(uuid.uuid1()),
                                         'edu.utah.sci.vistrails.basic',
                                         'String',
                                         '',
@@ -335,6 +335,33 @@ class VistrailData(object):
             # just created automatically, we can consider it unchanged
             if not changed:
                 self.controller.set_changed(False)
+
+    def set_sheetname(self, sheet_id, new_name):
+        name = u'%s / %s' % (self.name, new_name)
+
+        var = self.controller.get_vistrail_variable(
+                'dat-sheet-%d' % sheet_id)
+        if var is not None:
+            self.controller.set_vistrail_variable(
+                    var.name,
+                    VistrailVariable(
+                            var.name,
+                            var.uuid,
+                            var.package,
+                            var.module,
+                            var.namespace,
+                            name))
+        else:
+            self.controller.set_vistrail_variable(
+                    'dat-sheet-%d' % sheet_id,
+                    VistrailVariable(
+                            'dat-sheet-%d' % sheet_id,
+                            str(uuid.uuid1()),
+                            'edu.utah.sci.vistrails.basic',
+                            'String',
+                            '',
+                            name))
+        return name
 
     def new_tab(self, add, tab_controller, rows=2, cols=2, sheet_id=None):
         tab = StandardWidgetSheetTab(tab_controller, rows, cols)
@@ -847,5 +874,28 @@ class VistrailManager(object):
             del vistraildata._spreadsheet_tabs[sheet_id]
             del vistraildata._spreadsheet_tabs_rev[tab]
             return True
+
+    def hook_rename_tab_begin(self, tab_bar, tab_controller, idx, text):
+        tab = tab_controller.widget(idx)
+        try:
+            vistraildata, sheet_id = self._tabs[tab]
+        except KeyError:
+            # Renaming a non-DAT sheet?
+            return text
+
+        text = vistraildata.get_sheetname(sheet_id)
+        text = text.split(u' / ', 1)[1]
+        return text
+
+    def hook_rename_tab_end(self, tab_bar, tab_controller, idx, text):
+        tab = tab_controller.widget(idx)
+        try:
+            vistraildata, sheet_id = self._tabs[tab]
+        except KeyError:
+            # Renaming a non-DAT sheet?
+            return text
+
+        text = vistraildata.set_sheetname(sheet_id, text)
+        return text
 
 VistrailManager = VistrailManager()
