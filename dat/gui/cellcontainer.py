@@ -484,7 +484,7 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
         self.contentsUpdated()  # Reset the cell's recipe to whatever pipeline
                                 # is already in it
 
-    def update_pipeline(self, force_reexec=False):
+    def update_pipeline(self, force_reexec=False, new_pipeline=None):
         """Updates the recipe and execute the workflow if enough ports are set.
         """
         # Look this recipe up in the VistrailData
@@ -492,28 +492,36 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
         recipe = DATRecipe(self._plot, self._parameters)
 
         # Try to get an existing pipeline for this cell
-        pipeline = self.get_pipeline()
+        if new_pipeline is None:
+            pipeline = self.get_pipeline()
 
         try:
+            # We were given a specific pipeline - use it
+            if new_pipeline is not None:
+                recipe = new_pipeline.recipe
+                new_params_it = recipe.parameters.iteritems()
+                self._parameters = {param: list(values)
+                                    for param, values in new_params_it}
+
             # No pipeline: build one
-            if pipeline is None:
-                pipeline = vistrails_interface.create_pipeline(
+            elif pipeline is None:
+                new_pipeline = vistrails_interface.create_pipeline(
                         self._controller,
                         recipe,
                         self.cellInfo.row,
                         self.cellInfo.column,
                         vistraildata.sheetname_var(self.cellInfo.tab),
                         typecast=self._typecast)
-                recipe = pipeline.recipe
+                recipe = new_pipeline.recipe
                 new_params_it = recipe.parameters.iteritems()
                 self._parameters = {param: list(values)
                                     for param, values in new_params_it}
-                vistraildata.created_pipeline(self.cellInfo, pipeline)
+                vistraildata.created_pipeline(self.cellInfo, new_pipeline)
 
             # Pipeline with a different content: update it
             elif pipeline.recipe != recipe:
                 try:
-                    pipeline = vistrails_interface.update_pipeline(
+                    new_pipeline = vistrails_interface.update_pipeline(
                             self._controller,
                             pipeline,
                             recipe,
@@ -522,18 +530,18 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
                     warnings.warn("Could not update pipeline, creating new "
                                   "one:\n"
                                   "%s" % e)
-                    pipeline = vistrails_interface.create_pipeline(
+                    new_pipeline = vistrails_interface.create_pipeline(
                             self._controller,
                             recipe,
                             self.cellInfo.row,
                             self.cellInfo.column,
                             vistraildata.sheetname_var(self.cellInfo.tab),
                             typecast=self._typecast)
-                recipe = pipeline.recipe
+                recipe = new_pipeline.recipe
                 new_params_it = recipe.parameters.iteritems()
                 self._parameters = {param: list(values)
                                     for param, values in new_params_it}
-                vistraildata.created_pipeline(self.cellInfo, pipeline)
+                vistraildata.created_pipeline(self.cellInfo, new_pipeline)
 
             # Nothing changed
             elif not force_reexec:
@@ -545,7 +553,7 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
             # Execute the new pipeline if possible
             error = vistrails_interface.try_execute(
                     self._controller,
-                    pipeline)
+                    new_pipeline)
             if (error is vistrails_interface.MISSING_PARAMS and
                     self.widget() is not None):
                 # Clear the cell

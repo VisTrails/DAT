@@ -232,7 +232,7 @@ class DefaultPlotConfig(PlotConfigBase):
                     pipeline.conn_map,
                     pipeline.port_map)
             mngr.created_pipeline(self.cell.cellInfo, new_pipeline)
-            self.cell.update_pipeline(force_reexec=True)
+            self.cell.update_pipeline(new_pipeline=new_pipeline)
 
     def okClicked(self):
         self.applyClicked()
