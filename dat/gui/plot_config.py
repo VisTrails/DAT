@@ -219,13 +219,13 @@ class DefaultPlotConfig(PlotConfigBase):
         if QtGui.QApplication.focusWidget():
             QtGui.QApplication.focusWidget().clearFocus()
         mngr = VistrailManager(self.cell._controller)
-        pipeline = mngr.get_pipeline(self.cell.cellInfo)
+        pipeline = self.cell.get_pipeline()
         print 'cfg: %d cell: %d ctrl: %d' % (self.config_version, 
-                                             self.cell.version,
+                                             pipeline.version,
                                              self.cell._controller.current_version)
-        if (self.config_version == self.cell.version !=
+        if (self.config_version == pipeline.version !=
                 self.cell._controller.current_version):
-            self.config_version = self.cell.version = self.cell._controller.current_version
+            self.config_version = self.cell._controller.current_version
             new_pipeline = PipelineInformation(
                     self.cell._controller.current_version,
                     pipeline.recipe,
@@ -241,7 +241,8 @@ class DefaultPlotConfig(PlotConfigBase):
     def resetClicked(self):
         if QtGui.QApplication.focusWidget():
             QtGui.QApplication.focusWidget().clearFocus()
-        if (self.config_version == self.cell.version !=
+        pipeline = self.cell.get_pipeline()
+        if (self.config_version == pipeline.version !=
                 self.cell._controller.current_version):
             self.cell._controller.change_selected_version(self.config_version)
         self.setup_widgets()
