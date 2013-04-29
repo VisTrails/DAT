@@ -65,6 +65,7 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
 
         # Toolbar
         self._container_toolbar = QtGui.QToolBar(self)
+        self._container_toolbar.layout().setMargin(0)
         self._container_toolbar.hide()
 
         self._show_action = QtGui.QAction(
