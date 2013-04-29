@@ -141,10 +141,11 @@ class VariableDroppingOverlay(Overlay):
         name_label.setObjectName('plot_name')
         name_layout.addWidget(name_label)
         name_layout.addStretch()
-        show_adv_config = QtGui.QPushButton('config')
-        self.connect(show_adv_config, QtCore.SIGNAL('clicked()'),
-                     self.show_advanced_config)
-        name_layout.addWidget(show_adv_config)
+        if not overlayed:
+            show_adv_config = QtGui.QPushButton("config")
+            self.connect(show_adv_config, QtCore.SIGNAL('clicked()'),
+                         self.show_advanced_config)
+            name_layout.addWidget(show_adv_config)
         main_layout.addLayout(name_layout)
 
         spacing_layout = QtGui.QHBoxLayout()
