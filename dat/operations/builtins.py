@@ -12,7 +12,7 @@ def float_op(op):
     def cb(op1, op2):
         new_var = Variable(type=Float_desc)
         calc = new_var.add_module(
-                'edu.utah.sci.vistrails.pythoncalc:PythonCalc')
+                'org.vistrails.vistrails.pythoncalc:PythonCalc')
         calc.add_function('op', String_desc, op)
         op1.connect_to(calc, 'value1')
         op2.connect_to(calc, 'value2')

@@ -8,7 +8,7 @@ class MyVariableLoader(CustomVariableLoader):
     def load(self):
         var = Variable(type=basic.Float)
         calc = var.add_module(pythoncalc.PythonCalc)
-        op1 = var.add_module('edu.utah.sci.vistrails.basic:Float')
+        op1 = var.add_module('org.vistrails.vistrails.basic:Float')
         op2 = var.add_module(basic.Float)
         op1.add_function('value', [basic.Float], ['17.63'])
         op1.add_function('value', basic.Float, '24.37')

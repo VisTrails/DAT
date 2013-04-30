@@ -9,4 +9,4 @@ name = 'test_variables'
 version = '0.1'
 
 def package_dependencies():
-    return ['edu.utah.sci.vistrails.pythoncalc']
+    return ['org.vistrails.vistrails.pythoncalc']

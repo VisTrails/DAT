@@ -325,7 +325,7 @@ class VistrailData(object):
                                 VistrailVariable(
                                         'dat-sheet-%d' % sheet_id,
                                         str(uuid.uuid1()),
-                                        'edu.utah.sci.vistrails.basic',
+                                        'org.vistrails.vistrails.basic',
                                         'String',
                                         '',
                                         name))
@@ -357,7 +357,7 @@ class VistrailData(object):
                     VistrailVariable(
                             'dat-sheet-%d' % sheet_id,
                             str(uuid.uuid1()),
-                            'edu.utah.sci.vistrails.basic',
+                            'org.vistrails.vistrails.basic',
                             'String',
                             '',
                             name))

@@ -93,7 +93,7 @@ class Test_generation(unittest.TestCase):
                 'value')
         self.assertEqual(
                 vistrails_interface.get_function(output_port, 'spec'),
-                'edu.utah.sci.vistrails.basic:Float')
+                'org.vistrails.vistrails.basic:Float')
 
     def test_pipeline_creation(self):
         import dat.tests.pkg_test_plots.init as pkg_test_plots
@@ -158,15 +158,15 @@ class Test_generation(unittest.TestCase):
 class Test_variable_creation(unittest.TestCase):
     def test_var_type(self):
         a_var = Variable(type=basic.Float)
-        a_mod = a_var.add_module('edu.utah.sci.vistrails.basic:String')
+        a_mod = a_var.add_module('org.vistrails.vistrails.basic:String')
         with self.assertRaises(ValueError):
             a_var.select_output_port(a_mod, 'value')
 
         b_var = Variable(type=basic.String)
-        b_mod = b_var.add_module('edu.utah.sci.vistrails.basic:String')
+        b_mod = b_var.add_module('org.vistrails.vistrails.basic:String')
         with self.assertRaises(ValueError):
             b_var.select_output_port(b_mod, 'nonexistent')
-        b_mod2 = b_var.add_module('edu.utah.sci.vistrails.basic:Integer')
+        b_mod2 = b_var.add_module('org.vistrails.vistrails.basic:Integer')
         with self.assertRaises(ValueError):
             b_var.select_output_port(a_mod, 'value_as_string')
         b_var.select_output_port(b_mod, 'value')
@@ -175,7 +175,7 @@ class Test_variable_creation(unittest.TestCase):
 
     def test_mod_addfunction(self):
         var = Variable(type=basic.Float)
-        mod = var.add_module('edu.utah.sci.vistrails.basic:Float')
+        mod = var.add_module('org.vistrails.vistrails.basic:Float')
         mod.add_function('value', basic.Float, 42.0)
         mod.add_function('value', [basic.Float], [16.8])
         with self.assertRaises(ValueError) as cm:
@@ -194,12 +194,12 @@ class Test_variable_creation(unittest.TestCase):
     def test_connect_outputport(self):
         from vistrails.core.modules.module_registry import PortsIncompatible
         var = Variable(type=basic.String)
-        mod1 = var.add_module('edu.utah.sci.vistrails.basic:Float')
-        mod2 = var.add_module('edu.utah.sci.vistrails.basic:String')
+        mod1 = var.add_module('org.vistrails.vistrails.basic:Float')
+        mod2 = var.add_module('org.vistrails.vistrails.basic:String')
         with self.assertRaises(PortsIncompatible):
             mod1.connect_outputport_to('value', mod2, 'value')
         var2 = Variable(type=basic.String)
-        mod3 = var2.add_module('edu.utah.sci.vistrails.basic:Float')
+        mod3 = var2.add_module('org.vistrails.vistrails.basic:Float')
         with self.assertRaises(ValueError) as cm:
             mod1.connect_outputport_to('value', mod3, 'value')
         self.assertTrue("same Variable" in cm.exception.args[0])

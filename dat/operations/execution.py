@@ -38,11 +38,11 @@ class BuildConstant(ComputeVariable):
         self.value = value
         if isinstance(self.value, basestring):
             self.type = get_module_registry().get_descriptor_by_name(
-                    'edu.utah.sci.vistrails.basic',
+                    'org.vistrails.vistrails.basic',
                     'String')
         else: # isinstance(value, float):
             self.type = get_module_registry().get_descriptor_by_name(
-                    'edu.utah.sci.vistrails.basic',
+                    'org.vistrails.vistrails.basic',
                     'Float')
 
     def execute(self, controller):

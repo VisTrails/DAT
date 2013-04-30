@@ -203,7 +203,7 @@ class Variable(object):
 
             # Add an OutputPort module
             descriptor = reg.get_descriptor_by_name(
-                    'edu.utah.sci.vistrails.basic', 'OutputPort')
+                    'org.vistrails.vistrails.basic', 'OutputPort')
             out_mod = controller.create_module_from_descriptor(descriptor)
             operations.append(('add', out_mod))
 
@@ -361,7 +361,7 @@ class Variable(object):
         """
         reg = get_module_registry()
         OutputPort = reg.get_module_by_name(
-                'edu.utah.sci.vistrails.basic', 'OutputPort')
+                'org.vistrails.vistrails.basic', 'OutputPort')
         outputs = find_modules_by_type(pipeline, [OutputPort])
         if len(outputs) == 1:
             output = outputs[0]
@@ -441,9 +441,9 @@ def apply_operation_subworkflow(controller, op, subworkflow, args):
     """
     reg = get_module_registry()
     inputport_desc = reg.get_descriptor_by_name(
-            'edu.utah.sci.vistrails.basic', 'InputPort')
+            'org.vistrails.vistrails.basic', 'InputPort')
     outputport_desc = reg.get_descriptor_by_name(
-            'edu.utah.sci.vistrails.basic', 'OutputPort')
+            'org.vistrails.vistrails.basic', 'OutputPort')
 
     generator = PipelineGenerator(controller)
 
@@ -856,7 +856,7 @@ class Plot(object):
                     warnings.warn("Subworkflow of plot '%s' has an InputPort "
                                   "'%s' with no type -- assuming Module" % (
                                   self.name, name))
-                    spec = 'edu.utah.sci.vistrails.basic:Module'
+                    spec = 'org.vistrails.vistrails.basic:Module'
                 if not optional:
                     optional = False
                 type = resolve_descriptor(spec, package_identifier)
@@ -1334,7 +1334,7 @@ def add_variable_subworkflow(generator, variable, plot_ports=None):
 
     reg = get_module_registry()
     outputport_desc = reg.get_descriptor_by_name(
-            'edu.utah.sci.vistrails.basic', 'OutputPort')
+            'org.vistrails.vistrails.basic', 'OutputPort')
 
     # Copy every module but the OutputPort
     output_id = None
@@ -1445,7 +1445,7 @@ def create_pipeline(controller, recipe, row, column, var_sheetname,
     generator = PipelineGenerator(controller)
 
     inputport_desc = reg.get_descriptor_by_name(
-            'edu.utah.sci.vistrails.basic', 'InputPort')
+            'org.vistrails.vistrails.basic', 'InputPort')
 
     # Add the plot subworkflow
     locator = XMLFileLocator(recipe.plot.subworkflow)
