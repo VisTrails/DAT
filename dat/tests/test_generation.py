@@ -11,7 +11,7 @@ import dat.tests
 from dat.tests import CallRecorder, FakeObj
 from dat.vistrail_data import VistrailManager
 from dat import vistrails_interface
-from dat.vistrails_interface import Variable
+from dat.vistrails_interface import get_upgraded_pipeline, Variable
 
 from vistrails.core import get_vistrails_application
 from vistrails.core.db.locator import XMLFileLocator
@@ -75,11 +75,10 @@ class Test_generation(unittest.TestCase):
         self.assertIsNotNone(variable)
         VistrailManager(controller).new_variable(varname, variable)
 
-        controller.change_selected_version(
-                controller.vistrail.get_tag_str('dat-var-%s' % varname),
-                from_root=True)
+        tag = controller.vistrail.get_tag_str('dat-var-%s' % varname)
+        controller.change_selected_version( tag.action_id)
 
-        pipeline = controller.vistrail.getPipeline('dat-var-%s' % varname)
+        pipeline = controller.current_pipeline
         self.assertEqual(len(pipeline.module_list), 4)
         # Float(17.63), Float(24.37), PythonCalc('+'), OutputPort
 
@@ -210,11 +209,15 @@ class Test_variable_creation(unittest.TestCase):
                 'variables.xml'))
         vistrail = locator.load()
 
-        desc_var1 = Variable.read_type(vistrail.getPipeline('dat-var-var1'))
+        desc_var1 = Variable.read_type(get_upgraded_pipeline(
+                vistrail,
+                'dat-var-var1'))
         self.assertEqual(
                 desc_var1.module,
                 basic.Float)
-        desc_var2 = Variable.read_type(vistrail.getPipeline('dat-var-var2'))
+        desc_var2 = Variable.read_type(get_upgraded_pipeline(
+                vistrail,
+                'dat-var-var2'))
         self.assertEqual(
                 desc_var2.module,
                 basic.String)

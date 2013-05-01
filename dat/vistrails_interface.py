@@ -27,6 +27,7 @@ from vistrails.core.modules.utils import parse_descriptor_string
 from vistrails.core.modules.vistrails_module import Module
 from vistrails.core.utils import DummyView
 from vistrails.core.vistrail.connection import Connection
+from vistrails.core.vistrail.controller import VistrailController
 from vistrails.core.vistrail.module import Module as PipelineModule
 from vistrails.core.vistrail.pipeline import Pipeline
 from vistrails.gui.modules import get_widget_class
@@ -63,6 +64,28 @@ def resolve_descriptor(param, package_identifier=None):
     else:
         raise TypeError("resolve_descriptor() argument must be a Module "
                         "subclass or str object, not '%s'" % type(param))
+
+
+def get_upgraded_pipeline(vistrail, version=None):
+    """This is similar to Vistrail#getPipeline() but performs upgrades.
+
+    getPipeline() can fail if the original pipeline has a different version.
+    In contrast, this function will update the pipeline first using a
+    controller.
+    """
+    if version is None:
+        version = vistrail.get_latest_version()
+    elif isinstance(version, (int, long)):
+        pass
+    elif isinstance(version, basestring):
+        version = vistrail.get_tag_str(version).action_id
+    else:
+        raise TypeError
+
+    controller = VistrailController(vistrail)
+    controller.recompute_terse_graph() # FIXME : this shouldn't be needed...
+    controller.do_version_switch(version)
+    return controller.current_pipeline
 
 
 class ModuleWrapper(object):
@@ -376,7 +399,9 @@ class Variable(object):
         """
         controller = variable_info._controller
         varname = variable_info.name
-        pipeline = controller.vistrail.getPipeline('dat-var-%s' % varname)
+        pipeline = get_upgraded_pipeline(
+                controller.vistrail,
+                'dat-var-%s' % varname)
 
         generator = PipelineGenerator(controller)
         output = add_variable_subworkflow(generator, pipeline)
@@ -450,8 +475,7 @@ def apply_operation_subworkflow(controller, op, subworkflow, args):
     # Add the operation subworkflow
     locator = XMLFileLocator(subworkflow)
     vistrail = locator.load()
-    version = vistrail.get_latest_version()
-    operation_pipeline = vistrail.getPipeline(version)
+    operation_pipeline = get_upgraded_pipeline(vistrail)
 
     # Copy every module but the InputPorts and the OutputPort
     operation_modules_map = dict() # old module id -> new module
@@ -816,8 +840,7 @@ class Plot(object):
         """
         locator = XMLFileLocator(self.subworkflow)
         vistrail = locator.load()
-        version = vistrail.get_latest_version()
-        pipeline = vistrail.getPipeline(version)
+        pipeline = get_upgraded_pipeline(vistrail)
 
         inputports = find_modules_by_type(pipeline, [InputPort])
         if not inputports:
@@ -1145,7 +1168,7 @@ def find_modules_by_type(pipeline, moduletypes):
 
 
 def get_pipeline_location(controller, pipelineInfo):
-    pipeline = controller.vistrail.getPipeline(pipelineInfo.version)
+    pipeline = get_upgraded_pipeline(controller.vistrail, pipelineInfo.version)
 
     location_modules = find_modules_by_type(pipeline, [CellLocation])
     if len(location_modules) != 1:
@@ -1329,7 +1352,8 @@ def add_variable_subworkflow(generator, variable, plot_ports=None):
     if isinstance(variable, Pipeline):
         var_pipeline = variable
     else:
-        var_pipeline = generator.controller.vistrail.getPipeline(
+        var_pipeline = get_upgraded_pipeline(
+                generator.controller.vistrail,
                 'dat-var-%s' % variable)
 
     reg = get_module_registry()
@@ -1450,8 +1474,7 @@ def create_pipeline(controller, recipe, row, column, var_sheetname,
     # Add the plot subworkflow
     locator = XMLFileLocator(recipe.plot.subworkflow)
     vistrail = locator.load()
-    version = vistrail.get_latest_version()
-    plot_pipeline = vistrail.getPipeline(version)
+    plot_pipeline = get_upgraded_pipeline(vistrail)
 
     connected_to_inputport = set(
             c.source.moduleId
