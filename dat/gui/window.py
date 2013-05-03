@@ -96,15 +96,15 @@ class MainWindow(QtGui.QMainWindow):
             return dock
 
         dock_panel(_("Plots"), self._plots,
-                   QtCore.Qt.LeftDockWidgetArea)
+                   QtCore.Qt.RightDockWidgetArea)
         self._variables_dock = dock_panel(_("Variables"), self._variables,
                                           QtCore.Qt.LeftDockWidgetArea)
-        ops_dock = dock_panel(_("Calculator"), self._operations,
-                   QtCore.Qt.RightDockWidgetArea)
+        dock_panel(_("Calculator"), self._operations,
+                   QtCore.Qt.LeftDockWidgetArea)
         prov_dock = dock_panel(_("Data Provenance"), self._data_provenance,
-                               QtCore.Qt.RightDockWidgetArea)
-        self.tabifyDockWidget(ops_dock, prov_dock)
-        ops_dock.raise_()
+                               QtCore.Qt.LeftDockWidgetArea)
+        self.tabifyDockWidget(self._variables_dock, prov_dock)
+        self._variables_dock.raise_()
 
         get_vistrails_application().register_notification(
                 'dat_controller_changed',
