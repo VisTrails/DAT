@@ -10,7 +10,7 @@ from dat.vistrail_data import VistrailManager
 from dat import vistrails_interface
 
 from vistrails.core.application import set_vistrails_application, \
-    VistrailsApplicationInterface
+    get_vistrails_application, VistrailsApplicationInterface
 import vistrails.core.requirements
 import vistrails.gui.theme
 from vistrails.packages.spreadsheet.spreadsheet_cell import CellInformation
@@ -300,3 +300,12 @@ def start():
 
     app = Application(sys.argv)
     return app.exec_()
+
+
+def stop():
+    """Stops the application and cleans up.
+    """
+    app = get_vistrails_application()
+    app.finishSession()
+    app.save_configuration()
+    app.destroy()

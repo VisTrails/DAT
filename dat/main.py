@@ -55,7 +55,9 @@ def main():
 
     try:
         import dat.gui.application
-        sys.exit(dat.gui.application.start())
+        v = dat.gui.application.start()
+        dat.gui.application.stop()
+        sys.exit(v)
     except Exception:
         sys.stderr.write("Critical: Application exiting with an exception:\n")
         traceback.print_exc(file=sys.stderr)
