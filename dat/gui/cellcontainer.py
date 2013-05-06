@@ -296,8 +296,7 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
             self._overlay_scrollarea.setWidget(self._overlay)
             self._overlay.show()
             self._overlay_scrollarea.raise_()
-            self._overlay_scrollarea.setGeometry(0, 0,
-                                                 self.width(), self.height())
+            self.do_layout()
             self._set_toolbar_buttons(None)
 
     def show_overlay(self):
@@ -332,10 +331,16 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
         """Reacts to a resize by laying out the overlay and buttons.
         """
         super(DATCellContainer, self).resizeEvent(event)
+        self.do_layout()
+
+    def do_layout(self):
         if self.containedWidget is not None:
-            self.containedWidget.setGeometry(0, 0,
-                                             self.width(), self.height())
-        self._overlay_scrollarea.setGeometry(0, 0, self.width(), self.height())
+            self.containedWidget.setGeometry(
+                    4, 4,
+                    self.width() - 8, self.height() - 8)
+        self._overlay_scrollarea.setGeometry(
+                    4, 4,
+                    self.width() - 8, self.height() - 8)
         self._error_icon.setGeometry(self.width() - 24, 0, 24, 24)
 
     def dragEnterEvent(self, event):
