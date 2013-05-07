@@ -14,7 +14,8 @@ from dat.gui.overlays import PlotPromptOverlay, VariableDropEmptyCell, \
     PlotDroppingOverlay, VariableDroppingOverlay
 
 from vistrails.core.application import get_vistrails_application
-from vistrails.packages.spreadsheet.spreadsheet_cell import CellContainerInterface
+from vistrails.packages.spreadsheet.spreadsheet_cell import QCellContainer, \
+    CellContainerInterface
 
 
 class DATCellContainer(CellContainerInterface, QtGui.QWidget):
@@ -25,6 +26,14 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
     It adds an overlay feature to the spreadsheet's cells and handles drops of
     variables and plots.
     """
+    def __new__(cls, *args, **kwargs):
+        # Special case: if we are not on a DAT sheet, use VisTrails's container
+        # class
+        if VistrailManager() is None:
+            return QCellContainer(*args, **kwargs)
+        else:
+            return super(DATCellContainer, cls).__new__(cls, *args, **kwargs)
+
     def __init__(self, cellInfo=None, widget=None, error=None, parent=None):
         # Parent constructors
         CellContainerInterface.__init__(self, cellInfo)
@@ -224,18 +233,21 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
         return widget
 
     def get_pipeline(self):
+        vistraildata = VistrailManager(self._controller)
+        if vistraildata is None:
+            return None
+
         if self.widget() is not None:
             # Get pipeline info from VisTrails
             pipelineInfo = self.cellInfo.tab.getCellPipelineInfo(
                     self.cellInfo.row, self.cellInfo.column)
             version = pipelineInfo[0]['version']
-            return VistrailManager(self._controller).get_pipeline(
+            return vistraildata.get_pipeline(
                     version,
                     infer_for_cell=self.cellInfo)
         else:
             # Get pipeline info from DAT: we might be building something here
-            return VistrailManager(self._controller).get_pipeline(
-                    self.cellInfo)
+            return vistraildata.get_pipeline(self.cellInfo)
 
     def contentsUpdated(self):
         """Notifies that this cell's pipeline changed.
@@ -296,8 +308,7 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
             self._overlay_scrollarea.setWidget(self._overlay)
             self._overlay.show()
             self._overlay_scrollarea.raise_()
-            self._overlay_scrollarea.setGeometry(0, 0,
-                                                 self.width(), self.height())
+            self.do_layout()
             self._set_toolbar_buttons(None)
 
     def show_overlay(self):
@@ -332,10 +343,16 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
         """Reacts to a resize by laying out the overlay and buttons.
         """
         super(DATCellContainer, self).resizeEvent(event)
+        self.do_layout()
+
+    def do_layout(self):
         if self.containedWidget is not None:
-            self.containedWidget.setGeometry(0, 0,
-                                             self.width(), self.height())
-        self._overlay_scrollarea.setGeometry(0, 0, self.width(), self.height())
+            self.containedWidget.setGeometry(
+                    4, 4,
+                    self.width() - 8, self.height() - 8)
+        self._overlay_scrollarea.setGeometry(
+                    4, 4,
+                    self.width() - 8, self.height() - 8)
         self._error_icon.setGeometry(self.width() - 24, 0, 24, 24)
 
     def dragEnterEvent(self, event):

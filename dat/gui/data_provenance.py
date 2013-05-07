@@ -189,74 +189,87 @@ class ProvenanceSceneLayout(object):
 
 
 class KeyValuePanel(QtGui.QTableWidget):
-    def __init__(self, pairs):
+    def __init__(self, pairs=None):
+        QtGui.QTableWidget.__init__(self, 0, 2)
+
+        _ = translate(KeyValuePanel)
+        self.setHorizontalHeaderLabels([_("Key"), _("Value")])
+        self.horizontalHeader().setResizeMode(QtGui.QHeaderView.Fixed)
+
+        self.set_pairs(pairs)
+
+    def set_pairs(self, pairs):
         if isinstance(pairs, dict):
             pairs = pairs.items()
 
-        QtGui.QTableWidget.__init__(self, len(pairs), 2)
+        if not pairs:
+            self.setRowCount(0)
+        else:
+            self.setRowCount(len(pairs))
 
-        _ = translate(KeyValuePanel)
+            pairs = sorted(pairs, key=lambda (k, v): k)
+            for i, (key, value) in enumerate(pairs):
+                key = QtGui.QTableWidgetItem(key)
+                key.setFlags(QtCore.Qt.NoItemFlags)
+                self.setItem(i, 0, key)
+                value = QtGui.QTableWidgetItem(str(value))
+                value.setFlags(QtCore.Qt.NoItemFlags)
+                self.setItem(i, 1, value)
 
-        self.setHorizontalHeaderLabels([_("Key"), _("Value")])
-
-        pairs = sorted(pairs, key=lambda (k, v): k)
-        for i, (key, value) in enumerate(pairs):
-            key = QtGui.QTableWidgetItem(key)
-            key.setFlags(QtCore.Qt.NoItemFlags)
-            self.setItem(i, 0, key)
-            value = QtGui.QTableWidgetItem(str(value))
-            value.setFlags(QtCore.Qt.NoItemFlags)
-            self.setItem(i, 1, value)
+        self.resizeColumnsToContents()
 
 
-class DataProvenancePanel(QtGui.QWidget):
+class DataProvenancePanel(QtGui.QSplitter):
     def __init__(self):
         QtGui.QWidget.__init__(self)
+        self.setOrientation(QtCore.Qt.Vertical)
 
-        _ = translate(DataProvenancePanel)
+        self._viewer_container = QtGui.QWidget()
+        self._viewer_container.setLayout(QtGui.QVBoxLayout())
 
-        self._scene = None
-        self._viewer = QtGui.QLabel(_("Select a variable to display its "
-                                      "provenance"))
-        self._viewer.setWordWrap(True)
-        self._viewer.setAlignment(QtCore.Qt.AlignCenter)
+        self._viewer = None
+        self._key_value_panel = KeyValuePanel()
 
-        self._key_value_panel = None
+        self.addWidget(self._viewer_container)
+        self.addWidget(self._key_value_panel)
+        self.setStretchFactor(0, 8)
+        self.setStretchFactor(1, 1)
 
-        layout = QtGui.QVBoxLayout()
-        layout.addWidget(self._viewer)
-        self.setLayout(layout)
+        self.showVariable(None)
 
     @QtCore.pyqtSlot('PyQt_PyObject')
     def showVariable(self, variable):
+        _ = translate(DataProvenancePanel)
+
         if self._viewer is not None:
             self._viewer.deleteLater()
             self._viewer = self._scene = None
 
-            if self._key_value_panel is not None:
-                self._key_value_panel.deleteLater()
-                self._key_value_panel = None
+        if variable is not None:
+            self._scene = QtGui.QGraphicsScene()
+            self._viewer = ZoomPanGraphicsView(self._scene)
+            self.connect(
+                    self._viewer,
+                    QtCore.SIGNAL('itemClicked(QGraphicsItem*)'),
+                    self._item_clicked)
 
-        if variable is None:
-            return
+            # Create the scene recursively, starting at the bottom
+            layout = ProvenanceSceneLayout(variable._controller)
+            layout.populate(variable.provenance)
+            layout.addToScene(self._scene, sink=variable)
+        else:
+            self._viewer = QtGui.QLabel(_("Select a variable to display its "
+                                          "provenance"))
+            self._viewer.setWordWrap(True)
+            self._viewer.setAlignment(QtCore.Qt.AlignCenter)
 
-        self._scene = QtGui.QGraphicsScene()
-        self._viewer = ZoomPanGraphicsView(self._scene)
-        self.connect(self._viewer, QtCore.SIGNAL('itemClicked(QGraphicsItem*)'),
-                     self._item_clicked)
+        self._viewer_container.layout().addWidget(self._viewer)
 
-        self.layout().addWidget(self._viewer)
-
-        # Create the scene recursively, starting at the bottom
-        layout = ProvenanceSceneLayout(variable._controller)
-        layout.populate(variable.provenance)
-        layout.addToScene(self._scene, sink=variable)
+        # Reset the table
+        self._item_clicked(None)
 
     def _item_clicked(self, item):
-        if self._key_value_panel is not None:
-            self._key_value_panel.deleteLater()
-            self._key_value_panel = None
-
         if item is not None:
-            self._key_value_panel = KeyValuePanel(item.provenance.data_dict)
-            self.layout().addWidget(self._key_value_panel)
+            self._key_value_panel.set_pairs(item.provenance.data_dict)
+        else:
+            self._key_value_panel.set_pairs(None)

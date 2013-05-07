@@ -10,12 +10,13 @@ from dat.vistrail_data import VistrailManager
 from dat import vistrails_interface
 
 from vistrails.core.application import set_vistrails_application, \
-    VistrailsApplicationInterface
+    get_vistrails_application, VistrailsApplicationInterface
 import vistrails.core.requirements
 import vistrails.gui.theme
 from vistrails.packages.spreadsheet.spreadsheet_cell import CellInformation
 from vistrails.packages.spreadsheet.spreadsheet_controller import \
     spreadsheetController
+from vistrails.packages.spreadsheet.spreadsheet_tab import StandardWidgetSheetTab
 
 
 # TODO : maybe this could be pushed back into VisTrails
@@ -159,6 +160,7 @@ class Application(QtGui.QApplication, NotificationDispatcher, VistrailsApplicati
 
         VistrailsApplicationInterface.__init__(self)
         self.builderWindow = None
+        self._vt_sheet = None
         set_vistrails_application(self)
 
         vistrails.gui.theme.initializeCurrentTheme()
@@ -170,7 +172,10 @@ class Application(QtGui.QApplication, NotificationDispatcher, VistrailsApplicati
         self.vistrailsStartup.set_needed_packages(['spreadsheet'])
         self.vistrailsStartup.init()
         self.builderWindow.link_registry()
-        self.builderWindow.create_first_vistrail()
+
+        # Create a first controller
+        view = self.builderWindow.create_first_vistrail()
+        controller = view.get_controller()
 
         # Set our own spreadsheet cell container class
         from dat.gui.cellcontainer import DATCellContainer
@@ -183,13 +188,16 @@ class Application(QtGui.QApplication, NotificationDispatcher, VistrailsApplicati
         # Register the VistrailManager with the 'controller_changed'
         # notification
         VistrailManager.init()
+        VistrailManager.set_controller(
+                controller,
+                register=True)
 
         # Create the main window
         mw = MainWindow()
         mw.setVisible(True)
 
         # Create the spreadsheet for the first project
-        self._controller_changed(VistrailManager().controller, new=True)
+        self._controller_changed(controller, new=True)
 
         # Create a spreadsheet and execute the visualizations when a new
         # controller is selected
@@ -203,12 +211,13 @@ class Application(QtGui.QApplication, NotificationDispatcher, VistrailsApplicati
                 self._sheet_changed)
 
     def _controller_changed(self, controller, new=False):
-        QtCore.QMetaObject.invokeMethod(
-                self,
-                '_controller_changed_deferred',
-                QtCore.Qt.QueuedConnection,
-                QtCore.Q_ARG(object, controller),
-                QtCore.Q_ARG(bool, new))
+        if controller is not None:
+            QtCore.QMetaObject.invokeMethod(
+                    self,
+                    '_controller_changed_deferred',
+                    QtCore.Qt.QueuedConnection,
+                    QtCore.Q_ARG(object, controller),
+                    QtCore.Q_ARG(bool, new))
         # We defer this signal because we need all VisTrails components to
         # notice that the controller changed before we execute something, else
         # components might receive the 'set_pipeline' signal before
@@ -217,6 +226,24 @@ class Application(QtGui.QApplication, NotificationDispatcher, VistrailsApplicati
     @QtCore.pyqtSlot(object, bool)
     def _controller_changed_deferred(self, controller, new):
         vistraildata = VistrailManager(controller)
+        if vistraildata is None:
+            # Non-DAT controller here: create a sheet for it, so that we don't
+            # interfere with DAT
+            sh_window = spreadsheetController.findSpreadsheetWindow(
+                    create=False)
+            if sh_window is not None:
+                tab_controller = sh_window.tabController
+                if self._vt_sheet is None:
+                    self._vt_sheet = StandardWidgetSheetTab(
+                            tab_controller,
+                            2, 3)
+                    tab_controller.addTabWidget(
+                            self._vt_sheet,
+                            "VisTrails Sheet")
+                    VistrailManager.set_sheet_immortal(self._vt_sheet, True)
+
+                tab_controller.setCurrentWidget(self._vt_sheet)
+                return
 
         # Get the spreadsheets for this project
         spreadsheet_tabs = vistraildata.spreadsheet_tabs
@@ -315,3 +342,12 @@ def start():
 
     app = Application(sys.argv)
     return app.exec_()
+
+
+def stop():
+    """Stops the application and cleans up.
+    """
+    app = get_vistrails_application()
+    app.finishSession()
+    app.save_configuration()
+    app.destroy()

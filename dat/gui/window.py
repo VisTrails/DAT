@@ -96,15 +96,15 @@ class MainWindow(QtGui.QMainWindow):
             return dock
 
         dock_panel(_("Plots"), self._plots,
-                   QtCore.Qt.LeftDockWidgetArea)
+                   QtCore.Qt.RightDockWidgetArea)
         self._variables_dock = dock_panel(_("Variables"), self._variables,
                                           QtCore.Qt.LeftDockWidgetArea)
-        ops_dock = dock_panel(_("Calculator"), self._operations,
-                   QtCore.Qt.RightDockWidgetArea)
+        dock_panel(_("Calculator"), self._operations,
+                   QtCore.Qt.LeftDockWidgetArea)
         prov_dock = dock_panel(_("Data Provenance"), self._data_provenance,
-                               QtCore.Qt.RightDockWidgetArea)
-        self.tabifyDockWidget(ops_dock, prov_dock)
-        ops_dock.raise_()
+                               QtCore.Qt.LeftDockWidgetArea)
+        self.tabifyDockWidget(self._variables_dock, prov_dock)
+        self._variables_dock.raise_()
 
         get_vistrails_application().register_notification(
                 'dat_controller_changed',
@@ -114,17 +114,30 @@ class MainWindow(QtGui.QMainWindow):
         self._variables.unregister_notifications()
         self._variables = VariablePanel(VistrailManager(controller))
         self._variables_dock.setWidget(self._variables)
-
         self.connect(
                 self._variables,
                 QtCore.SIGNAL('variableSelected(PyQt_PyObject)'),
                 self._data_provenance.showVariable)
 
+        is_dat_controller = VistrailManager(controller) is not None
+        self._operations.setEnabled(is_dat_controller)
+        self._plots.setEnabled(is_dat_controller)
+
     def newFile(self):
-        get_vistrails_application().builderWindow.new_vistrail()
+        builderWindow = get_vistrails_application().builderWindow
+        view = builderWindow.new_vistrail()
+        if view is not None:
+            VistrailManager.set_controller(
+                    view.get_controller(),
+                    register=True)
 
     def openFile(self):
-        get_vistrails_application().builderWindow.open_vistrail_default()
+        builderWindow = get_vistrails_application().builderWindow
+        view = builderWindow.open_vistrail_default()
+        if view is not None:
+            VistrailManager.set_controller(
+                    view.get_controller(),
+                    register=True)
 
     def saveFile(self):
         from vistrails.core.db.locator import DBLocator, FileLocator

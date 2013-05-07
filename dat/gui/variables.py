@@ -33,24 +33,34 @@ class VariablePanel(QtGui.QWidget):
         new_variable = QtGui.QAction(get_icon('new_variable.png'),
                                      _("New variable..."),
                                      self)
-        self.connect(new_variable, QtCore.SIGNAL("triggered()"),
-                     self.new_variable)
         toolbar.addAction(new_variable)
         delete_variable = QtGui.QAction(get_icon('delete_variable.png'),
                                         _("Delete variable"),
                                         self)
-        self.connect(delete_variable, QtCore.SIGNAL("triggered()"),
-                     self.delete_variable)
         toolbar.addAction(delete_variable)
         rename_variable = QtGui.QAction(get_icon('rename_variable.png'),
                                         _("Rename variable..."),
                                         self)
-        self.connect(rename_variable, QtCore.SIGNAL("triggered()"),
-                     self.rename_variable)
         toolbar.addAction(rename_variable)
         layout.addWidget(toolbar)
 
         self._list_widget = DraggableListWidget(self, MIMETYPE_DAT_VARIABLE)
+        layout.addWidget(self._list_widget)
+
+        self.setLayout(layout)
+
+        # UI created; stop here if this panel is disabled
+        if self._vistraildata is None:
+            self.setEnabled(False)
+            return
+
+        self.connect(new_variable, QtCore.SIGNAL("triggered()"),
+                     self.new_variable)
+        self.connect(delete_variable, QtCore.SIGNAL("triggered()"),
+                     self.delete_variable)
+        self.connect(rename_variable, QtCore.SIGNAL("triggered()"),
+                     self.rename_variable)
+
         def select_variable(varname):
             varname = str(varname)
             self.variableSelected.emit(vistraildata.get_variable(varname))
@@ -58,9 +68,6 @@ class VariablePanel(QtGui.QWidget):
                 self._list_widget,
                 QtCore.SIGNAL('currentTextChanged(QString)'),
                 select_variable)
-        layout.addWidget(self._list_widget)
-
-        self.setLayout(layout)
 
         self._variable_loader = LoadVariableDialog(
                 self._vistraildata.controller,
