@@ -723,6 +723,7 @@ class VistrailManager(object):
         self._names = dict() # name: unicode -> VistrailData
         self._current_controller = None
         self.initialized = False
+        self._immortal_sheets = weakref.WeakKeyDictionary()
         self._forgotten = weakref.WeakKeyDictionary()
                 # WeakSet only appeared in Python 2.7
 
@@ -759,17 +760,14 @@ class VistrailManager(object):
         if controller == self._current_controller:
             # VisTrails sends 'controller_changed' a lot
             return
-        if self._forgotten.get(controller, False):
+        if controller is not None and self._forgotten.get(controller, False):
             # Yes, 'controller_changed' can happen after 'controller_closed'
             # This is unfortunate
             return
 
         new = False
-        try:
-            self._vistrails[controller]
-            self._current_controller = controller
-        except KeyError:
-            self._current_controller = controller
+        self._current_controller = controller
+        if controller is not None and not self._vistrails.has_key(controller):
             if not register:
                 warnings.warn("Current controller is not a DAT vistrail:\n"
                               "  %r" % controller)
@@ -801,8 +799,6 @@ class VistrailManager(object):
         try:
             return self._vistrails[controller]
         except KeyError:
-            warnings.warn("Unknown controller requested from "
-                          "VistrailManager:\n  %r" % controller)
             return None
 
     def _make_ctrl_name(self, ctrl_name):
@@ -869,6 +865,9 @@ class VistrailManager(object):
         return tab, vistraildata.get_sheetname(sheet_id)
 
     def hook_close_tab(self, tab):
+        if self._immortal_sheets.get(tab, False):
+            return False
+
         try:
             vistraildata, sheet_id = self._tabs[tab]
         except KeyError:
@@ -907,5 +906,14 @@ class VistrailManager(object):
 
         text = vistraildata.set_sheetname(sheet_id, text)
         return text
+
+    def set_sheet_immortal(self, sheet, immortal):
+        if immortal:
+            self._immortal_sheets[sheet] = True
+        else:
+            try:
+                del self._immortal_sheets[sheet]
+            except KeyError:
+                pass
 
 VistrailManager = VistrailManager()

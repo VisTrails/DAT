@@ -14,7 +14,8 @@ from dat.gui.overlays import PlotPromptOverlay, VariableDropEmptyCell, \
     PlotDroppingOverlay, VariableDroppingOverlay
 
 from vistrails.core.application import get_vistrails_application
-from vistrails.packages.spreadsheet.spreadsheet_cell import CellContainerInterface
+from vistrails.packages.spreadsheet.spreadsheet_cell import QCellContainer, \
+    CellContainerInterface
 
 
 class DATCellContainer(CellContainerInterface, QtGui.QWidget):
@@ -25,6 +26,14 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
     It adds an overlay feature to the spreadsheet's cells and handles drops of
     variables and plots.
     """
+    def __new__(cls, *args, **kwargs):
+        # Special case: if we are not on a DAT sheet, use VisTrails's container
+        # class
+        if VistrailManager() is None:
+            return QCellContainer(*args, **kwargs)
+        else:
+            return super(DATCellContainer, cls).__new__(cls, *args, **kwargs)
+
     def __init__(self, cellInfo=None, widget=None, error=None, parent=None):
         # Parent constructors
         CellContainerInterface.__init__(self, cellInfo)

@@ -16,6 +16,7 @@ import vistrails.gui.theme
 from vistrails.packages.spreadsheet.spreadsheet_cell import CellInformation
 from vistrails.packages.spreadsheet.spreadsheet_controller import \
     spreadsheetController
+from vistrails.packages.spreadsheet.spreadsheet_tab import StandardWidgetSheetTab
 
 
 # TODO : maybe this could be pushed back into VisTrails
@@ -159,6 +160,7 @@ class Application(QtGui.QApplication, NotificationDispatcher, VistrailsApplicati
 
         VistrailsApplicationInterface.__init__(self)
         self.builderWindow = None
+        self._vt_sheet = None
         set_vistrails_application(self)
 
         vistrails.gui.theme.initializeCurrentTheme()
@@ -225,7 +227,23 @@ class Application(QtGui.QApplication, NotificationDispatcher, VistrailsApplicati
     def _controller_changed_deferred(self, controller, new):
         vistraildata = VistrailManager(controller)
         if vistraildata is None:
-            return
+            # Non-DAT controller here: create a sheet for it, so that we don't
+            # interfere with DAT
+            sh_window = spreadsheetController.findSpreadsheetWindow(
+                    create=False)
+            if sh_window is not None:
+                tab_controller = sh_window.tabController
+                if self._vt_sheet is None:
+                    self._vt_sheet = StandardWidgetSheetTab(
+                            tab_controller,
+                            2, 3)
+                    tab_controller.addTabWidget(
+                            self._vt_sheet,
+                            "VisTrails Sheet")
+                    VistrailManager.set_sheet_immortal(self._vt_sheet, True)
+
+                tab_controller.setCurrentWidget(self._vt_sheet)
+                return
 
         # Get the spreadsheets for this project
         spreadsheet_tabs = vistraildata.spreadsheet_tabs
