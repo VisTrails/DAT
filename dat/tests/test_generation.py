@@ -62,8 +62,10 @@ class Test_generation(unittest.TestCase):
     @staticmethod
     def vt_controller():
         app = get_vistrails_application()
-        app.builderWindow.new_vistrail()
-        return app.get_controller()
+        view = app.builderWindow.new_vistrail()
+        controller = view.get_controller()
+        VistrailManager.set_controller(controller, register=True)
+        return controller
 
     def test_variable(self):
         controller = self.vt_controller()

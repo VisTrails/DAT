@@ -224,18 +224,21 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
         return widget
 
     def get_pipeline(self):
+        vistraildata = VistrailManager(self._controller)
+        if vistraildata is None:
+            return None
+
         if self.widget() is not None:
             # Get pipeline info from VisTrails
             pipelineInfo = self.cellInfo.tab.getCellPipelineInfo(
                     self.cellInfo.row, self.cellInfo.column)
             version = pipelineInfo[0]['version']
-            return VistrailManager(self._controller).get_pipeline(
+            return vistraildata.get_pipeline(
                     version,
                     infer_for_cell=self.cellInfo)
         else:
             # Get pipeline info from DAT: we might be building something here
-            return VistrailManager(self._controller).get_pipeline(
-                    self.cellInfo)
+            return vistraildata.get_pipeline(self.cellInfo)
 
     def contentsUpdated(self):
         """Notifies that this cell's pipeline changed.

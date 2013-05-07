@@ -41,48 +41,53 @@ def _color_version_nodes(node, action, tag, description):
 def _get_custom_version_panels(controller, version):
     _ = translate("recipe_version_panel")
 
-    if VistrailManager.initialized:
-        pipelineInfo = VistrailManager(controller).get_pipeline(version)
-        if pipelineInfo is not None:
-            monospace = QtGui.QFont('Monospace')
-            monospace.setStyleHint(QtGui.QFont.TypeWriter)
+    if not VistrailManager.initialized:
+        return []
+    vistraildata = VistrailManager(controller)
+    if vistraildata is None:
+        return []
+    pipelineInfo = vistraildata.get_pipeline(version)
+    if pipelineInfo is None:
+        return []
 
-            recipe = pipelineInfo.recipe
-            recipe_widget = QtGui.QGroupBox(_("DAT recipe"))
-            recipe_widget.setSizePolicy(
-                    recipe_widget.sizePolicy().horizontalPolicy(),
-                    QtGui.QSizePolicy.Fixed)
-            layout = QtGui.QVBoxLayout()
+    monospace = QtGui.QFont('Monospace')
+    monospace.setStyleHint(QtGui.QFont.TypeWriter)
 
-            line = QtGui.QHBoxLayout()
-            line.addWidget(QtGui.QLabel(_("Plot:")))
-            plot_label = QtGui.QLabel("%s" % recipe.plot.name)
-            plot_label.setFont(monospace)
-            line.addWidget(plot_label)
-            layout.addLayout(line)
+    recipe = pipelineInfo.recipe
+    recipe_widget = QtGui.QGroupBox(_("DAT recipe"))
+    recipe_widget.setSizePolicy(
+            recipe_widget.sizePolicy().horizontalPolicy(),
+            QtGui.QSizePolicy.Fixed)
+    layout = QtGui.QVBoxLayout()
 
-            layout.addWidget(QtGui.QLabel(_("Variables:")))
-            variable_list = QtGui.QTextEdit()
-            color = variable_list.textColor()
-            variable_list.setEnabled(False)
-            variable_list.setTextColor(color)
-            variable_list.setFont(monospace)
-            variable_list.setLineWrapMode(QtGui.QTextEdit.NoWrap)
-            variable_list.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
-            text = []
-            for p_values in recipe.parameters.itervalues():
-                for value in p_values:
-                    if value.type == RecipeParameterValue.VARIABLE:
-                        text.append(value.variable.name)
-            text = '\n'.join(text)
-            variable_list.setPlainText(text)
-            variable_list.setFixedHeight(
-                    variable_list.document().size().height())
-            layout.addWidget(variable_list)
+    line = QtGui.QHBoxLayout()
+    line.addWidget(QtGui.QLabel(_("Plot:")))
+    plot_label = QtGui.QLabel("%s" % recipe.plot.name)
+    plot_label.setFont(monospace)
+    line.addWidget(plot_label)
+    layout.addLayout(line)
 
-            recipe_widget.setLayout(layout)
-            return [(-1, recipe_widget)]
-    return []
+    layout.addWidget(QtGui.QLabel(_("Variables:")))
+    variable_list = QtGui.QTextEdit()
+    color = variable_list.textColor()
+    variable_list.setEnabled(False)
+    variable_list.setTextColor(color)
+    variable_list.setFont(monospace)
+    variable_list.setLineWrapMode(QtGui.QTextEdit.NoWrap)
+    variable_list.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+    text = []
+    for p_values in recipe.parameters.itervalues():
+        for value in p_values:
+            if value.type == RecipeParameterValue.VARIABLE:
+                text.append(value.variable.name)
+    text = '\n'.join(text)
+    variable_list.setPlainText(text)
+    variable_list.setFixedHeight(
+            variable_list.document().size().height())
+    layout.addWidget(variable_list)
+
+    recipe_widget.setLayout(layout)
+    return [(-1, recipe_widget)]
 
 
 hooks = dict(

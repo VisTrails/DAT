@@ -742,15 +742,19 @@ class VistrailManager(object):
         app.register_notification(
                 'vistrail_saved',
                 self.controller_name_changed)
-        bw = get_vistrails_application().builderWindow
-        self.set_controller(bw.get_current_controller())
         self.initialized = True
 
-    def set_controller(self, controller):
+    def set_controller(self, controller, register=False):
         """Called through the notification mechanism.
 
-        Changes the 'current' controller, building a VistrailData for it if
-        necessary.
+        Changes the 'current' controller, optionally building a VistrailData
+        for it if register is True.
+
+        A VistrailData will not be built if register is not True, which means
+        not every controller that Vistrail will use will be considered DAT
+        controllers. This works around issues with internal controllers such as
+        the one used by the query view. A DAT project has to be opened from
+        DAT's 'File/Open' action.
         """
         if controller == self._current_controller:
             # VisTrails sends 'controller_changed' a lot
@@ -760,17 +764,22 @@ class VistrailManager(object):
             # This is unfortunate
             return
 
-        self._current_controller = controller
+        new = False
         try:
             self._vistrails[controller]
-            new = False
+            self._current_controller = controller
         except KeyError:
-            vistraildata = VistrailData(controller)
-            name = self._make_ctrl_name(controller.name)
-            vistraildata.name = name
-            self._names[name] = vistraildata
-            self._vistrails[controller] = vistraildata
-            new = True
+            self._current_controller = controller
+            if not register:
+                warnings.warn("Current controller is not a DAT vistrail:\n"
+                              "  %r" % controller)
+            else:
+                vistraildata = VistrailData(controller)
+                name = self._make_ctrl_name(controller.name)
+                vistraildata.name = name
+                self._names[name] = vistraildata
+                self._vistrails[controller] = vistraildata
+                new = True
 
         get_vistrails_application().send_notification(
                 'dat_controller_changed',
@@ -780,7 +789,10 @@ class VistrailManager(object):
     def __call__(self, controller=None):
         """Accesses a VistrailData for a specific controller.
 
-        If the controller is not specified, assume the current one.
+        If the controller is not specified, assume the current one. Note that
+        this may return None if used without a specific controller, or if the
+        given controller is not a DAT controller (was not registered with
+        set_controller(., register=True)).
         """
         if controller is None:
             controller = self._current_controller
@@ -791,9 +803,7 @@ class VistrailManager(object):
         except KeyError:
             warnings.warn("Unknown controller requested from "
                           "VistrailManager:\n  %r" % controller)
-            vistraildata = VistrailData(controller)
-            self._vistrails[controller] = vistraildata
-            return vistraildata
+            return None
 
     def _make_ctrl_name(self, ctrl_name):
         if not ctrl_name:
