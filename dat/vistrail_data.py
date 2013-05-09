@@ -767,7 +767,7 @@ class VistrailManager(object):
 
         new = False
         self._current_controller = controller
-        if controller is not None and not self._vistrails.has_key(controller):
+        if controller is not None and not controller in self._vistrails:
             if not register:
                 warnings.warn("Current controller is not a DAT vistrail:\n"
                               "  %r" % controller)

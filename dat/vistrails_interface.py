@@ -1802,7 +1802,7 @@ def executePipeline(controller, pipeline,
     def moduleExecuted(objId):
         progress.setValue(progress.value()+1)
         QtCore.QCoreApplication.processEvents()
-    if kwargs.has_key('module_executed_hook'):
+    if 'module_executed_hook' in kwargs:
         kwargs['module_executed_hook'].append(moduleExecuted)
     else:
         kwargs['module_executed_hook'] = [moduleExecuted]
@@ -1834,7 +1834,7 @@ def try_execute(controller, pipelineInfo):
     recipe = pipelineInfo.recipe
 
     if all(
-            port.optional or recipe.parameters.has_key(port.name)
+            port.optional or port.name in recipe.parameters
             for port in recipe.plot.ports):
         # Get the pipeline
         controller.change_selected_version(pipelineInfo.version)
