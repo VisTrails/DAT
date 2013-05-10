@@ -132,19 +132,21 @@ class MainWindow(QtGui.QMainWindow):
 
     def newFile(self):
         builderWindow = get_vistrails_application().builderWindow
-        view = builderWindow.new_vistrail()
-        if view is not None:
-            VistrailManager.set_controller(
-                    view.get_controller(),
-                    register=True)
+        with VistrailManager.defer_controller_change():
+            view = builderWindow.new_vistrail()
+            if view is not None:
+                VistrailManager.set_controller(
+                        view.get_controller(),
+                        register=True)
 
     def openFile(self):
         builderWindow = get_vistrails_application().builderWindow
-        view = builderWindow.open_vistrail_default()
-        if view is not None:
-            VistrailManager.set_controller(
-                    view.get_controller(),
-                    register=True)
+        with VistrailManager.defer_controller_change():
+            view = builderWindow.open_vistrail_default()
+            if view is not None:
+                VistrailManager.set_controller(
+                        view.get_controller(),
+                        register=True)
 
     def saveFile(self):
         from vistrails.core.db.locator import DBLocator, FileLocator

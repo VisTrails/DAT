@@ -1,3 +1,4 @@
+import contextlib
 import itertools
 import urllib2
 import uuid
@@ -726,6 +727,7 @@ class VistrailManager(object):
         self._immortal_sheets = weakref.WeakKeyDictionary()
         self._forgotten = weakref.WeakKeyDictionary()
                 # WeakSet only appeared in Python 2.7
+        self._deferred_controller_change = False
 
     def init(self):
         """Initialization function, called when the application is created.
@@ -736,7 +738,7 @@ class VistrailManager(object):
         app = get_vistrails_application()
         app.register_notification(
                 'controller_changed',
-                self.set_controller)
+                lambda c: self.set_controller(c, _auto=True))
         app.register_notification(
                 'controller_closed',
                 self.forget_controller)
@@ -745,7 +747,8 @@ class VistrailManager(object):
                 self.controller_name_changed)
         self.initialized = True
 
-    def set_controller(self, controller, register=False):
+    def set_controller(self, controller, register=False,
+            _deferred=False, _auto=False):
         """Called through the notification mechanism.
 
         Changes the 'current' controller, optionally building a VistrailData
@@ -757,7 +760,7 @@ class VistrailManager(object):
         the one used by the query view. A DAT project has to be opened from
         DAT's 'File/Open' action.
         """
-        if controller == self._current_controller:
+        if _auto and controller == self._current_controller:
             # VisTrails sends 'controller_changed' a lot
             return
         if controller is not None and self._forgotten.get(controller, False):
@@ -767,6 +770,8 @@ class VistrailManager(object):
 
         new = False
         self._current_controller = controller
+        if _auto and self._deferred_controller_change:
+            return
         if controller is not None and not controller in self._vistrails:
             if not register:
                 warnings.warn("Current controller is not a DAT vistrail:\n"
@@ -856,6 +861,13 @@ class VistrailManager(object):
 
         if self._current_controller == controller:
             self._current_controller = None
+
+    @contextlib.contextmanager
+    def defer_controller_change(self):
+        self._deferred_controller_change = True
+        yield
+        self._deferred_controller_change = False
+        self.set_controller(self._current_controller, _deferred=True)
 
     def hook_create_tab(self, tab_controller, default_name):
         vistraildata = self()
