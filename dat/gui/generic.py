@@ -261,7 +261,7 @@ class AdvancedLineEdit(QtGui.QLineEdit):
         super(AdvancedLineEdit, self).resizeEvent(event)
 
         if self._default is not None:
-            y = (self.height() - 16)/2
+            y = (self.height() - 16)//2
             x = self.width() - 16 - y
 
             self._reset_button.setGeometry(x, y, 16, 16)
