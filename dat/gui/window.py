@@ -28,19 +28,24 @@ class MainWindow(QtGui.QMainWindow):
 
         fileMenu = menubar.addMenu(_("&File"))
         newAction = fileMenu.addAction(_("&New..."))
+        newAction.setShortcut('Ctrl+N')
         self.connect(newAction, QtCore.SIGNAL('triggered()'),
                      self.newFile)
         openAction = fileMenu.addAction(_("&Open..."))
+        openAction.setShortcut('Ctrl+O')
         self.connect(openAction, QtCore.SIGNAL('triggered()'),
                      self.openFile)
         saveAction = fileMenu.addAction(_("&Save"))
+        saveAction.setShortcut('Ctrl+S')
         self.connect(saveAction, QtCore.SIGNAL('triggered()'),
                      self.saveFile)
         saveAsAction = fileMenu.addAction(_("Save &as..."))
+        saveAsAction.setShortcut('Ctrl+Shift+S')
         self.connect(saveAsAction, QtCore.SIGNAL('triggered()'),
                      self.saveAsFile)
         fileMenu.addSeparator()
         quitAction = fileMenu.addAction(_("&Quit"))
+        quitAction.setShortcut('Ctrl+Q')
         self.connect(quitAction, QtCore.SIGNAL('triggered()'),
                      self.quitApplication)
 
@@ -60,6 +65,8 @@ class MainWindow(QtGui.QMainWindow):
                 window_create_first_sheet=False,
                 tab_create_sheet=True,
                 tab_create_sheet_action=VistrailManager.hook_create_tab,
+                tab_open_sheet=False,
+                tab_save_sheet=False,
                 tab_rename_sheet=True,
                 tab_begin_rename_action=VistrailManager.hook_rename_tab_begin,
                 tab_end_rename_action=VistrailManager.hook_rename_tab_end,
