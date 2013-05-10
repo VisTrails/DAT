@@ -61,6 +61,7 @@ class MainWindow(QtGui.QMainWindow):
                 window_menu_window=False,
 
                 window_quit_action=False,
+                global_kbd_shortcuts=False,
 
                 window_create_first_sheet=False,
                 tab_create_sheet=True,
