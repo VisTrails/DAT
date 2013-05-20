@@ -6,7 +6,7 @@ from vistrails.core.modules.vistrails_module import Module, NotCacheable
 
 
 class Recorder(NotCacheable, Module):
-    _input_ports = [('value', '(edu.utah.sci.vistrails.basic:Module)')]
+    _input_ports = [('value', '(org.vistrails.vistrails.basic:Module)')]
 
     def compute(self):
         v = self.getInputFromPort('value')

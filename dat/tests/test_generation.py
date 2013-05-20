@@ -11,7 +11,7 @@ import dat.tests
 from dat.tests import CallRecorder, FakeObj
 from dat.vistrail_data import VistrailManager
 from dat import vistrails_interface
-from dat.vistrails_interface import Variable
+from dat.vistrails_interface import get_upgraded_pipeline, Variable
 
 from vistrails.core import get_vistrails_application
 from vistrails.core.db.locator import XMLFileLocator
@@ -77,11 +77,10 @@ class Test_generation(unittest.TestCase):
         self.assertIsNotNone(variable)
         VistrailManager(controller).new_variable(varname, variable)
 
-        controller.change_selected_version(
-                controller.vistrail.get_tag_str('dat-var-%s' % varname),
-                from_root=True)
+        tag = controller.vistrail.get_tag_str('dat-var-%s' % varname)
+        controller.change_selected_version( tag.action_id)
 
-        pipeline = controller.vistrail.getPipeline('dat-var-%s' % varname)
+        pipeline = controller.current_pipeline
         self.assertEqual(len(pipeline.module_list), 4)
         # Float(17.63), Float(24.37), PythonCalc('+'), OutputPort
 
@@ -95,7 +94,7 @@ class Test_generation(unittest.TestCase):
                 'value')
         self.assertEqual(
                 vistrails_interface.get_function(output_port, 'spec'),
-                'edu.utah.sci.vistrails.basic:Float')
+                'org.vistrails.vistrails.basic:Float')
 
     def test_pipeline_creation(self):
         import dat.tests.pkg_test_plots.init as pkg_test_plots
@@ -160,15 +159,15 @@ class Test_generation(unittest.TestCase):
 class Test_variable_creation(unittest.TestCase):
     def test_var_type(self):
         a_var = Variable(type=basic.Float)
-        a_mod = a_var.add_module('edu.utah.sci.vistrails.basic:String')
+        a_mod = a_var.add_module('org.vistrails.vistrails.basic:String')
         with self.assertRaises(ValueError):
             a_var.select_output_port(a_mod, 'value')
 
         b_var = Variable(type=basic.String)
-        b_mod = b_var.add_module('edu.utah.sci.vistrails.basic:String')
+        b_mod = b_var.add_module('org.vistrails.vistrails.basic:String')
         with self.assertRaises(ValueError):
             b_var.select_output_port(b_mod, 'nonexistent')
-        b_mod2 = b_var.add_module('edu.utah.sci.vistrails.basic:Integer')
+        b_mod2 = b_var.add_module('org.vistrails.vistrails.basic:Integer')
         with self.assertRaises(ValueError):
             b_var.select_output_port(a_mod, 'value_as_string')
         b_var.select_output_port(b_mod, 'value')
@@ -177,7 +176,7 @@ class Test_variable_creation(unittest.TestCase):
 
     def test_mod_addfunction(self):
         var = Variable(type=basic.Float)
-        mod = var.add_module('edu.utah.sci.vistrails.basic:Float')
+        mod = var.add_module('org.vistrails.vistrails.basic:Float')
         mod.add_function('value', basic.Float, 42.0)
         mod.add_function('value', [basic.Float], [16.8])
         with self.assertRaises(ValueError) as cm:
@@ -196,12 +195,12 @@ class Test_variable_creation(unittest.TestCase):
     def test_connect_outputport(self):
         from vistrails.core.modules.module_registry import PortsIncompatible
         var = Variable(type=basic.String)
-        mod1 = var.add_module('edu.utah.sci.vistrails.basic:Float')
-        mod2 = var.add_module('edu.utah.sci.vistrails.basic:String')
+        mod1 = var.add_module('org.vistrails.vistrails.basic:Float')
+        mod2 = var.add_module('org.vistrails.vistrails.basic:String')
         with self.assertRaises(PortsIncompatible):
             mod1.connect_outputport_to('value', mod2, 'value')
         var2 = Variable(type=basic.String)
-        mod3 = var2.add_module('edu.utah.sci.vistrails.basic:Float')
+        mod3 = var2.add_module('org.vistrails.vistrails.basic:Float')
         with self.assertRaises(ValueError) as cm:
             mod1.connect_outputport_to('value', mod3, 'value')
         self.assertTrue("same Variable" in cm.exception.args[0])
@@ -212,11 +211,15 @@ class Test_variable_creation(unittest.TestCase):
                 'variables.xml'))
         vistrail = locator.load()
 
-        desc_var1 = Variable.read_type(vistrail.getPipeline('dat-var-var1'))
+        desc_var1 = Variable.read_type(get_upgraded_pipeline(
+                vistrail,
+                'dat-var-var1'))
         self.assertEqual(
                 desc_var1.module,
                 basic.Float)
-        desc_var2 = Variable.read_type(vistrail.getPipeline('dat-var-var2'))
+        desc_var2 = Variable.read_type(get_upgraded_pipeline(
+                vistrail,
+                'dat-var-var2'))
         self.assertEqual(
                 desc_var2.module,
                 basic.String)

@@ -8,7 +8,8 @@ import weakref
 from dat import RecipeParameterValue, DATRecipe, PipelineInformation
 from dat import data_provenance
 from dat.global_data import GlobalManager
-from dat.vistrails_interface import Variable, get_pipeline_location
+from dat.vistrails_interface import Variable, get_pipeline_location, \
+    get_upgraded_pipeline
 
 from vistrails.core.application import get_vistrails_application
 from vistrails.core.vistrail.vistrailvariable import VistrailVariable
@@ -240,8 +241,9 @@ class VistrailData(object):
                     varname = tag[8:]
 
                     # Get the type from the OutputPort module's spec input port
-                    type = Variable.read_type(
-                            self._controller.vistrail.getPipeline(version))
+                    type = Variable.read_type(get_upgraded_pipeline(
+                            self._controller.vistrail,
+                            version))
                     if type is None:
                         warnings.warn("Found invalid DAT variable pipeline "
                                       "%r, ignored" % tag)
@@ -326,7 +328,7 @@ class VistrailData(object):
                                 VistrailVariable(
                                         'dat-sheet-%d' % sheet_id,
                                         str(uuid.uuid1()),
-                                        'edu.utah.sci.vistrails.basic',
+                                        'org.vistrails.vistrails.basic',
                                         'String',
                                         '',
                                         name))
@@ -358,7 +360,7 @@ class VistrailData(object):
                     VistrailVariable(
                             'dat-sheet-%d' % sheet_id,
                             str(uuid.uuid1()),
-                            'edu.utah.sci.vistrails.basic',
+                            'org.vistrails.vistrails.basic',
                             'String',
                             '',
                             name))
@@ -653,7 +655,9 @@ class VistrailData(object):
         # Here we loop on modules/connections to check that the required things
         # from the old pipeline are still here
 
-        pipeline = self._controller.vistrail.getPipeline(version)
+        pipeline = get_upgraded_pipeline(
+                self._controller.vistrail,
+                version)
 
         new_parameters = dict()
         new_conn_map = dict()

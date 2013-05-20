@@ -35,19 +35,19 @@ class Test_vistrails_interface(unittest.TestCase):
                 resolve_descriptor(desc_HTTPFile),
                 desc_HTTPFile)
         self.assertEqual(
-                resolve_descriptor('edu.utah.sci.vistrails.http:HTTPFile'),
+                resolve_descriptor('org.vistrails.vistrails.http:HTTPFile'),
                 desc_HTTPFile)
         self.assertEqual(
-                resolve_descriptor('edu.utah.sci.vistrails.http:HTTPFile',
-                                   'edu.utah.sci.vistrails.basic'),
+                resolve_descriptor('org.vistrails.vistrails.http:HTTPFile',
+                                   'org.vistrails.vistrails.basic'),
                 desc_HTTPFile)
         self.assertEqual(
-                resolve_descriptor('edu.utah.sci.vistrails.http:HTTPFile',
-                                   'edu.utah.sci.vistrails.http'),
+                resolve_descriptor('org.vistrails.vistrails.http:HTTPFile',
+                                   'org.vistrails.vistrails.http'),
                 desc_HTTPFile)
         self.assertEqual(
                 resolve_descriptor('HTTPFile',
-                                   'edu.utah.sci.vistrails.http'),
+                                   'org.vistrails.vistrails.http'),
                 desc_HTTPFile)
         self.assertEqual(
                 resolve_descriptor(HTTPFile),
@@ -56,7 +56,7 @@ class Test_vistrails_interface(unittest.TestCase):
                 resolve_descriptor(String),
                 desc_String)
         self.assertEqual(
-                resolve_descriptor('String', 'edu.utah.sci.vistrails.basic'),
+                resolve_descriptor('String', 'org.vistrails.vistrails.basic'),
                 desc_String)
         self.assertEqual(
                 resolve_descriptor('String'),
@@ -74,7 +74,7 @@ class Test_vistrails_interface(unittest.TestCase):
         # 3   4   5        9
         #         |       / \
         #         6     10   11
-        modules = [controller.add_module('edu.utah.sci.vistrails.basic',
+        modules = [controller.add_module('org.vistrails.vistrails.basic',
                                          'String')
                    for i in xrange(12)]
         def connect(outmod, inmod):
@@ -137,10 +137,14 @@ class Test_vistrails_interface(unittest.TestCase):
         controller = VistrailController(vistrail)
         controller.change_selected_version(0)
 
-        mod1 = controller.add_module('edu.utah.sci.vistrails.basic', 'String')
-        mod2 = controller.add_module('edu.utah.sci.vistrails.basic', 'Integer')
-        mod3 = controller.add_module('edu.utah.sci.vistrails.basic', 'String')
-        mod4 = controller.add_module('edu.utah.sci.vistrails.http', 'HTTPFile')
+        mod1 = controller.add_module('org.vistrails.vistrails.basic',
+                                     'String')
+        mod2 = controller.add_module('org.vistrails.vistrails.basic',
+                                     'Integer')
+        mod3 = controller.add_module('org.vistrails.vistrails.basic',
+                                     'String')
+        mod4 = controller.add_module('org.vistrails.vistrails.http',
+                                     'HTTPFile')
 
         from dat.vistrails_interface import find_modules_by_type
         from vistrails.core.modules.basic_modules import String, Float
