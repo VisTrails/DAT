@@ -773,9 +773,11 @@ class Port(object):
     INPUT = 2
 
     def __init__(self, name, type=None, optional=False, multiple_values=False,
-            accepts=DATA):
+            accepts=DATA, is_alias=False):
+        assert type == Port.INPUT or is_alias is False
         self.name = name
         self.type = type
+        self.is_alias = is_alias
         self.optional = optional
         self.multiple_values = multiple_values
         self.accepts = accepts
@@ -830,13 +832,19 @@ class Plot(object):
 
     def _read_metadata(self, package_identifier):
         """Reads a plot's ports from the subworkflow file
-    
+
         Finds each InputPort module and gets the parameter name, optional flag
         and type from its 'name', 'optional' and 'spec' input functions.
+
+        If input ports were declared in this Plot, we check that they are
+        indeed present and were all listed (either list all of them or none).
 
         If the module type is a subclass of Constant, we will assume the port
         is to be set via direct input (ConstantPort), else by dragging a
         variable (DataPort).
+
+        We also automatically add aliased input ports of compatible constant
+        types as optional ConstantPort's.
         """
         locator = XMLFileLocator(self.subworkflow)
         vistrail = locator.load()
@@ -931,6 +939,62 @@ class Plot(object):
                                  name, self.name, e.args[0]))
 
             seenports.add(name)
+
+        # Now to add aliased parameters
+        for module in pipeline.module_list:
+            for function in module.functions:
+                port = module.get_port_spec(function.name, 'input')
+                problem = None
+                if len(port.descriptors()) != 1:
+                    problem = ("Aliased parameter '{alias}' on port '{port}' "
+                               "of module '{module}' in plot '{plot}' has "
+                               "multiple descriptors")
+                port_type = port.descriptors()[0]
+                if not issubclass(port_type.module, Constant):
+                    problem = ("Aliased parameter '{alias}' on port '{port}' "
+                               "of module '{module}' in plot '{plot}' is not "
+                               "a constant")
+                for param in function.parameters:
+                    if param.alias:
+                        if problem is not None:
+                            warnings.warn(problem.format(
+                                    plot=self.name,
+                                    module=module.name,
+                                    port=function.name,
+                                    alias=param.alias))
+                            continue
+                        try:
+                            plot_port = currentports[param.alias]
+                        except KeyError:
+                            plot_port = ConstantPort(
+                                    name=param.alias,
+                                    type=port_type,
+                                    optional=True,
+                                    is_alias=True)
+                            self.ports.append(plot_port)
+                        else:
+                            plot_port.is_alias = True
+                            spec = (plot_port.type.identifier +
+                                           ':' +
+                                           plot_port.type.name)
+                            if spec != port_type.sigstring:
+                                warnings.warn("Declaration of port '%s' "
+                                              "(alias) from plot '%s' differs "
+                                              "from subworkflow contents" % (
+                                              param.alias, self.name))
+                        psi = port.port_spec_items[0]
+                        if (psi.entry_type is not None and
+                                psi.entry_type.startswith('enum')):
+                            plot_port.entry_type = psi.entry_type
+                            plot_port.enum_values = psi.values
+                        else:
+                            plot_port.entry_type = None
+                            plot_port.enum_values = None
+                        if port.defaults and port.defaults[0]:
+                            plot_port.default_value = port.defaults[0]
+                        else:
+                            plot_port.default_value = None
+                        seenports.add(param.alias)
 
         # If the package declared ports that we didn't see
         missingports = list(set(currentports.keys()) - seenports)
@@ -1555,6 +1619,9 @@ def create_pipeline(controller, recipe, row, column, var_sheetname,
         warnings.warn("Plot subworkflow '%s' does not contain a "
                       "spreadsheet cell module" % recipe.plot.name)
 
+    # TODO : use walk_modules() to find all  modules above an InputPort's
+    # 'Default' port and ignore them in the following loop
+
     # Copy the connections and locate the input ports
     plot_params = dict() # param name -> [(module, input port name)]
     for connection in plot_pipeline.connection_list:
@@ -1575,13 +1642,33 @@ def create_pipeline(controller, recipe, row, column, var_sheetname,
                     plot_modules_map[connection.destination.moduleId],
                     connection.destination.name)
 
+    # Find the constant ports declared with aliases
+    aliases = {port.name: port for port in recipe.plot.ports if port.is_alias}
+    for module in plot_pipeline.module_list:
+        for function in module.functions:
+            remove = False
+            for param in function.parameters:
+                if param.alias in aliases:
+                    plot_params[param.alias] = [(
+                            plot_modules_map[module.id],
+                            function.name)]
+                    remove = True
+
+            if remove:
+                # Remove the function from the generated pipeline
+                generator.update_function(
+                        plot_modules_map[module.id],
+                        function.name,
+                        None)
+    del aliases
+
     # Adds default values for unset constants
-    defaulted_parameters = dict(recipe.parameters)
+    parameters_incl_defaults = dict(recipe.parameters)
     for port in recipe.plot.ports:
         if (isinstance(port, ConstantPort) and
                 port.default_value is not None and
                 port.name not in recipe.parameters):
-            defaulted_parameters[port.name] = [RecipeParameterValue(
+            parameters_incl_defaults[port.name] = [RecipeParameterValue(
                     constant=port.default_value)]
 
     # Maps a port name to the list of parameters
@@ -1591,7 +1678,7 @@ def create_pipeline(controller, recipe, row, column, var_sheetname,
 
     name_to_port = {port.name: port for port in recipe.plot.ports}
     actual_parameters = {}
-    for port_name, parameters in defaulted_parameters.iteritems():
+    for port_name, parameters in parameters_incl_defaults.iteritems():
         plot_ports = plot_params.get(port_name, [])
         p_conns = conn_map[port_name] = []
         actual_values = []
@@ -1614,6 +1701,7 @@ def create_pipeline(controller, recipe, row, column, var_sheetname,
                         plot_ports))
                 actual_values.append(parameter)
         actual_parameters[port_name] = actual_values
+    del name_to_port
 
     pipeline_version = generator.perform_action()
     controller.vistrail.change_description(
