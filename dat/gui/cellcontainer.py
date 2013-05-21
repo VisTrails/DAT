@@ -495,7 +495,7 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
         if self.widget() is not None:
             self._execute_pending = True
         else:
-            self.update_pipeline()
+            self.update_pipeline(defer=True)
         return True
 
     def _cancel_pending(self):
@@ -504,9 +504,19 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
         self.contentsUpdated()  # Reset the cell's recipe to whatever pipeline
                                 # is already in it
 
-    def update_pipeline(self, force_reexec=False):
+    @QtCore.pyqtSlot(bool, bool)
+    def update_pipeline(self, force_reexec=False, defer=False):
         """Updates the recipe and execute the workflow if enough ports are set.
         """
+        if defer:
+            QtCore.QMetaObject.invokeMethod(
+                    self,
+                    'update_pipeline',
+                    QtCore.Qt.QueuedConnection,
+                    QtCore.Q_ARG(bool, force_reexec),
+                    QtCore.Q_ARG(bool, False))
+            return
+
         # Look this recipe up in the VistrailData
         vistraildata = VistrailManager(self._controller)
         recipe = DATRecipe(self._plot, self._parameters)
