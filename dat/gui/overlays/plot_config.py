@@ -137,7 +137,7 @@ class DefaultPlotConfigOverlay(PlotConfigOverlay):
                     pipeline.conn_map,
                     pipeline.port_map)
             mngr.created_pipeline(self.cell.cellInfo, new_pipeline)
-            self.cell.update_pipeline(force_reexec=True)
+            self.cell.update_pipeline(True)
         else:
             self.cell._set_overlay(None)
 

@@ -6,8 +6,12 @@
 import unittest
 import warnings
 
+from PyQt4 import QtCore
+
+import dat.tests
 from dat.tests import CallRecorder
-from dat.utils import bisect, iswhitespace, catch_warning
+from dat.utils import bisect, iswhitespace, catch_warning, \
+    deferrable_via_qt, deferred_result
 
 
 class Test_utils(unittest.TestCase):
@@ -85,3 +89,47 @@ class Test_catch_warning(unittest.TestCase):
 
         self.check_warnings(toplevel, []) # filtered
         self.check_warnings(caught, [(MyWarning, 'two')])
+
+
+class Test_deferrable_via_qt(unittest.TestCase):
+    def setUp(self):
+        self._app = dat.tests.setup_application()
+        if self._app is None:
+            self.skipTest("No Application is available")
+
+    def tearDown(self):
+        self._app.quit()
+        self._app = None
+
+    def test_defer_func(self):
+        testcase = self
+        called = [0]
+        class SomeObject(QtCore.QObject):
+            @deferrable_via_qt(bool, int)
+            def foo(self, b, i):
+                """doc"""
+                testcase.assertIs(b, True)
+                testcase.assertEqual(i, 42)
+                called[0] += 1
+                return 7
+        obj = SomeObject()
+        # Check that the doc was kept (functools.wraps())
+        self.assertEqual(obj.foo.__doc__, "doc")
+
+        # Non-deferred calls
+        self.assertEqual(obj.foo(True, 42), 7)
+        self.assertEqual(obj.foo(True, 42, defer=False), 7)
+        self.assertEqual(called[0], 2)
+
+        # Parameters cannot be used as keywords
+        with self.assertRaises(TypeError):
+            obj.foo(b=True, i=42)
+        self.assertEqual(called[0], 2)
+
+        # Defer the call
+        self.assertIs(obj.foo(True, 42, defer=True), deferred_result)
+        self.assertEqual(called[0], 2)
+
+        # It gets executed by Qt
+        self._app.processEvents()
+        self.assertEqual(called[0], 3)

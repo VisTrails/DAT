@@ -8,6 +8,7 @@ from dat.gui import get_icon
 from dat.gui import typecast_dialog
 from dat.global_data import GlobalManager
 from dat.operations import apply_operation, get_typecast_operations
+from dat.utils import deferrable_via_qt
 from dat.vistrail_data import VistrailManager
 from dat import vistrails_interface
 from dat.gui.overlays import PlotPromptOverlay, VariableDropEmptyCell, \
@@ -495,7 +496,7 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
         if self.widget() is not None:
             self._execute_pending = True
         else:
-            self.update_pipeline(defer=True)
+            self.update_pipeline(False, defer=True)
         return True
 
     def _cancel_pending(self):
@@ -504,19 +505,10 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
         self.contentsUpdated()  # Reset the cell's recipe to whatever pipeline
                                 # is already in it
 
-    @QtCore.pyqtSlot(bool, bool)
-    def update_pipeline(self, force_reexec=False, defer=False):
+    @deferrable_via_qt(bool)
+    def update_pipeline(self, force_reexec=False):
         """Updates the recipe and execute the workflow if enough ports are set.
         """
-        if defer:
-            QtCore.QMetaObject.invokeMethod(
-                    self,
-                    'update_pipeline',
-                    QtCore.Qt.QueuedConnection,
-                    QtCore.Q_ARG(bool, force_reexec),
-                    QtCore.Q_ARG(bool, False))
-            return
-
         # Look this recipe up in the VistrailData
         vistraildata = VistrailManager(self._controller)
         recipe = DATRecipe(self._plot, self._parameters)

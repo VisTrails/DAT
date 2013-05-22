@@ -1,5 +1,9 @@
+import functools
+from itertools import izip
 import string
 import warnings
+
+from PyQt4 import QtCore
 
 
 def bisect(count, getter, element, lo=0, comp=lambda x, y: x < y):
@@ -85,3 +89,35 @@ class catch_warning(object):
     def __exit__(self, *exc_info):
         warnings.filters = self._orig_filters
         warnings.showwarning = self._orig_showwarning
+
+
+class DeferredResult(object):
+    def __nonzero__(self, *args):
+        raise RuntimeError("DeferredResult should be ignored!")
+    __eq__ = __ne__ = __hash__ = __nonzero__
+
+deferred_result = DeferredResult()
+
+
+def deferrable_via_qt(*argtypes):
+    def wrapper(func):
+        @QtCore.pyqtSlot(*argtypes)
+        @functools.wraps(func)
+        def wrapped(self, *args, **kwargs):
+            defer = kwargs.pop('defer', False) # defer=False is a keyword-only
+                    # argument
+            if kwargs:
+                raise TypeError("wrapped function %s got unexpected keyword "
+                                "arguments" % func.__name__)
+            if defer:
+                qtargs = [QtCore.Q_ARG(t, v) for t, v in izip(argtypes, args)]
+                QtCore.QMetaObject.invokeMethod(
+                        self,
+                        func.__name__,
+                        QtCore.Qt.QueuedConnection,
+                        *qtargs)
+                return deferred_result
+            else:
+                return func(self, *args)
+        return wrapped
+    return wrapper
