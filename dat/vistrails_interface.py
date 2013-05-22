@@ -1030,7 +1030,7 @@ class VariableOperation(object):
     types. It is useful for operators such as * and +.
     """
     def __init__(self, name, args, return_type,
-             callback=None, subworkflow=None, symmetric=False):
+             callback=None, subworkflow=None, symmetric=False, wizard=None):
         self.name = name
         self.package_identifier = None
         self.parameters = args
@@ -1049,6 +1049,7 @@ class VariableOperation(object):
             raise ValueError("VariableOperation() got neither callback nor "
                              "subworkflow parameters")
         self.symmetric = symmetric
+        self.wizard = wizard
 
 
 class OperationArgument(object):

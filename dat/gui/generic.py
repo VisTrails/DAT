@@ -43,8 +43,9 @@ class DraggableListWidget(QtGui.QListWidget):
 
 
 class CategorizedListWidget(QtGui.QTreeWidget):
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, columns=1):
         QtGui.QTreeWidget.__init__(self, parent)
+        self.setColumnCount(columns)
         self.setHeaderHidden(True)
         self._categories = dict()
                 # category: str -> (

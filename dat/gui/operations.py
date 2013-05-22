@@ -3,7 +3,7 @@ from PyQt4 import QtCore, QtGui
 
 from dat import MIMETYPE_DAT_VARIABLE, variable_format
 from dat.global_data import GlobalManager
-from dat.gui import translate
+from dat.gui import get_icon, translate
 from dat.gui.generic import CategorizedListWidget, ConsoleWidget, \
     SingleLineTextEdit
 from dat.operations import is_operator, perform_operation, \
@@ -100,13 +100,15 @@ class MarkerHighlighterLineEdit(SingleLineTextEdit):
 
 
 class OperationItem(QtGui.QTreeWidgetItem):
-    def __init__(self, operation, category):
+    def __init__(self, operation, category, wizard):
         if is_operator(operation.name):
             _ = translate(OperationItem)
             name = _("operator {op}").format(op=operation.name)
         else:
             name = operation.name
         QtGui.QTreeWidgetItem.__init__(self, [name])
+        if wizard:
+            self.setIcon(1, get_icon('operation_wizard.png'))
         self.operation = operation
         self.category = category
 
@@ -135,8 +137,9 @@ class OperationPanel(QtGui.QWidget):
 
         layout.addWidget(QtGui.QLabel(_("Available operations:")))
 
-        self._list = CategorizedListWidget()
+        self._list = CategorizedListWidget(columns=2)
         self._list.setSelectionMode(QtGui.QAbstractItemView.NoSelection)
+        self._list.header().setResizeMode(QtGui.QHeaderView.Stretch)
         self.connect(
                 self._list,
                 QtCore.SIGNAL('itemClicked(QTreeWidgetItem*, int)'),
@@ -156,7 +159,8 @@ class OperationPanel(QtGui.QWidget):
     def operation_added(self, operation):
         pm = get_package_manager()
         package = pm.get_package_by_identifier(operation.package_identifier)
-        item = OperationItem(operation, package.name)
+        item = OperationItem(operation, package.name,
+                             operation.wizard is not None)
         self._operations[operation] = item
         self._list.addItem(item, package.name)
 
@@ -199,17 +203,25 @@ class OperationPanel(QtGui.QWidget):
     def operation_clicked(self, item, column=0):
         if not isinstance(item, OperationItem):
             return
-        text = item.operation.name
+        if column == 0:
+            self._insert_operation(item.operation)
+        else: # column == 1
+            text = item.operation.wizard(self)
+            if text is not None:
+                self.execute(text)
+
+    def _insert_operation(self, operation):
+        text = operation.name
         if is_operator(text):
             append = '\0<%s>\0 %s <%s>' % (
-                    item.operation.parameters[0].name,
+                    operation.parameters[0].name,
                     text,
-                    item.operation.parameters[1].name)
+                    operation.parameters[1].name)
         else:
             append = text + '('
-            if item.operation.parameters:
-                append += '\0<%s>\0' % item.operation.parameters[0].name
-                for param in item.operation.parameters[1:]:
+            if operation.parameters:
+                append += '\0<%s>\0' % operation.parameters[0].name
+                for param in operation.parameters[1:]:
                     append += ', <%s>' % param.name
                 append += ')'
             else:
@@ -242,7 +254,9 @@ class OperationPanel(QtGui.QWidget):
         self._console.add_error(message[0])
 
     def execute_line(self):
-        text = str(self._input_line.text())
+        self.execute(str(self._input_line.text()))
+
+    def execute(self, text):
         try:
             self._console.add_line(text)
             with catch_warning(OperationWarning, handle=self._show_error):
