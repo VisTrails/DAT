@@ -158,12 +158,13 @@ class GlobalManager(object):
 
                 # Resolve the parameter types
                 new_args = []
-                for arg in operation.parameters:
-                    new_args.append(OperationArgument(
-                            arg.name,
-                            tuple(resolve_descriptor(t, package_identifier)
-                                  for t in arg.types)))
-                operation.parameters = new_args
+                if operation.usable_in_command:
+                    for arg in operation.parameters:
+                        new_args.append(OperationArgument(
+                                arg.name,
+                                tuple(resolve_descriptor(t, package_identifier)
+                                      for t in arg.types)))
+                    operation.parameters = new_args
 
                 # Resolve the return type
                 operation.return_type = resolve_descriptor(

@@ -133,14 +133,15 @@ class Operation(_DataProvenanceNode):
             operation = kwargs.pop('operation')
             arg_list = kwargs.pop('arg_list')
             args = {}
-            for variable, decl_arg in izip(arg_list, operation.parameters):
-                if variable._materialized is None:
-                    # Intermediate result: write its provenance
-                    args[decl_arg.name] = variable.provenance
-                else:
-                    # Materialized variable: reference it instead
-                    args[decl_arg.name] = Variable(
-                            variable=variable._materialized)
+            if operation.usable_in_command:
+                for variable, decl_arg in izip(arg_list, operation.parameters):
+                    if variable._materialized is None:
+                        # Intermediate result: write its provenance
+                        args[decl_arg.name] = variable.provenance
+                    else:
+                        # Materialized variable: reference it instead
+                        args[decl_arg.name] = Variable(
+                                variable=variable._materialized)
             _DataProvenanceNode.__init__(
                     self,
                     pkg_id=operation.package_identifier,

@@ -203,9 +203,9 @@ class OperationPanel(QtGui.QWidget):
     def operation_clicked(self, item, column=0):
         if not isinstance(item, OperationItem):
             return
-        if column == 0:
+        if column == 0 and item.operation.usable_in_command:
             self._insert_operation(item.operation)
-        else: # column == 1
+        elif column == 1:
             text = item.operation.wizard(self)
             if text is not None:
                 self.execute(text)

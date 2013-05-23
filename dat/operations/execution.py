@@ -149,7 +149,7 @@ def find_operation(name, args):
     operations = set([
             op
             for op in GlobalManager.variable_operations
-            if op.name == name])
+            if op.name == name and op.usable_in_command])
     operations.update(builtin_operations.get(name, []))
     if not operations:
         raise InvalidOperation("There is no operation %r" % name)

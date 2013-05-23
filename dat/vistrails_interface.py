@@ -1127,13 +1127,14 @@ class VariableOperation(object):
     backwards; this only works for operations with 2 arguments of different
     types. It is useful for operators such as * and +.
     """
-    def __init__(self, name, args, return_type,
+    def __init__(self, name, args=None, return_type=None,
              callback=None, subworkflow=None, symmetric=False, wizard=None):
         self.name = name
         self.package_identifier = None
         self.parameters = args
         self.return_type = return_type
         self.callback = self.subworkflow = None
+        self.usable_in_command = True
         if callback is not None and subworkflow is not None:
             raise ValueError("VariableOperation() got both callback and "
                              "subworkflow parameters")
@@ -1143,9 +1144,16 @@ class VariableOperation(object):
             caller = inspect.currentframe().f_back
             package = os.path.dirname(inspect.getabsfile(caller))
             self.subworkflow = subworkflow.format(package_dir=package)
-        else:
+        elif wizard is None:
             raise ValueError("VariableOperation() got neither callback nor "
                              "subworkflow parameters")
+        else:
+            self.usable_in_command = False
+        if self.usable_in_command:
+            if self.parameters is None:
+                raise TypeError("missing parameter 'args'")
+            if self.return_type is None:
+                raise TypeError("missing parameter 'return_type")
         self.symmetric = symmetric
         self.wizard = wizard
 

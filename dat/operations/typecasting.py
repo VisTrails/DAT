@@ -14,6 +14,9 @@ def get_typecast_operations(source_descriptor, expected_descriptor):
     valid = []
 
     for operation in GlobalManager.variable_operations:
+        if not operation.usable_in_command:
+            continue
+        # TODO : propose wizards here?
         if len(operation.parameters) != 1:
             continue
 
