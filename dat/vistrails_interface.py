@@ -19,6 +19,7 @@ from dat.gui import translate
 from vistrails.core import get_vistrails_application
 from vistrails.core.db.action import create_action
 from vistrails.core.db.locator import XMLFileLocator
+from vistrails.core.interpreter.default import get_default_interpreter
 from vistrails.core.modules.basic_modules import Constant
 from vistrails.core.modules.module_descriptor import ModuleDescriptor
 from vistrails.core.modules.module_registry import get_module_registry
@@ -30,6 +31,7 @@ from vistrails.core.vistrail.connection import Connection
 from vistrails.core.vistrail.controller import VistrailController
 from vistrails.core.vistrail.module import Module as PipelineModule
 from vistrails.core.vistrail.pipeline import Pipeline
+from vistrails.core.vistrail.vistrail import Vistrail
 from vistrails.gui.modules import get_widget_class
 from vistrails.packages.spreadsheet.basic_widgets import CellLocation, \
     SpreadsheetCell, SheetReference
@@ -433,6 +435,102 @@ class ArgumentWrapper(object):
                 self._variable._outputport_name,
                 module._module,
                 inputport_name)
+
+
+def get_variable_value(variable):
+    """Get the value of a variable, i.e. the result of its pipeline.
+
+    The 'variable' can either be a Variable, from which a temporary pipeline
+    will be built, or a VariableInformation, representing an existing pipeline.
+    """
+    def pipeline_from_info(variableinfo):
+        controller = variableinfo._controller
+        version = controller.vistrail.get_version_number(
+                'dat-var-%s' % variable.name)
+        return controller.vistrail.getPipeline(version), version
+    def pipeline_from_generator(variable_gen):
+        # Get the original OutputPort module
+        orig_controller = variable_gen._generator.controller
+        base_pipeline = orig_controller.vistrail.getPipeline('dat-vars')
+        if len(base_pipeline.module_list) != 1:
+            raise ValueError("dat-vars version is invalid")
+        output_port = base_pipeline.module_list[0]
+
+        controller = VistrailController(Vistrail())
+        # OutputPort
+        operations = [('add', output_port)]
+        # Rest of the pipeline
+        operations += variable_gen._generator.operations
+        # Connection
+        connection = controller.create_connection(
+                variable_gen._output_module,
+                variable_gen._outputport_name,
+                output_port,
+                'InternalPipe')
+        operations.append(('add', connection))
+        # Materialize this
+        action = create_action(operations)
+        controller.add_new_action(action)
+        version = controller.perform_action(action)
+        controller.change_selected_version(version)
+        assert version == controller.current_version == 1
+        return controller.current_pipeline, 1
+
+    # Obtain 'pipeline' and 'version' from 'variable'
+    if isinstance(variable, Variable.VariableInformation):
+        # Pipeline already exists
+        pipeline, version = pipeline_from_info(variable)
+    elif isinstance(variable, Variable):
+        if variable._materialized is not None:
+            # Pipeline already exists
+            pipeline, version = pipeline_from_info(variable._materialized)
+        else:
+            # Pipeline doesn't exist
+            # We need to make one from the operations
+            pipeline, version = pipeline_from_generator(variable)
+    else:
+        raise TypeError
+
+    # Setup the interpreter for execution
+    interpreter = get_default_interpreter()
+    interpreter.clean_non_cacheable_modules()
+    interpreter.parent_execs = [None]
+    res = interpreter.setup_pipeline(pipeline)
+    if len(res[5]) > 0:
+        raise ValueError("Variable pipeline has errors:\n%s" %
+                         '\n'.join(me.msg for me in res[5].itervalues()))
+    tmp_id_to_module_map = res[0]
+
+    # Execute
+    res = interpreter.execute_pipeline(
+            pipeline,
+            res[0], # tmp_id_to_module_map
+            res[1], # persistent_to_tmp_id_map
+            current_version=version,
+            reason="getting variable value")
+    if len(res[2]) > 0:
+        raise ValueError("Error while executing variable pipeline:\n%s" %
+                         '\n'.join('%s: %s' % (me.module.__class__.__name__),
+                                               me.msg)
+                                   for me in res[2].itervalues())
+    if len(res[4]) > 0:
+        # extract messages and previous ModuleSuspended exceptions
+        raise ValueError("Module got suspended while executing variable "
+                         "pipeline:\n%s" %
+                         '\n'.join(msg for msg in res[4].itervalues()))
+
+    # Get the result
+    outputport_desc = get_module_registry().get_descriptor_by_name(
+            'org.vistrails.vistrails.basic', 'OutputPort')
+    for module in pipeline.module_list:
+        if module.module_descriptor is outputport_desc:
+            if get_function(module, 'name') == 'value':
+                module_obj = tmp_id_to_module_map[module.id]
+                result = module_obj.get_output('ExternalPipe')
+
+    interpreter.finalize_pipeline(pipeline, *res[:-1])
+    interpreter.parent_execs = [None]
+    return result
 
 
 def call_operation_callback(op, callback, args):
