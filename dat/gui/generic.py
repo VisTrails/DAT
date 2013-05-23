@@ -14,7 +14,8 @@ class DraggableListWidget(QtGui.QListWidget):
     By default, the mimetype is 'text/plain' and the data is simply the caption
     of the item.
     """
-    def __init__(self, parent=None, mimetype='text/plain'):
+    def __init__(self, parent=None, mimetype='text/plain',
+            use_overlay_lock=False):
         """Constructor.
 
         mimetype is the mimetype of the elements of the list.
@@ -23,6 +24,7 @@ class DraggableListWidget(QtGui.QListWidget):
         self._mime_type = mimetype
         self.setDragEnabled(True)
         self.setDragDropMode(QtGui.QAbstractItemView.DragOnly)
+        self._lock = use_overlay_lock
 
     def buildData(self, item):
         """Builds the data for a draggable item.
@@ -38,7 +40,10 @@ class DraggableListWidget(QtGui.QListWidget):
 
             drag = QtGui.QDrag(self)
             drag.setMimeData(data)
-            with dragging_to_overlays():
+            if self._lock:
+                with dragging_to_overlays():
+                    drag.start(QtCore.Qt.CopyAction)
+            else:
                 drag.start(QtCore.Qt.CopyAction)
 
 

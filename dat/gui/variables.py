@@ -44,7 +44,8 @@ class VariablePanel(QtGui.QWidget):
         toolbar.addAction(rename_variable)
         layout.addWidget(toolbar)
 
-        self._list_widget = DraggableListWidget(self, MIMETYPE_DAT_VARIABLE)
+        self._list_widget = DraggableListWidget(self, MIMETYPE_DAT_VARIABLE,
+                                                use_overlay_lock=True)
         layout.addWidget(self._list_widget)
 
         self.setLayout(layout)
