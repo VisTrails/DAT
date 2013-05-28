@@ -100,7 +100,7 @@ class MarkerHighlighterLineEdit(SingleLineTextEdit):
 
 
 class OperationItem(QtGui.QTreeWidgetItem):
-    def __init__(self, operation, category, wizard):
+    def __init__(self, operation, category, wizard=False):
         if is_operator(operation.name):
             _ = translate(OperationItem)
             name = _("operator {op}").format(op=operation.name)
@@ -206,9 +206,12 @@ class OperationPanel(QtGui.QWidget):
         if column == 0 and item.operation.usable_in_command:
             self._insert_operation(item.operation)
         elif column == 1:
-            text = item.operation.wizard(self)
-            if text is not None:
-                self.execute(text)
+            if item.operation.wizard is not None:
+                wizard = item.operation.wizard(self)
+                r = wizard.exec_()
+                if r == QtGui.QDialog.Accepted:
+                    if wizard.command:
+                        self.execute(wizard.command)
 
     def _insert_operation(self, operation):
         text = operation.name

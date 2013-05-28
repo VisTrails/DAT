@@ -36,6 +36,7 @@ import re
 
 import dat
 from dat.gui import translate
+from dat.gui.operation_wizard import OperationWizard
 from dat.vistrails_interface import Plot, DataPort, ConstantPort, Variable, \
     CustomVariableLoader, FileVariableLoader, \
     VariableOperation, OperationArgument, \
@@ -77,5 +78,5 @@ def derive_varname(param, remove_ext=False, remove_path=False, default=None,
 
 __all__ = ['Plot', 'DataPort', 'ConstantPort', 'Variable',
            'CustomVariableLoader', 'FileVariableLoader',
-           'VariableOperation', 'OperationArgument',
+           'VariableOperation', 'OperationArgument', 'OperationWizard',
            'translate', 'derive_varname', 'get_variable_value']
