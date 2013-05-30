@@ -112,13 +112,10 @@ class ModuleWrapper(object):
         be the same as vt_type's).
         """
         # Check port name
-        port = None
-        for p in self._module.destinationPorts():
-            if p.name == inputport_name:
-                port = p
-                break
-
-        if port is None:
+        try:
+            port = self._module.get_port_spec(
+                    inputport_name, 'input')
+        except Exception:
             raise ValueError("add_function() called for a non-existent input "
                              "port")
 
