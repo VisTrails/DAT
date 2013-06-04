@@ -6,6 +6,7 @@ from dat.gui.generic import AdvancedLineEdit, DraggableListWidget
 from dat.gui.load_variable_dialog import VariableNameValidator
 from dat.utils import bisect
 from dat.vistrail_data import VistrailManager
+from dat.vistrails_interface import ArgumentWrapper, Variable
 
 
 class OperationWizard(QtGui.QDialog):
@@ -133,8 +134,9 @@ class OperationWizard(QtGui.QDialog):
             return
         varname = str(self._varname_edit.text())
         result = self.make_operation(varname)
-        if result is None:
+        if isinstance(result, Variable):
             # Operation was performed by make_operation()
+            self._vistraildata.new_variable(varname, result)
             self.command = None
             self.accept()
         elif result is False:
@@ -147,6 +149,22 @@ class OperationWizard(QtGui.QDialog):
             else:
                 self.command = '%s = %s' % (varname, result)
             self.accept()
+        elif (isinstance(result, tuple) and len(result) == 2 and
+                isinstance(result[0], basestring) and
+                isinstance(result[1], dict)):
+            subworkflow, args = result
+            # TODO : Use args from dictionary + 'variable'
+            # self.get_variable_argument() to make the result
+            raise NotImplementedError("Building the operation result from a "
+                                      "subworkflow is not yet implemented")
+        else:
+            raise TypeError("make_operation returned an unexpected type")
+
+    def get_variable_argument(self):
+        variable_info = self._vistraildata.get_variable(self._selected_varname)
+        variable = Variable.from_workflow(variable_info,
+                                          record_materialized=False)
+        return ArgumentWrapper(variable)
 
     def set_error(self, err):
         if err is None:
