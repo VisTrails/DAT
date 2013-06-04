@@ -1085,10 +1085,11 @@ class Plot(object):
                         else:
                             plot_port.entry_type = None
                             plot_port.enum_values = None
-                        if port.defaults and port.defaults[0]:
-                            plot_port.default_value = port.defaults[0]
-                        else:
-                            plot_port.default_value = None
+                        plot_port.default_value = param.strValue
+                        # FIXME : there is no way to not set a value here
+                        # Code to get the port's default is below for ref
+                        #if port.defaults and port.defaults[0]:
+                        #    plot_port.default_value = port.defaults[0]
                         seenports.add(param.alias)
 
         # If the package declared ports that we didn't see
