@@ -41,6 +41,8 @@ class OperationWizard(QtGui.QDialog):
         self._vistraildata = VistrailManager()
         self._selected_varname = None
 
+        self._has_error = False
+
         var_right_layout = QtGui.QHBoxLayout()
         vlayout = QtGui.QVBoxLayout()
 
@@ -96,6 +98,13 @@ class OperationWizard(QtGui.QDialog):
         main_layout = QtGui.QVBoxLayout()
         main_layout.addLayout(var_right_layout)
 
+        self._error_label = QtGui.QLabel()
+        font = self._error_label.font()
+        font.setBold(True)
+        self._error_label.setFont(font)
+        self._error_label.setStyleSheet('color: red;')
+        main_layout.addWidget(self._error_label)
+
         buttons = QtGui.QDialogButtonBox(
                 QtGui.QDialogButtonBox.Ok | QtGui.QDialogButtonBox.Cancel,
                 QtCore.Qt.Horizontal)
@@ -117,6 +126,8 @@ class OperationWizard(QtGui.QDialog):
                 self.variable_selected(self._vistraildata.get_variable(sel))
 
     def _accept(self):
+        if self._has_error:
+            return
         if not self._varname_edit.isValid():
             self._varname_edit.setFocus(QtCore.Qt.OtherFocusReason)
             return
@@ -136,6 +147,17 @@ class OperationWizard(QtGui.QDialog):
             else:
                 self.command = '%s = %s' % (varname, result)
             self.accept()
+
+    def set_error(self, err):
+        if err is None:
+            self._error_label.hide()
+            self._has_error = False
+        else:
+            if isinstance(err, BaseException):
+                err = "%s: %s" % (err.__class__.__name__, err.message)
+            self._error_label.setText(err)
+            self._error_label.show()
+            self._has_error = True
 
     def variable_filter(self, variable):
         return True

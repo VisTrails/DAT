@@ -108,7 +108,9 @@ class OperationItem(QtGui.QTreeWidgetItem):
             name = operation.name
         QtGui.QTreeWidgetItem.__init__(self, [name])
         if wizard:
-            self.setIcon(1, get_icon('operation_wizard.png'))
+            font = self.font(0)
+            font.setItalic(True)
+            self.setFont(0, font)
         self.operation = operation
         self.category = category
 
@@ -137,7 +139,7 @@ class OperationPanel(QtGui.QWidget):
 
         layout.addWidget(QtGui.QLabel(_("Available operations:")))
 
-        self._list = CategorizedListWidget(columns=2)
+        self._list = CategorizedListWidget()
         self._list.setSelectionMode(QtGui.QAbstractItemView.NoSelection)
         self._list.header().setResizeMode(QtGui.QHeaderView.Stretch)
         self.connect(
@@ -203,15 +205,14 @@ class OperationPanel(QtGui.QWidget):
     def operation_clicked(self, item, column=0):
         if not isinstance(item, OperationItem):
             return
-        if column == 0 and item.operation.usable_in_command:
+        if item.operation.wizard is not None:
+            wizard = item.operation.wizard(self)
+            r = wizard.exec_()
+            if r == QtGui.QDialog.Accepted:
+                if wizard.command:
+                    self.execute(wizard.command)
+        elif item.operation.usable_in_command:
             self._insert_operation(item.operation)
-        elif column == 1:
-            if item.operation.wizard is not None:
-                wizard = item.operation.wizard(self)
-                r = wizard.exec_()
-                if r == QtGui.QDialog.Accepted:
-                    if wizard.command:
-                        self.execute(wizard.command)
 
     def _insert_operation(self, operation):
         text = operation.name
