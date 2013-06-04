@@ -824,6 +824,8 @@ class VistrailManager(object):
 
     def controller_name_changed(self):
         vistraildata = self()
+        if vistraildata is None:
+            return
 
         old_name = vistraildata.name
         del self._names[old_name]
