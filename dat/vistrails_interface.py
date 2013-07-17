@@ -2010,7 +2010,7 @@ def executePipeline(controller, pipeline,
 
     totalProgress = len(pipeline.modules)
     progress = QtGui.QProgressDialog(_("Executing..."),
-                                     QtCore.QString(),
+                                     None,
                                      0, totalProgress)
     progress.setWindowTitle(_("Pipeline Execution"))
     progress.setWindowModality(QtCore.Qt.WindowModal)
@@ -2031,6 +2031,7 @@ def executePipeline(controller, pipeline,
             None,           # custom_aliases
             None,           # custom_params
             reason,         # reason
+            None,           # sinks
             kwargs)])       # extra_info
     get_vistrails_application().send_notification('execution_updated')
     progress.setValue(totalProgress)

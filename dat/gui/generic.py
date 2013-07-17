@@ -30,7 +30,7 @@ class DraggableListWidget(QtGui.QListWidget):
         """Builds the data for a draggable item.
         """
         data = QtCore.QMimeData()
-        data.setData(self._mime_type, item.text().toAscii())
+        data.setData(self._mime_type, item.text().encode('ascii'))
         return data
 
     def startDrag(self, actions):
@@ -107,7 +107,7 @@ class DraggableCategorizedListWidget(CategorizedListWidget):
         """Builds the data for a draggable item.
         """
         data = QtCore.QMimeData()
-        data.setData(self._mime_type, item.text(0).toAscii())
+        data.setData(self._mime_type, item.text(0).encode('ascii'))
         return data
 
     def startDrag(self, actions):
@@ -188,7 +188,7 @@ class AdvancedLineEdit(QtGui.QLineEdit):
 
         if self._validate is not None:
             self._prev_validation = None
-            self._text_changed(QtCore.QString(contents))
+            self._text_changed(contents)
 
         self.connect(self, QtCore.SIGNAL('textChanged(QString)'),
                      self._text_changed)
@@ -252,7 +252,7 @@ class AdvancedLineEdit(QtGui.QLineEdit):
             if default != self.text():
                 self.setText(default)
             else:
-                self._text_changed(QtCore.QString(default))
+                self._text_changed(default)
         else:
             self._text_changed(self.text())
 

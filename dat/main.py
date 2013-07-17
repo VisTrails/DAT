@@ -6,6 +6,16 @@ import traceback
 application_path = None
 
 
+def set_sip_api():
+    import sip
+    api2_classes = [
+            'QData', 'QDateTime', 'QString', 'QTextStream',
+            'QTime', 'QUrl', 'QVariant',
+            ]
+    for cl in api2_classes:
+        sip.setapi(cl, 2)
+
+
 def setup_vistrails():
     """Locates VisTrails and fixes the path.
 
@@ -27,6 +37,9 @@ def setup_vistrails():
             sys.exit(1)
 
     dat.main.application_path = root_dir
+
+    # Setup PyQt4
+    set_sip_api()
 
     # VisTrails location
     vistrails_root = os.getenv('VISTRAILS_ROOT')
