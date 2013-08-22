@@ -24,7 +24,7 @@ class PlotItem(QtGui.QTreeWidgetItem):
     Displays the 'name' field of the plot.
     """
     def __init__(self, plot, category):
-        QtGui.QListWidgetItem.__init__(self, [plot.name])
+        QtGui.QTreeWidgetItem.__init__(self, [plot.name])
         self.setToolTip(0, plot.description)
         self.plot = plot
         self.category = category
