@@ -1,8 +1,8 @@
 from dat.packages import VariableOperation, OperationArgument
 
-from vistrails.core.modules.basic_modules import Float, Integer
+from vistrails.core.modules.basic_modules import Float, Integer, String
 from vistrails.core.modules.vistrails_module import Module
-from vistrails.packages.HTTP.init import HTTP, HTTPFile
+from vistrails.packages.HTTP.init import HTTPFile
 
 
 def nop(**kwargs):
@@ -22,8 +22,8 @@ overload_std_2 = VariableOperation(
     'overload_std',
     callback=nop,
     args=[
-        OperationArgument('op1', Integer),
-        OperationArgument('op2', HTTPFile),
+        OperationArgument('op1', HTTPFile),
+        OperationArgument('op2', Integer),
     ],
     return_type=Module)
 
@@ -31,8 +31,8 @@ overload_std_3 = VariableOperation(
     'overload_std',
     callback=nop,
     args=[
-        OperationArgument('op1', Float),
-        OperationArgument('op2', HTTPFile),
+        OperationArgument('op1', String),
+        OperationArgument('op2', Integer),
     ],
     return_type=Module)
 
@@ -40,8 +40,8 @@ overload_std_4 = VariableOperation(
     'overload_std',
     callback=nop,
     args=[
-        OperationArgument('op1', Float),
-        OperationArgument('op2', HTTP),
+        OperationArgument('op1', String),
+        OperationArgument('op2', Float),
     ],
     return_type=Module)
 

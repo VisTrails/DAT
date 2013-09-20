@@ -144,7 +144,7 @@ class Test_operations(unittest.TestCase):
     def test_operation_resolution(self):
         import dat.tests.pkg_test_operations.init as pkg
 
-        from vistrails.core.modules.basic_modules import Float, Integer
+        from vistrails.core.modules.basic_modules import Float, Integer, String
         from vistrails.packages.HTTP.init import HTTPFile
 
         reg = get_module_registry()
@@ -153,13 +153,13 @@ class Test_operations(unittest.TestCase):
         self.assertIs(
                 find_operation(
                         'overload_std',
-                        [gd(Float), gd(HTTPFile)]),
+                        [gd(String), gd(Integer)]),
                 pkg.overload_std_3)
 
         with self.assertRaises(InvalidOperation) as cm:
             find_operation(
                     'overload_std',
-                    [gd(Float), gd(Integer)])
+                    [gd(String), gd(HTTPFile)])
         self.assertIn("Found no match", cm.exception.message)
 
         with self.assertRaises(InvalidOperation) as cm:
