@@ -175,21 +175,21 @@ class Test_variable_creation(unittest.TestCase):
             b_var.select_output_port(b_mod2, 'value_as_string')
 
     def test_mod_addfunction(self):
-        var = Variable(type=basic.Float)
-        mod = var.add_module('org.vistrails.vistrails.basic:Float')
-        mod.add_function('value', basic.Float, 42.0)
-        mod.add_function('value', [basic.Float], [16.8])
+        var = Variable(type=basic.Integer)
+        mod = var.add_module('org.vistrails.vistrails.basic:Integer')
+        mod.add_function('value', basic.Integer, 42)
+        mod.add_function('value', [basic.Integer], [16])
         with self.assertRaises(ValueError) as cm:
-            mod.add_function('value', [basic.Integer], [42.0])
+            mod.add_function('value', [basic.Float], [17.6])
         self.assertTrue("incompatible types" in cm.exception.args[0])
         with self.assertRaises(ValueError) as cm:
-            mod.add_function('value', [basic.Float], [])
+            mod.add_function('value', [basic.Integer], [])
         self.assertTrue("different number" in cm.exception.args[0])
         with self.assertRaises(ValueError) as cm:
-            mod.add_function('value', [basic.Float, basic.Float], [13.8, 28.2])
+            mod.add_function('value', [basic.Integer, basic.Integer], [13, 28])
         self.assertTrue("different number" in cm.exception.args[0])
         with self.assertRaises(ValueError) as cm:
-            mod.add_function('nonexistent', [basic.Float], [18.0])
+            mod.add_function('nonexistent', [basic.Integer], [18])
         self.assertTrue("non-existent input port" in cm.exception.args[0])
 
     def test_connect_outputport(self):
