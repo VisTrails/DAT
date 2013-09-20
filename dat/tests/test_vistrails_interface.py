@@ -140,15 +140,14 @@ class Test_vistrails_interface(unittest.TestCase):
         mod1 = controller.add_module('org.vistrails.vistrails.basic',
                                      'String')
         mod2 = controller.add_module('org.vistrails.vistrails.basic',
-                                     'Integer')
+                                     'Float')
         mod3 = controller.add_module('org.vistrails.vistrails.basic',
                                      'String')
-        mod4 = controller.add_module('org.vistrails.vistrails.http',
-                                     'HTTPFile')
+        mod4 = controller.add_module('org.vistrails.vistrails.basic',
+                                     'Integer')
 
         from dat.vistrails_interface import find_modules_by_type
-        from vistrails.core.modules.basic_modules import String, Float
-        from vistrails.packages.HTTP.init import HTTP
+        from vistrails.core.modules.basic_modules import Boolean, Float, String
 
         self.assertEqual(
                 set(m.id for m in find_modules_by_type(
@@ -159,13 +158,13 @@ class Test_vistrails_interface(unittest.TestCase):
         self.assertEqual(
                 [m.id for m in find_modules_by_type(
                          controller.current_pipeline,
-                         [HTTP])],
-                [mod4.id])
+                         [Float])],
+                [mod2.id, mod4.id])
 
         self.assertEqual(
                 find_modules_by_type(
                         controller.current_pipeline,
-                        [Float]),
+                        [Boolean]),
                 [])
 
     def test_describe_update(self):
