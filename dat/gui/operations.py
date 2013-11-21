@@ -160,7 +160,7 @@ class OperationPanel(QtGui.QWidget):
 
     def operation_added(self, operation):
         pm = get_package_manager()
-        package = pm.get_package_by_identifier(operation.package_identifier)
+        package = pm.get_package(operation.package_identifier)
         item = OperationItem(operation, package.name,
                              operation.wizard is not None)
         self._operations[operation] = item

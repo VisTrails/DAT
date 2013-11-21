@@ -107,7 +107,7 @@ class GlobalManager(object):
         Discovers and registers Plots and VariableLoaders.
         """
         pm = get_package_manager()
-        package = pm.get_package_by_identifier(package_identifier)
+        package = pm.get_package(package_identifier)
         if hasattr(package.init_module, '_plots'):
             for plot in package.init_module._plots:
                 if not isinstance(plot, Plot):

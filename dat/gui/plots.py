@@ -56,7 +56,7 @@ class PlotPanel(QtGui.QWidget):
 
     def plot_added(self, plot):
         pm = get_package_manager()
-        package = pm.get_package_by_identifier(plot.package_identifier)
+        package = pm.get_package(plot.package_identifier)
         item = PlotItem(plot, package.name)
         self._plots[plot] = item
         self._list_widget.addItem(item, package.name)

@@ -32,7 +32,7 @@ def choose_operation(typecasts, source_descriptor, expected_descriptor,
     list_widget.setSelectionMode(QtGui.QAbstractItemView.SingleSelection)
     pm = get_package_manager()
     for operation in typecasts:
-        package = pm.get_package_by_identifier(operation.package_identifier)
+        package = pm.get_package(operation.package_identifier)
         item = OperationItem(operation, package.name)
         list_widget.addItem(item, item.category)
     layout.addWidget(list_widget)
