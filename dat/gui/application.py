@@ -333,7 +333,7 @@ def start():
     Creates an application and a window and enters Qt's main loop.
     """
     try:
-        vistrails.core.requirements.check_all_vistrails_requirements()
+        app = Application(sys.argv)
     except vistrails.core.requirements.MissingRequirement, e:
         QtGui.QMessageBox.critical(
                 None,
@@ -343,7 +343,6 @@ def start():
                         .format(required=e.requirement))
         return 1
 
-    app = Application(sys.argv)
     return app.exec_()
 
 
