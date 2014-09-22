@@ -955,12 +955,15 @@ class Plot(object):
         for port in inputports:
             name = get_function(port, 'name')
             if not name:
-                raise ValueError("Subworkflow of plot '%s' has an InputPort "
-                                 "with no name" % self.name)
+                raise ValueError(
+                    "Subworkflow of plot '%s' in package '%s' has an "
+                    "InputPort with no name" % (
+                        self.name, package_identifier))
             if name in seenports:
-                raise ValueError("Subworkflow of plot '%s' has several "
-                                 "InputPort modules with name '%s'" % (
-                                     self.name, name))
+                raise ValueError(
+                    "Subworkflow of plot '%s' in package '%s' has several "
+                    "InputPort modules with name '%s'" % (
+                        self.name, package_identifier, name))
             spec = get_function(port, 'spec')
             optional = get_function(port, 'optional')
             if optional == 'True':
@@ -977,12 +980,15 @@ class Plot(object):
                 # discover them. But if some were present and some were
                 # forgotten, emit a warning
                 if currentports:
-                    warnings.warn("Declaration of plot '%s' omitted port "
-                                  "'%s'" % (self.name, name))
+                    warnings.warn(
+                        "Declaration of plot '%s' in package '%s' omitted "
+                        "port '%s'" % (
+                            self.name, package_identifier, name))
                 if not spec:
-                    warnings.warn("Subworkflow of plot '%s' has an InputPort "
-                                  "'%s' with no type -- assuming Module" % (
-                                      self.name, name))
+                    warnings.warn(
+                        "Subworkflow of plot '%s' in package '%s' has an "
+                        "InputPort '%s' with no type; assuming Module" % (
+                            self.name, package_identifier, name))
                     spec = 'org.vistrails.vistrails.basic:Module'
                 if not optional:
                     optional = False
@@ -1006,9 +1012,11 @@ class Plot(object):
                 if ((spec and spec != currentspec) or
                         (optional is not None and
                          optional != currentport.optional)):
-                    warnings.warn("Declaration of port '%s' from plot '%s' "
-                                  "differs from subworkflow contents" % (
-                                      name, self.name))
+                    warnings.warn(
+                        "Declaration of port '%s' from plot '%s' in "
+                        "package '%s' differs from subworkflow "
+                        "contents" % (
+                            name, self.name, package_identifier))
                 spec = currentspec
                 type = resolve_descriptor(currentspec, package_identifier)
 
@@ -1030,9 +1038,10 @@ class Plot(object):
                 currentport.entry_type = entry_type
                 currentport.enum_values = enum_values
             except ValueError, e:
-                raise ValueError("Error reading specs for port '%s' "
-                                 "from plot '%s': %s" % (
-                                     name, self.name, e.args[0]))
+                raise ValueError(
+                    "Error reading specs for port '%s' from plot '%s' of "
+                    "package '%s': %s" % (
+                        name, self.name, package_identifier, e.args[0]))
 
             seenports.add(name)
 
@@ -1042,19 +1051,22 @@ class Plot(object):
                 port = module.get_port_spec(function.name, 'input')
                 problem = None
                 if len(port.descriptors()) != 1:
-                    problem = ("Aliased parameter '{alias}' on port '{port}' "
-                               "of module '{module}' in plot '{plot}' has "
-                               "multiple descriptors")
+                    problem = (
+                        "Aliased parameter '{alias}' on port '{port}' of "
+                        "module '{module}' in plot '{plot}' of package "
+                        "'{pkg}' has multiple descriptors")
                 port_type = port.descriptors()[0]
                 if not issubclass(port_type.module, Constant):
-                    problem = ("Aliased parameter '{alias}' on port '{port}' "
-                               "of module '{module}' in plot '{plot}' is not "
-                               "a constant")
+                    problem = (
+                        "Aliased parameter '{alias}' on port '{port}' of "
+                        "module '{module}' in plot '{plot}' of package "
+                        "'{pkg}' is not a constant")
                 for param in function.parameters:
                     if param.alias:
                         if problem is not None:
                             warnings.warn(problem.format(
                                 plot=self.name,
+                                pkg=package_identifier,
                                 module=module.name,
                                 port=function.name,
                                 alias=param.alias))
@@ -1074,10 +1086,12 @@ class Plot(object):
                                     ':' +
                                     plot_port.type.name)
                             if spec != port_type.sigstring:
-                                warnings.warn("Declaration of port '%s' "
-                                              "(alias) from plot '%s' differs "
-                                              "from subworkflow contents" % (
-                                                  param.alias, self.name))
+                                warnings.warn(
+                                    "Declaration of port '%s' (alias) from "
+                                    "plot '%s' in package '%s' differs from "
+                                    "subworkflow contents" % (
+                                        param.alias, self.name,
+                                        package_identifier))
                         psi = port.port_spec_items[0]
                         if (psi.entry_type is not None and
                                 psi.entry_type.startswith('enum')):
@@ -1096,9 +1110,10 @@ class Plot(object):
         # If the package declared ports that we didn't see
         missingports = list(set(currentports.keys()) - seenports)
         if currentports and missingports:
-            raise ValueError("Declaration of plot '%s' mentions missing "
-                             "InputPort module '%s'" % (
-                                 self.name, missingports[0]))
+            raise ValueError(
+                "Declaration of plot '%s' in package '%s' mentions "
+                "missing InputPort module '%s'" % (
+                    self.name, package_identifier, missingports[0]))
 
         for port in self.ports:
             if isinstance(port, ConstantPort):
