@@ -32,7 +32,7 @@ from vistrails.core.vistrail.controller import VistrailController
 from vistrails.core.vistrail.module import Module as PipelineModule
 from vistrails.core.vistrail.pipeline import Pipeline
 from vistrails.core.vistrail.vistrail import Vistrail
-from vistrails.gui.modules import get_widget_class
+from vistrails.gui.modules.utils import get_widget_class
 from vistrails.packages.spreadsheet.basic_widgets import CellLocation, \
     SpreadsheetCell, SheetReference
 
@@ -1102,7 +1102,7 @@ class Plot(object):
 
         for port in self.ports:
             if isinstance(port, ConstantPort):
-                module = port.type.module
+                module = port.type
                 port.widget_class = get_widget_class(module)
 
 
