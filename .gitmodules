@@ -1,4 +1,4 @@
 [submodule "vistrails"]
 	path = vistrails
-	url = git@vistrails.org:vistrails.git
+	url = https://github.com/VisTrails/VisTrails.git
 	branch = dat
