@@ -1,2 +1,2 @@
 tdparser>=1.1.4
-PyQt4
+# PyQt4
