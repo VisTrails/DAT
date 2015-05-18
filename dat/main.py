@@ -53,7 +53,7 @@ def setup_vistrails():
     i = 0
     while i < len(sys.path):
         path = os.path.realpath(sys.path[i])
-        if path != root_dir and path.startswith(root_dir):
+        if path != vistrails_root and path.startswith(vistrails_root):
             sys.path.pop(i)
         else:
             i += 1
