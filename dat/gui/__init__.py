@@ -56,11 +56,11 @@ def translate(context):
         context = context.__module__ + '.' + context.__name__
 
     def tr(sourceText, disambiguation=None):
-        return unicode(QtCore.QCoreApplication.translate(
+        return QtCore.QCoreApplication.translate(
             context,
             sourceText,
             disambiguation,
-            QtCore.QCoreApplication.UnicodeUTF8))
+            QtCore.QCoreApplication.UnicodeUTF8)
 
     return tr
 

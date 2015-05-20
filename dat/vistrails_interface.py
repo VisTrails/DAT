@@ -220,7 +220,6 @@ class Variable(object):
         else:
             # Create the 'dat-vars' version
             controller.change_selected_version(0)
-            controller.add_module_action
             reg = get_module_registry()
             operations = []
 
@@ -423,9 +422,9 @@ class ArgumentWrapper(object):
         self._copied = False
 
     def connect_to(self, module, inputport_name):
+        generator = module._variable._generator
         if not self._copied:
             # First, we need to copy this pipeline into the new Variable
-            generator = module._variable._generator
             generator.append_operations(self._variable._generator.operations)
             self._copied = True
         generator.connect_modules(
@@ -526,6 +525,9 @@ def get_variable_value(variable):
             if get_function(module, 'name') == 'value':
                 module_obj = tmp_id_to_module_map[module.id]
                 result = module_obj.get_output('ExternalPipe')
+                break
+    else:
+        result = None
 
     interpreter.finalize_pipeline(pipeline, *res[:-1])
     interpreter.parent_execs = [None]

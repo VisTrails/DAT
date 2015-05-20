@@ -3,6 +3,7 @@ import sys
 import warnings
 from PyQt4 import QtCore, QtGui
 
+from dat.gui import translate
 from dat.gui import vt_hooks
 from dat.gui.window import MainWindow
 from dat.global_data import GlobalManager
@@ -336,11 +337,12 @@ def start():
     try:
         app = Application(sys.argv)
     except vistrails.core.requirements.MissingRequirement, e:
+        _ = translate('dat.application')
         QtGui.QMessageBox.critical(
             None,
             _("Missing requirement"),
-            str(_("VisTrails reports that a requirement is missing.\n"
-                  "This application can't continue without {required}."))
+            _("VisTrails reports that a requirement is missing.\n"
+              "This application can't continue without {required}.")
             .format(required=e.requirement))
         return 1
 
