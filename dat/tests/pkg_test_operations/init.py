@@ -2,7 +2,7 @@ from dat.packages import VariableOperation, OperationArgument
 
 from vistrails.core.modules.basic_modules import Float, Integer, String
 from vistrails.core.modules.vistrails_module import Module
-from vistrails.packages.HTTP.init import HTTPFile
+from vistrails.packages.URL.init import DownloadFile
 
 
 def nop(**kwargs):
@@ -22,7 +22,7 @@ overload_std_2 = VariableOperation(
     'overload_std',
     callback=nop,
     args=[
-        OperationArgument('op1', HTTPFile),
+        OperationArgument('op1', DownloadFile),
         OperationArgument('op2', Integer),
     ],
     return_type=Module)

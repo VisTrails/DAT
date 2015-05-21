@@ -22,36 +22,36 @@ class Test_vistrails_interface(unittest.TestCase):
         """
         from dat.vistrails_interface import resolve_descriptor
         from vistrails.core.modules.basic_modules import String
-        from vistrails.packages.HTTP.init import HTTPFile
+        from vistrails.packages.URL.init import DownloadFile
 
         reg = get_module_registry()
         desc_String = reg.get_descriptor(String)
-        desc_HTTPFile = reg.get_descriptor(HTTPFile)
+        desc_DownloadFile = reg.get_descriptor(DownloadFile)
 
         self.assertRaises(
             TypeError,
             lambda: resolve_descriptor(42))
         self.assertEqual(
-            resolve_descriptor(desc_HTTPFile),
-            desc_HTTPFile)
+            resolve_descriptor(desc_DownloadFile),
+            desc_DownloadFile)
         self.assertEqual(
-            resolve_descriptor('org.vistrails.vistrails.http:HTTPFile'),
-            desc_HTTPFile)
+            resolve_descriptor('org.vistrails.vistrails.url:DownloadFile'),
+            desc_DownloadFile)
         self.assertEqual(
-            resolve_descriptor('org.vistrails.vistrails.http:HTTPFile',
+            resolve_descriptor('org.vistrails.vistrails.url:DownloadFile',
                                'org.vistrails.vistrails.basic'),
-            desc_HTTPFile)
+            desc_DownloadFile)
         self.assertEqual(
-            resolve_descriptor('org.vistrails.vistrails.http:HTTPFile',
-                               'org.vistrails.vistrails.http'),
-            desc_HTTPFile)
+            resolve_descriptor('org.vistrails.vistrails.url:DownloadFile',
+                               'org.vistrails.vistrails.url'),
+            desc_DownloadFile)
         self.assertEqual(
-            resolve_descriptor('HTTPFile',
-                               'org.vistrails.vistrails.http'),
-            desc_HTTPFile)
+            resolve_descriptor('DownloadFile',
+                               'org.vistrails.vistrails.url'),
+            desc_DownloadFile)
         self.assertEqual(
-            resolve_descriptor(HTTPFile),
-            desc_HTTPFile)
+            resolve_descriptor(desc_DownloadFile),
+            desc_DownloadFile)
         self.assertEqual(
             resolve_descriptor(String),
             desc_String)

@@ -145,7 +145,7 @@ class Test_operations(unittest.TestCase):
         import dat.tests.pkg_test_operations.init as pkg
 
         from vistrails.core.modules.basic_modules import Integer, String
-        from vistrails.packages.HTTP.init import HTTPFile
+        from vistrails.packages.URL.init import DownloadFile
 
         reg = get_module_registry()
         gd = reg.get_descriptor
@@ -159,7 +159,7 @@ class Test_operations(unittest.TestCase):
         with self.assertRaises(InvalidOperation) as cm:
             find_operation(
                 'overload_std',
-                [gd(String), gd(HTTPFile)])
+                [gd(String), gd(DownloadFile)])
         self.assertIn("Found no match", cm.exception.message)
 
         with self.assertRaises(InvalidOperation) as cm:
