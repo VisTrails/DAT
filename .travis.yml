@@ -7,5 +7,7 @@ install:
   - sudo apt-get install -qq python-matplotlib python-numpy python-qt4 python-qt4-gl python-qt4-sql python-scipy python-vtk python-xlrd python-xlwt xvfb
   - virtualenv --system-site-packages ~/venv && source ~/venv/bin/activate
   - pip install -r requirements.txt
+  - pip install flake8
+  - flake8 dat
 script:
   - xvfb-run --server-args="-screen 0 1024x768x16" python dat/tests
