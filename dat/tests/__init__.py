@@ -57,6 +57,7 @@ class odict(dict):
 
 _application = None
 
+
 def setup_application(setup=True):
     global _application
     if _application is None and setup:

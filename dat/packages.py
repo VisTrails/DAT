@@ -46,8 +46,9 @@ from dat.vistrails_interface import Plot, DataPort, ConstantPort, Variable, \
 _re_1st = re.compile(dat.variable_format_1st_char)
 _re_other = re.compile(dat.variable_format_other_chars)
 
+
 def derive_varname(param, remove_ext=False, remove_path=False, default=None,
-        prefix='', suffix=''):
+                   prefix='', suffix=''):
     """Derives a proper variable name from something else, like a file name.
     """
     if remove_path:

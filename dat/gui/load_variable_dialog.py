@@ -14,6 +14,7 @@ from vistrails.core.application import get_vistrails_application
 
 _unique_varname_format = re.compile('^(.+)_([0-9]+)$')
 
+
 def unique_varname(varname, vistraildata):
     """Makes a variable name unique.
 
@@ -38,6 +39,7 @@ def unique_varname(varname, vistraildata):
 
 
 _varname_format = re.compile('^' + variable_format + '$')
+
 
 class VariableNameValidator(object):
     """Validates variable names according to a given VistrailData.
@@ -180,7 +182,7 @@ class FileLoaderPanel(QtGui.QWidget):
         Of course, it will only be available if a file that it accepts is
         selected.
         """
-        if not loader in self._file_loaders:
+        if loader not in self._file_loaders:
             self._file_loaders.add(loader)
 
     def remove_file_loader(self, loader):
@@ -203,7 +205,7 @@ class FileLoaderPanel(QtGui.QWidget):
         if self._loader_list.currentIndex() == -1:
             return None
         current_loader = self._loader_stack.currentWidget()
-        if (current_loader is loader and 
+        if (current_loader is loader and
                 self.default_variable_name_observer is not None):
             self.default_variable_name_observer(self, new_default_name)
 

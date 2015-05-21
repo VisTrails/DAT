@@ -1,4 +1,4 @@
-from PyQt4 import QtCore, QtGui
+from PyQt4 import QtGui
 
 
 class Overlay(QtGui.QWidget):
@@ -12,18 +12,18 @@ class Overlay(QtGui.QWidget):
         self._cell = cellcontainer
 
     # Background of all overlay (translucent, on top of the cell's content)
-    background          = QtGui.QColor(255, 255, 255, 200)
-    error_background    = QtGui.QColor(255, 127, 127, 200)
+    background = QtGui.QColor(255, 255, 255, 200)
+    error_background = QtGui.QColor(255, 127, 127, 200)
     # Accepting a drop
-    ok_pen              = QtGui.QColor(102, 153, 255)
-    ok_fill             = QtGui.QColor(187, 204, 255)
+    ok_pen = QtGui.QColor(102, 153, 255)
+    ok_fill = QtGui.QColor(187, 204, 255)
     # Denying a drop
-    no_pen              = QtGui.QColor(255,  51,  51)
-    no_fill             = QtGui.QColor(255, 170, 170)
+    no_pen = QtGui.QColor(255, 51, 51)
+    no_fill = QtGui.QColor(255, 170, 170)
     # Hovered
-    targeted            = QtGui.QColor(255, 255, 255)
+    targeted = QtGui.QColor(255, 255, 255)
     # Text (black)
-    text                = QtGui.QColor(0, 0, 0)
+    text = QtGui.QColor(0, 0, 0)
 
     def draw(self, qp):
         if self._cell.has_error():
@@ -46,4 +46,10 @@ class Overlay(QtGui.QWidget):
 from dat.gui.overlays.simple import PlotPromptOverlay, VariableDropEmptyCell, \
     PlotDroppingOverlay
 from dat.gui.overlays.variable_dropping import VariableDroppingOverlay
-from dat.gui.overlays.plot_config import PlotConfigOverlay, DefaultPlotConfigOverlay
+from dat.gui.overlays.plot_config import PlotConfigOverlay, \
+    DefaultPlotConfigOverlay
+
+
+__all__ = ['Overlay', 'PlotPromptOverlay', 'VariableDropEmptyCell',
+           'PlotDroppingOverlay', 'VariableDroppingOverlay',
+           'PlotConfigOverlay', 'DefaultPlotConfigOverlay']

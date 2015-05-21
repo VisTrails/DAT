@@ -40,7 +40,7 @@ class BuildConstant(ComputeVariable):
             self.type = get_module_registry().get_descriptor_by_name(
                     'org.vistrails.vistrails.basic',
                     'String')
-        else: # isinstance(value, float):
+        else:  # isinstance(value, float):
             self.type = get_module_registry().get_descriptor_by_name(
                     'org.vistrails.vistrails.basic',
                     'Float')
@@ -129,6 +129,7 @@ def _fill_parent_modules_map(mod, parents, level):
                 top_hit = True
     return top_hit
 
+
 def parent_modules(mod):
     """Get the parent Modules of a Module subclass.
 
@@ -174,7 +175,7 @@ def find_operation(name, args):
                 try:
                     score = bases[expected]
                 except KeyError:
-                    pass # This operation is not compatible with the argument
+                    pass  # This operation is not compatible with the argument
                 else:
                     if score < current_score:
                         # Forget the previous operations, this one is better
@@ -185,8 +186,7 @@ def find_operation(name, args):
                         # This is as good as the other ones, add it to the list
                         # Their next argument will be examined
                         retained_operations.add(op)
-                    #else:
-                    # Not as good as the ones we have, discard
+                    # Else, not as good as the ones we have, discard
 
         operations = retained_operations
         if len(operations) == 0:
@@ -219,7 +219,7 @@ def apply_operation(controller, op, args):
         if result is None:
             raise InvalidOperation("Package error: operation callback "
                                    "returned None")
-    else: # op.subworkflow is not None:
+    else:  # op.subworkflow is not None:
         result = vistrails_interface.apply_operation_subworkflow(
                 controller,
                 op,

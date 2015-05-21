@@ -175,7 +175,7 @@ class DATPortsList(PortsList):
         return not connected and constant
 
     def create_port_item(self, port_spec, is_connected, is_optional,
-                 is_visible, parent=None):
+                         is_visible, parent=None):
         """Creates the port item
         """
         return PortItem(port_spec, is_connected, True, False, parent)

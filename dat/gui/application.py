@@ -16,7 +16,8 @@ import vistrails.gui.theme
 from vistrails.packages.spreadsheet.spreadsheet_cell import CellInformation
 from vistrails.packages.spreadsheet.spreadsheet_controller import \
     spreadsheetController
-from vistrails.packages.spreadsheet.spreadsheet_tab import StandardWidgetSheetTab
+from vistrails.packages.spreadsheet.spreadsheet_tab import \
+    StandardWidgetSheetTab
 
 
 # TODO : maybe this could be pushed back into VisTrails
@@ -115,34 +116,34 @@ class NotificationDispatcher(object):
         """
         try:
             self._broadcast_notification(
-                    notification_id, 
-                    self._global_notifications[notification_id],
-                    args, kwargs)
+                notification_id,
+                self._global_notifications[notification_id],
+                args, kwargs)
         except KeyError:
             pass
 
         if self.builderWindow:
             try:
                 self._broadcast_notification(
-                        notification_id, 
-                        self._window_notifications[self.builderWindow]
-                                                  [notification_id],
-                        args, kwargs)
+                    notification_id,
+                    self._window_notifications[self.builderWindow]
+                                              [notification_id],
+                    args, kwargs)
             except KeyError:
                 pass
 
             try:
                 view = self.builderWindow.current_view
                 self._broadcast_notification(
-                        notification_id, 
-                        self._view_notifications[view]
-                                                [notification_id],
-                        args, kwargs)
+                    notification_id,
+                    self._view_notifications[view][notification_id],
+                    args, kwargs)
             except KeyError:
                 pass
 
 
-class Application(QtGui.QApplication, NotificationDispatcher, VistrailsApplicationInterface):
+class Application(QtGui.QApplication, NotificationDispatcher,
+                  VistrailsApplicationInterface):
     """Represents the application.
 
     Replaces VisTrails's application, i.e. gets returned by
@@ -340,7 +341,7 @@ def start():
                 _("Missing requirement"),
                 str(_("VisTrails reports that a requirement is missing.\n"
                       "This application can't continue without {required}."))
-                        .format(required=e.requirement))
+                .format(required=e.requirement))
         return 1
 
     return app.exec_()

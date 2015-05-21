@@ -89,7 +89,7 @@ class VistrailData(object):
                 if len(param_values) != 1:
                     raise ValueError
                 value += 'c='
-            else: # param_values[0].type == RecipeParameterValue.VARIABLE:
+            else:  # param_values[0].type == RecipeParameterValue.VARIABLE:
                 value += 'v='
 
             for i, param_val, conn_list in itertools.izip(
@@ -98,7 +98,7 @@ class VistrailData(object):
                     value += '|'
                 if param_val.type == RecipeParameterValue.CONSTANT:
                     value += urllib2.quote(param_val.constant, safe='')
-                else: # param_val.type == RecipeParameterValue.VARIABLE
+                else:  # param_val.type == RecipeParameterValue.VARIABLE
                     value += param_val.variable.name
                     if param_val.typecast is not None:
                         value += ',%s' % param_val.typecast
@@ -120,12 +120,12 @@ class VistrailData(object):
             plot = plot.split(',')
             if len(plot) != 2:
                 raise ValueError
-            plot = GlobalManager.get_plot(*plot) # Might raise KeyError
+            plot = GlobalManager.get_plot(*plot)  # Might raise KeyError
             parameters = dict()
             conn_map = dict()
             for param in value:
-                param, t, pvals = param.split('=') # Might raise ValueError
-                    # or TypeError
+                # Might raise ValueError or TypeError
+                param, t, pvals = param.split('=')
                 pvals = pvals.split('|')
                 plist = []
                 cplist = []
@@ -138,7 +138,7 @@ class VistrailData(object):
                     if t == 'c':
                         plist.append(RecipeParameterValue(
                                 constant=urllib2.unquote(val[0])))
-                    else: # t == 'v':
+                    else:  # t == 'v':
                         v = val[0].split(',')
                         if len(v) not in (1, 2):
                             raise ValueError
@@ -204,16 +204,17 @@ class VistrailData(object):
         notifications for packages loaded in the future.
         """
         self._controller = controller
-        self._spreadsheet_tabs = None # id: int -> spreadsheet_tab
+        self._spreadsheet_tabs = None  # id: int -> spreadsheet_tab
 
         self._variables = dict()
-        self._data_provenance = dict() # version: int -> provenance
+        self._data_provenance = dict()  # version: int -> provenance
 
-        self._cell_to_version = dict() # CellInformation -> int
-        self._version_to_pipeline = dict() # int -> PipelineInformation
-        self._cell_to_pipeline = dict() # CellInformation-> PipelineInformation
+        self._cell_to_version = dict()  # CellInformation -> int
+        self._version_to_pipeline = dict()  # int -> PipelineInformation
+        # CellInformation -> PipelineInformation
+        self._cell_to_pipeline = dict()
 
-        self._failed_infer_calls = set() # [version: int]
+        self._failed_infer_calls = set()  # [version: int]
 
         app = get_vistrails_application()
 
@@ -266,7 +267,7 @@ class VistrailData(object):
                 if recipe is not None:
                     pipeline = PipelineInformation(
                             version, recipe, conn_map,
-                            None) # to be filled by the next block
+                            None)  # to be filled by the next block
                     self._version_to_pipeline[version] = pipeline
         # Then, read the port maps
         for an in annotations:
@@ -601,7 +602,7 @@ class VistrailData(object):
         try:
             p = self._version_to_pipeline[pipeline.version]
             if p == pipeline:
-                return # Ok I guess
+                return  # Ok I guess
             warnings.warn(
                     "A new pipeline was created with a previously known "
                     "version!\n"
@@ -609,9 +610,9 @@ class VistrailData(object):
                     "  old recipe=%r\n"
                     "  new recipe=%r\n"
                     "replacing..." % (
-                    pipeline.version,
-                    p.recipe,
-                    pipeline.recipe))
+                        pipeline.version,
+                        p.recipe,
+                        pipeline.recipe))
         except KeyError:
             pass
         self._cell_to_version[cellInfo] = pipeline.version
@@ -639,6 +640,7 @@ class VistrailData(object):
         # pipeline over and over again
         if version in self._failed_infer_calls:
             return None
+
         def fail():
             self._failed_infer_calls.add(version)
             return None
@@ -665,7 +667,7 @@ class VistrailData(object):
         # Check that the plot is still there by finding the plot ports
         for name, port_list in parentInfo.port_map.iteritems():
             for mod_id, portname in port_list:
-                if not pipeline.modules.has_key(mod_id):
+                if mod_id not in pipeline.modules:
                     return fail()
 
         # Loop on parameters to check they are still there
@@ -675,7 +677,7 @@ class VistrailData(object):
             new_conn_list = []
             for parameter, conns in itertools.izip(parameter_list, conn_list):
                 if all(
-                        pipeline.connections.has_key(conn_id)
+                        conn_id in pipeline.connections
                         for conn_id in conns):
                     new_parameter_list.append(parameter)
                     new_conn_list.append(conns)
@@ -723,14 +725,14 @@ class VistrailManager(object):
     vistrail.
     """
     def __init__(self):
-        self._vistrails = dict() # Controller -> VistrailData
-        self._tabs = dict() # SpreadsheetTab -> (VistrailData, sheet_id)
-        self._names = dict() # name: unicode -> VistrailData
+        self._vistrails = dict()  # Controller -> VistrailData
+        self._tabs = dict()  # SpreadsheetTab -> (VistrailData, sheet_id)
+        self._names = dict()  # name: unicode -> VistrailData
         self._current_controller = None
         self.initialized = False
         self._immortal_sheets = weakref.WeakKeyDictionary()
+        # WeakSet only appeared in Python 2.7
         self._forgotten = weakref.WeakKeyDictionary()
-                # WeakSet only appeared in Python 2.7
         self._deferred_controller_change = False
 
     def init(self):
@@ -752,7 +754,7 @@ class VistrailManager(object):
         self.initialized = True
 
     def set_controller(self, controller, register=False,
-            _deferred=False, _auto=False):
+                       _deferred=False, _auto=False):
         """Called through the notification mechanism.
 
         Changes the 'current' controller, optionally building a VistrailData
@@ -776,7 +778,7 @@ class VistrailManager(object):
         self._current_controller = controller
         if _auto and self._deferred_controller_change:
             return
-        if controller is not None and not controller in self._vistrails:
+        if controller is not None and controller not in self._vistrails:
             if not register:
                 warnings.warn("Current controller is not a DAT vistrail:\n"
                               "  %r" % controller)

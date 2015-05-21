@@ -29,7 +29,7 @@ class VariablePanel(QtGui.QWidget):
         layout = QtGui.QVBoxLayout()
 
         toolbar = QtGui.QToolBar()
-        toolbar.setIconSize(QtCore.QSize(24,24))
+        toolbar.setIconSize(QtCore.QSize(24, 24))
         new_variable = QtGui.QAction(get_icon('new_variable.png'),
                                      _("New variable..."),
                                      self)
@@ -107,7 +107,7 @@ class VariablePanel(QtGui.QWidget):
                 _("Are you sure?"),
                 str(_("You are about to delete {num} variables. "
                       "Please confirm."))
-                        .format(num=len(selected)),
+                .format(num=len(selected)),
                 QtGui.QMessageBox.Ok | QtGui.QMessageBox.Cancel,
                 QtGui.QMessageBox.Cancel)
         if confirm == QtGui.QMessageBox.Ok:
@@ -140,9 +140,9 @@ class VariablePanel(QtGui.QWidget):
         if proceed and new_name:
             if not validator.unique(new_name):
                 QtGui.QMessageBox.warning(
-                        self, _("Couldn't rename variable"),
-                        _("A variable '{name}' already exists!")
-                                .format(name=new_name))
+                    self, _("Couldn't rename variable"),
+                    _("A variable '{name}' already exists!")
+                    .format(name=new_name))
                 return
             if not validator.format(new_name):
                 QtGui.QMessageBox.warning(

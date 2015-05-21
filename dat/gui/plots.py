@@ -36,7 +36,7 @@ class PlotPanel(QtGui.QWidget):
     def __init__(self):
         QtGui.QWidget.__init__(self)
 
-        self._plots = dict() # Plot -> PlotItem
+        self._plots = dict()  # Plot -> PlotItem
 
         layout = QtGui.QVBoxLayout()
 

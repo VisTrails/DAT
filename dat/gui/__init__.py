@@ -1,4 +1,4 @@
-import os, os.path
+import os
 
 from PyQt4 import QtCore, QtGui
 
@@ -28,7 +28,11 @@ class _DraggingToOverlaysLock(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         get_vistrails_application().send_notification('dragging_to_overlays',
                                                       False)
+
+
 _dragging_lock = None
+
+
 def dragging_to_overlays():
     global _dragging_lock
     if _dragging_lock is None:
@@ -50,16 +54,19 @@ def translate(context):
     """
     if isinstance(context, type):
         context = context.__module__ + '.' + context.__name__
+
     def tr(sourceText, disambiguation=None):
         return unicode(QtCore.QCoreApplication.translate(
                 context,
                 sourceText,
                 disambiguation,
                 QtCore.QCoreApplication.UnicodeUTF8))
+
     return tr
 
 
 _icon_cache = dict()
+
 
 def get_icon(name):
     """Loads and return a QIcon.

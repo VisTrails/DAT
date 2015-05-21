@@ -26,6 +26,7 @@ class Test_bisect(unittest.TestCase):
     """
     def test_simple(self):
         l = [1, 2, 3, 3, 7, 7, 9, 10]
+
         def getter(i):
             return l[i]
 
@@ -42,16 +43,16 @@ class Test_bisect(unittest.TestCase):
 
     def test_reverse(self):
         def getter(i):
-            return 100//i
+            return 100 // i
 
-        self.assertEqual(bisect(200, getter, 1, 1, lambda x, y: y<x),
-                         101) # 100/100=1, 100/101=0
-        self.assertEqual(bisect(200, getter, 3, 1, lambda x, y: y<x),
-                         34) # 100/33=3, 100/34=2
-        self.assertEqual(bisect(200, getter, 7, 1, lambda x, y: y<x),
-                         15) # 100/14=7, 100/15=6
-        self.assertEqual(bisect(200, getter, 11, 1, lambda x, y: y<x),
-                         10) # 100/9=11, 100/10=10
+        self.assertEqual(bisect(200, getter, 1, 1, lambda x, y: y < x),
+                         101)  # 100 / 100 = 1, 100 / 101 = 0
+        self.assertEqual(bisect(200, getter, 3, 1, lambda x, y: y < x),
+                         34)  # 100 / 33 = 3, 100 / 34 = 2
+        self.assertEqual(bisect(200, getter, 7, 1, lambda x, y: y < x),
+                         15)  # 100 / 14 = 7, 100 / 15 = 6
+        self.assertEqual(bisect(200, getter, 11, 1, lambda x, y: y < x),
+                         10)  # 100 / 9 = 11, 100 / 10 = 10
 
 
 class MyWarning(UserWarning):
@@ -87,7 +88,7 @@ class Test_catch_warning(unittest.TestCase):
                 warnings.warn('one', category=Warning)
                 warnings.warn('two', category=MyWarning)
 
-        self.check_warnings(toplevel, []) # filtered
+        self.check_warnings(toplevel, [])  # filtered
         self.check_warnings(caught, [(MyWarning, 'two')])
 
 
@@ -104,6 +105,7 @@ class Test_deferrable_via_qt(unittest.TestCase):
     def test_defer_func(self):
         testcase = self
         called = [0]
+
         class SomeObject(QtCore.QObject):
             @deferrable_via_qt(bool, int)
             def foo(self, b, i):
@@ -112,6 +114,7 @@ class Test_deferrable_via_qt(unittest.TestCase):
                 testcase.assertEqual(i, 42)
                 called[0] += 1
                 return 7
+
         obj = SomeObject()
         # Check that the doc was kept (functools.wraps())
         self.assertEqual(obj.foo.__doc__, "doc")

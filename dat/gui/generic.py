@@ -15,7 +15,7 @@ class DraggableListWidget(QtGui.QListWidget):
     of the item.
     """
     def __init__(self, parent=None, mimetype='text/plain',
-            use_overlay_lock=False):
+                 use_overlay_lock=False):
         """Constructor.
 
         mimetype is the mimetype of the elements of the list.
@@ -52,10 +52,10 @@ class CategorizedListWidget(QtGui.QTreeWidget):
         QtGui.QTreeWidget.__init__(self, parent)
         self.setColumnCount(columns)
         self.setHeaderHidden(True)
+        # category: str -> (
+        #     top_level_widget: QTreeWidgetItem,
+        #     {text: str OR item -> item: QTreeWidgetItem})
         self._categories = dict()
-                # category: str -> (
-                #     top_level_widget: QTreeWidgetItem,
-                #     {text: str OR item -> item: QTreeWidgetItem})
 
     def addItem(self, item, category):
         if isinstance(item, (str, unicode)):
@@ -84,7 +84,7 @@ class CategorizedListWidget(QtGui.QTreeWidget):
         if isinstance(item, (str, unicode)):
             w = items.pop(item)
         elif isinstance(item, QtGui.QTreeWidgetItem):
-            w = items.pop(item) # w == item
+            w = items.pop(item)  # w == item
         else:
             raise TypeError
         top_level.removeChild(w)
@@ -147,7 +147,7 @@ class AdvancedLineEdit(QtGui.QLineEdit):
     DEFAULTS = COLOR_VALIDITY | COLOR_DEFAULTVALUE
 
     def __init__(self, contents="", parent=None, default=None, validate=None,
-            flags=DEFAULTS):
+                 flags=DEFAULTS):
         """Constructor.
 
         contents: initial contents of the widget.
@@ -214,17 +214,17 @@ class AdvancedLineEdit(QtGui.QLineEdit):
         if (self._validate is not None and
                 self._flags & AdvancedLineEdit.COLOR_VALIDITY and
                 not self._prev_validation):
-            return "#DDAAAA" # invalid value
+            return "#DDAAAA"  # invalid value
         elif (self._default is not None and
                 self._flags & AdvancedLineEdit.COLOR_DEFAULTVALUE and
                 self._is_default):
-            return "#AAAADD" # default value
+            return "#AAAADD"  # default value
         elif (self._validate is not None and
                 self._flags & AdvancedLineEdit.COLOR_VALIDITY and
                 self._prev_validation):
-            return "#AADDAA" # valid value
+            return "#AADDAA"  # valid value
         else:
-            return "#FFFFFF" # default
+            return "#FFFFFF"  # default
 
     def isDefault(self):
         """Returns True if the current value is the default.
@@ -267,14 +267,15 @@ class AdvancedLineEdit(QtGui.QLineEdit):
         super(AdvancedLineEdit, self).resizeEvent(event)
 
         if self._default is not None:
-            y = (self.height() - 16)//2
+            y = (self.height() - 16) // 2
             x = self.width() - 16 - y
 
             self._reset_button.setGeometry(x, y, 16, 16)
 
 
 def advanced_input_dialog(parent, title, label, init_text,
-        default=None, validate=None, flags=AdvancedLineEdit.DEFAULTS):
+                          default=None, validate=None,
+                          flags=AdvancedLineEdit.DEFAULTS):
     """Similar to QInputDialog#getText() but uses an AdvancedLineEdit.
 
     parent: parent widget or None, passed to QWidget's constructor.
@@ -355,7 +356,7 @@ class SingleLineTextEdit(QtGui.QTextEdit):
     def setSelection(self, start, length=0):
         cursor = self.textCursor()
         cursor.setPosition(start)
-        cursor.setPosition(start+length, QtGui.QTextCursor.KeepAnchor)
+        cursor.setPosition(start + length, QtGui.QTextCursor.KeepAnchor)
         self.setTextCursor(cursor)
 
     returnPressed = QtCore.SIGNAL('returnPressed()')

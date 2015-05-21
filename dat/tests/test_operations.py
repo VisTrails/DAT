@@ -39,8 +39,8 @@ class Test_operation_parsing(unittest.TestCase):
                         (OP, '*',
                             (SYMBOL, 'aa4b'),
                             (NUMBER, 2.1)
-                        )
-                    )
+                         )
+                     )
                 ))
 
         self.assertEqual(parse_expression('a = 3 + 3')[0], 'a')
@@ -54,32 +54,32 @@ class Test_operation_parsing(unittest.TestCase):
                             (NUMBER, 4),
                             (OP, 'cd',
                                 (OP, '+',
-                                (NUMBER, 2),
-                                (NUMBER, 5)
-                                ),
+                                    (NUMBER, 2),
+                                    (NUMBER, 5)
+                                 ),
                                 (STRING, 'test"\\'),
                              ),
-                        ),
+                         ),
                         (OP, '/',
                             (OP, '-',
                                 (NUMBER, 1),
                                 (NUMBER, 4)
-                            ),
+                             ),
                             (NUMBER, 7)
-                        )
-                    )
+                         )
+                     )
                 ))
 
     def test_parser_errors(self):
         with self.assertRaises(InvalidOperation) as cm:
             parse_expression('t = a . b')
         self.assertIn("Error while parsing", cm.exception.message)
-        self.assertEqual(cm.exception.select[0], 6) # error at '.'
+        self.assertEqual(cm.exception.select[0], 6)  # error at '.'
 
         with self.assertRaises(InvalidOperation) as cm:
             parse_expression('42 = 3 + 3')
         self.assertIn("Invalid target ", cm.exception.message)
-        self.assertEqual(cm.exception.select, (0, 2)) # target selected
+        self.assertEqual(cm.exception.select, (0, 2))  # target selected
 
         with self.assertRaises(InvalidOperation) as cm:
             parse_expression('= 6*7')
@@ -144,7 +144,7 @@ class Test_operations(unittest.TestCase):
     def test_operation_resolution(self):
         import dat.tests.pkg_test_operations.init as pkg
 
-        from vistrails.core.modules.basic_modules import Float, Integer, String
+        from vistrails.core.modules.basic_modules import Integer, String
         from vistrails.packages.HTTP.init import HTTPFile
 
         reg = get_module_registry()

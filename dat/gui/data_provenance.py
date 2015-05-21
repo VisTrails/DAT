@@ -25,7 +25,7 @@ class ProvenanceItem(QtGui.QGraphicsItem):
         metrics = QtGui.QFontMetrics(self.text_font)
         width = metrics.width(label) + X_PADDING * 2
         height = metrics.height() + Y_PADDING * 2
-        self._rect = QtCore.QRectF(-width//2, -height//2,
+        self._rect = QtCore.QRectF(-width // 2, -height // 2,
                                    width, height)
 
     def boundingRect(self):
@@ -86,7 +86,7 @@ class ProvenanceSceneLayout(object):
             self.nb_pos += 1
 
     def __init__(self, controller):
-        self.nodes = dict() # prov -> TmpNode
+        self.nodes = dict()  # prov -> TmpNode
         self._controller = controller
 
     def populate(self, provenance, row=0):
@@ -107,7 +107,7 @@ class ProvenanceSceneLayout(object):
         if isinstance(provenance, data_provenance.Operation):
             item = OperationProvenanceItem(provenance['name'], provenance)
             for arg in provenance['args'].itervalues():
-                self.populate(arg, row+1)
+                self.populate(arg, row + 1)
                 links.add(arg)
         elif isinstance(provenance, data_provenance.Variable):
             varname = self._controller.vistrail.get_tag(provenance['version'])
@@ -125,7 +125,7 @@ class ProvenanceSceneLayout(object):
                         "is missing!" % provenance['version'])
                 item = VariableProvenanceItem(varname, provenance)
             elif varname is not None and varname[:8] == 'dat-var-':
-                self.populate(prev, row+1)
+                self.populate(prev, row + 1)
                 varname = varname[8:]
                 item = VariableProvenanceItem(varname, provenance)
                 links.add(prev)
@@ -161,7 +161,7 @@ class ProvenanceSceneLayout(object):
 
             # Order nodes
             nodes = sorted(rows[row], key=lambda n: n.pos)
-            xs = -X_MARGIN * (len(nodes) - 1)//2
+            xs = -X_MARGIN * (len(nodes) - 1) // 2
             for i, node in enumerate(nodes):
                 x = xs + i * X_MARGIN
                 node.item.setPos(x, -row * Y_MARGIN)

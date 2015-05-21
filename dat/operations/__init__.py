@@ -17,3 +17,7 @@ def is_operator(op_name):
 
 from dat.operations.execution import perform_operation, apply_operation
 from dat.operations.typecasting import get_typecast_operations
+
+
+__all__ = ['InvalidOperation', 'OperationWarning',
+           'perform_operation', 'apply_operation', 'get_typecast_operations']

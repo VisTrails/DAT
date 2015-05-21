@@ -19,7 +19,7 @@ def bisect(count, getter, element, lo=0, comp=lambda x, y: x < y):
         raise ValueError("lo must be non-negative")
     hi = count
     while lo < hi:
-        mid = (lo + hi)//2
+        mid = (lo + hi) // 2
         mid_elem = getter(mid)
         if comp(element, mid_elem):
             hi = mid
@@ -29,6 +29,7 @@ def bisect(count, getter, element, lo=0, comp=lambda x, y: x < y):
 
 
 _whitespace = set(iter(string.whitespace))
+
 
 def iswhitespace(s):
     return all(c in _whitespace for c in s)
@@ -57,8 +58,9 @@ class catch_warning(object):
             log = []
         else:
             log = None
+
         def showwarning(message, category, filename, lineno,
-                file=None, line=None):
+                        file=None, line=None):
             if issubclass(category, self._category):
                 if log is not None:
                     log.append(warnings.WarningMessage(
@@ -80,6 +82,7 @@ class catch_warning(object):
                         message, category, filename, lineno)
                 warnings.filters = current_filters
                 warnings.showwarning = current_showwarning
+
         warnings.showwarning = showwarning
         if log is not None:
             return log
@@ -104,8 +107,8 @@ def deferrable_via_qt(*argtypes):
         @QtCore.pyqtSlot(*argtypes)
         @functools.wraps(func)
         def wrapped(self, *args, **kwargs):
-            defer = kwargs.pop('defer', False) # defer=False is a keyword-only
-                    # argument
+            # defer=False is a keyword-only argument
+            defer = kwargs.pop('defer', False)
             if kwargs:
                 raise TypeError("wrapped function %s got unexpected keyword "
                                 "arguments" % func.__name__)

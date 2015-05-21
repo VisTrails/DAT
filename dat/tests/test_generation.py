@@ -51,11 +51,13 @@ class Test_generation(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         pm = get_package_manager()
+
         def disable(codepath):
             try:
                 pm.late_disable_package(codepath)
             except PackageManager.MissingPackage:
                 pass
+
         disable('pkg_test_variables')
         disable('pkg_test_plots')
 
@@ -78,7 +80,7 @@ class Test_generation(unittest.TestCase):
         VistrailManager(controller).new_variable(varname, variable)
 
         tag = controller.vistrail.get_tag_str('dat-var-%s' % varname)
-        controller.change_selected_version( tag.action_id)
+        controller.change_selected_version(tag.action_id)
 
         pipeline = controller.current_pipeline
         self.assertEqual(len(pipeline.module_list), 4)
@@ -138,7 +140,7 @@ class Test_generation(unittest.TestCase):
                 recipe,
                 cellInfo.row,
                 cellInfo.column,
-                None) # This plot has no cell module so this is fine
+                None)  # This plot has no cell module so this is fine
 
         controller.change_selected_version(pipelineInfo.version)
 

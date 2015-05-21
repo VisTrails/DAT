@@ -68,6 +68,7 @@ Example of serialized tree (different from previous, formatted):
 from itertools import izip
 import json
 
+
 class _DataProvenanceNode(object):
     def __init__(self, **data):
         self.data_dict = data
@@ -159,6 +160,7 @@ _json_classes = {
     'variable': Variable,
     'operation': Operation}
 
+
 def _json_object_hook(dct):
     try:
         t = dct['type']
@@ -168,6 +170,7 @@ def _json_object_hook(dct):
         return _json_classes[t](_json={k: v
                                        for k, v in dct.iteritems()
                                        if k != 'type'})
+
 
 def read_from_annotation(annotation):
     """Deserializes a data provenance tree from an annotation string.
@@ -181,6 +184,7 @@ def read_from_annotation(annotation):
 
 _reverse_json_classes = {v: k for k, v in _json_classes.iteritems()}
 
+
 class ProvenanceEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, _DataProvenanceNode):
@@ -188,6 +192,7 @@ class ProvenanceEncoder(json.JSONEncoder):
             dct.update(obj.data_dict)
             return dct
         return super(ProvenanceEncoder, self).default(obj)
+
 
 def save_to_annotation(provenance):
     """Serializes a data provenance tree as an annotation string.

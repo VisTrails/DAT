@@ -98,7 +98,7 @@ class MainWindow(QtGui.QMainWindow):
         def dock_panel(title, widget, pos):
             dock = QtGui.QDockWidget(title)
             dock.setFeatures(QtGui.QDockWidget.DockWidgetMovable |
-                              QtGui.QDockWidget.DockWidgetFloatable)
+                             QtGui.QDockWidget.DockWidgetFloatable)
             dock.setWidget(widget)
             self.addDockWidget(pos, dock)
             return dock

@@ -21,12 +21,12 @@ class Test_gui(unittest.TestCase):
         try:
             QtCore.QCoreApplication.translate = cr = CallRecorder(
                     old_translate)
-    
+
             from dat.gui import translate
             tr = translate(Test_gui)
             self.assertIsNotNone(tr)
             msg = u"Don't translate "
-            msg += u"me (unittest)" # there is no way xgettext can find this
+            msg += u"me (unittest)"  # there is no way xgettext can find this
 
             self.assertEqual(tr(msg), msg)
             call1 = (
@@ -57,7 +57,8 @@ class Test_gui(unittest.TestCase):
         from dat.gui.application import NotificationDispatcher
         nd = NotificationDispatcher()
 
-        class C(object): pass
+        class C(object):
+            pass
 
         with warnings.catch_warnings(record=True) as w:
             warnings.resetwarnings()
@@ -147,7 +148,7 @@ class Test_advancedlineedit(unittest.TestCase):
         """
         from dat.gui.generic import AdvancedLineEdit
         le = AdvancedLineEdit("test",
-                              validate=lambda t: t=="a")
+                              validate=lambda t: t == "a")
         self._app.processEvents()
         self.assertEqual(le.text(), "test")
         self.assertFalse(le.isValid())
@@ -219,9 +220,9 @@ class Test_advancedlineedit(unittest.TestCase):
         """
         from dat.gui.generic import AdvancedLineEdit
         le = AdvancedLineEdit("test",
-                               default="b",
-                               validate=lambda t: t == "a",
-                               flags=AdvancedLineEdit.COLOR_DEFAULTVALUE)
+                              default="b",
+                              validate=lambda t: t == "a",
+                              flags=AdvancedLineEdit.COLOR_DEFAULTVALUE)
         self._app.processEvents()
         self.assertFalse(le.isDefault())
         self.assertFalse(le.isValid())
@@ -239,9 +240,9 @@ class Test_advancedlineedit(unittest.TestCase):
         """
         from dat.gui.generic import AdvancedLineEdit
         le = AdvancedLineEdit("test",
-                               default="b",
-                               validate=lambda t: t == "b",
-                               flags=AdvancedLineEdit.COLOR_VALIDITY)
+                              default="b",
+                              validate=lambda t: t == "b",
+                              flags=AdvancedLineEdit.COLOR_VALIDITY)
         self._app.processEvents()
         self.assertFalse(le.isDefault())
         self.assertFalse(le.isValid())

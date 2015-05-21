@@ -77,12 +77,14 @@ class Test_vistrails_interface(unittest.TestCase):
         modules = [controller.add_module('org.vistrails.vistrails.basic',
                                          'String')
                    for i in xrange(12)]
+
         def connect(outmod, inmod):
             controller.add_connection(
                     modules[outmod].id,
                     'value',
                     modules[inmod].id,
                     'value')
+
         for (outmod, inmod) in [(0, 3),
                                 (1, 4), (1, 5), (5, 6),
                                 (7, 9), (8, 9), (9, 10), (9, 11)]:

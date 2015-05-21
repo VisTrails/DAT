@@ -23,7 +23,7 @@ class RecipeParameterValue(object):
         if variable is not None and constant is None:
             self.type = self.VARIABLE
             self.variable = variable
-            self.typecast = typecast # str
+            self.typecast = typecast  # str
             # This 'typecast' parameter is not really useful since it doesn't
             # unambiguously point to a specific operation (remember: we allow
             # overloading)
@@ -41,7 +41,7 @@ class RecipeParameterValue(object):
             return False
         elif self.type == self.VARIABLE:
             return self.variable is other.variable
-        else: # self.type == self.CONSTANT:
+        else:  # self.type == self.CONSTANT:
             return self.constant == other.constant
 
     def __ne__(self, other):
@@ -50,7 +50,7 @@ class RecipeParameterValue(object):
     def __hash__(self):
         if self.type == self.VARIABLE:
             return hash((self.type, self.variable.name))
-        else: # self.type == self.CONSTANT:
+        else:  # self.type == self.CONSTANT:
             return hash((self.type, self.constant))
 
     def __repr__(self):

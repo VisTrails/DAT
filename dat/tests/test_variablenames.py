@@ -65,20 +65,21 @@ class Test_variablenames(unittest.TestCase):
         from dat.gui.load_variable_dialog import VariableNameValidator
 
         tests = [
-                (derive_varname('/usr/share/data/myfile.dat', remove_path=True),
-                 'myfile_dat'),
-                (derive_varname('/usr/share/data/myfile.dat', remove_ext=True,
-                               remove_path=True),
-                 'myfile'),
-                (derive_varname('ma_donn\xE9e.dat', remove_ext=True,
-                               prefix='a_', suffix='_b'),
-                 'a_ma_donn_e_b'),
-                (derive_varname('another.name.test.data', remove_ext=True),
-                 'another_name_test'),
-                (derive_varname('42', remove_ext=True),
-                 '_42'),
-                (derive_varname('42', remove_ext=True, prefix='a'),
-                 'a42')]
+            (derive_varname('/usr/share/data/myfile.dat', remove_path=True),
+             'myfile_dat'),
+            (derive_varname('/usr/share/data/myfile.dat', remove_ext=True,
+                            remove_path=True),
+             'myfile'),
+            (derive_varname('ma_donn\xE9e.dat', remove_ext=True,
+                            prefix='a_', suffix='_b'),
+             'a_ma_donn_e_b'),
+            (derive_varname('another.name.test.data', remove_ext=True),
+             'another_name_test'),
+            (derive_varname('42', remove_ext=True),
+             '_42'),
+            (derive_varname('42', remove_ext=True, prefix='a'),
+             'a42')
+        ]
         for actual, expected in tests:
             self.assertEqual(actual, expected)
             self.assertTrue(VariableNameValidator.format(actual))

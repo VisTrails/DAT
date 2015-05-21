@@ -43,8 +43,8 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
         self.setAcceptDrops(True)
 
         # Attributes
-        self._parameters = dict() # param name -> [RecipeParameterValue]
-        self._plot = None # dat.vistrails_interface:Plot
+        self._parameters = dict()  # param name -> [RecipeParameterValue]
+        self._plot = None  # dat.vistrails_interface:Plot
         self._execute_pending = False
 
         self._parameter_hovered = None
@@ -135,7 +135,7 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
     def setCellInfo(self, cellInfo):
         super(DATCellContainer, self).setCellInfo(cellInfo)
 
-        if cellInfo is None: # We were removed from the spreadsheet
+        if cellInfo is None:  # We were removed from the spreadsheet
             app = get_vistrails_application()
             app.unregister_notification(
                     'dat_new_variable', self._variable_added)
@@ -161,8 +161,8 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
                 self._plot is None):
             return
         if any(
-                param.type == RecipeParameterValue.VARIABLE and
-                        param.variable.name == varname
+                (param.type == RecipeParameterValue.VARIABLE and
+                 param.variable.name == varname)
                 for params in self._parameters.itervalues()
                 for param in params):
             self._overlay.update()
@@ -172,8 +172,8 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
                 controller != self._controller or self._plot is None):
             return
         if any(
-                param.type == RecipeParameterValue.VARIABLE and
-                        param.variable.name == varname
+                (param.type == RecipeParameterValue.VARIABLE and
+                 param.variable.name == varname)
                 for params in self._parameters.itervalues()
                 for param in params):
             # A variable was removed!
@@ -502,8 +502,8 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
     def _cancel_pending(self):
         """Cancels the pending execution (returns to
         """
-        self.contentsUpdated()  # Reset the cell's recipe to whatever pipeline
-                                # is already in it
+        # Reset the cell's recipe to whatever pipeline is already in it
+        self.contentsUpdated()
 
     @deferrable_via_qt(bool)
     def update_pipeline(self, force_reexec=False):
@@ -581,7 +581,7 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
             return False
 
     def _typecast(self, controller, variable,
-            source_descriptor, expected_descriptor):
+                  source_descriptor, expected_descriptor):
         typecasts = get_typecast_operations(
                 source_descriptor,
                 expected_descriptor)

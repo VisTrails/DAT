@@ -85,7 +85,7 @@ def get_upgraded_pipeline(vistrail, version=None):
         raise TypeError
 
     controller = VistrailController(vistrail)
-    controller.recompute_terse_graph() # FIXME : this shouldn't be needed...
+    controller.recompute_terse_graph()  # FIXME : this shouldn't be needed...
     controller.do_version_switch(version)
     return controller.current_pipeline
 
@@ -142,7 +142,8 @@ class ModuleWrapper(object):
                 inputport_name,
                 value)
 
-    def connect_outputport_to(self, outputport_name, other_module, inputport_name):
+    def connect_outputport_to(self, outputport_name,
+                              other_module, inputport_name):
         """Create a connection between ports of two modules.
 
         Connects the given output port of this module to the given input port
@@ -251,7 +252,7 @@ class Variable(object):
         return controller, root_version, outmod_id
 
     def __init__(self, type, controller=None, generator=None, output=None,
-            provenance=None, materialized=None):
+                 provenance=None, materialized=None):
         """Create a new variable.
 
         type should be resolvable to a VisTrails module type.
@@ -266,8 +267,8 @@ class Variable(object):
         if generator is None and materialized is None:
             self._generator = PipelineGenerator(controller)
 
-            # Get the VisTrails package that's creating this Variable by inspecting
-            # the stack
+            # Get the VisTrails package that's creating this Variable by
+            # inspecting the stack
             caller = inspect.currentframe().f_back
             try:
                 module = inspect.getmodule(caller).__name__
@@ -345,7 +346,7 @@ class Variable(object):
         if self._materialized is not None:
             raise ValueError("materialize() called on already materialized "
                              "variable %s (new name: %s)" % (
-                             self._materialized.name, name))
+                                 self._materialized.name, name))
 
         if self._output_module is None:
             raise ValueError("Invalid Variable: select_output_port() was "
@@ -445,6 +446,7 @@ def get_variable_value(variable):
         version = controller.vistrail.get_version_number(
                 'dat-var-%s' % variable.name)
         return controller.vistrail.getPipeline(version), version
+
     def pipeline_from_generator(variable_gen):
         # Get the original OutputPort module
         orig_controller = variable_gen._generator.controller
@@ -501,15 +503,15 @@ def get_variable_value(variable):
     # Execute
     res = interpreter.execute_pipeline(
             pipeline,
-            res[0], # tmp_id_to_module_map
-            res[1], # persistent_to_tmp_id_map
+            res[0],  # tmp_id_to_module_map
+            res[1],  # persistent_to_tmp_id_map
             current_version=version,
             reason="getting variable value")
     if len(res[2]) > 0:
         raise ValueError("Error while executing variable pipeline:\n%s" %
-                         '\n'.join('%s: %s' % (me.module.__class__.__name__),
+                         '\n'.join('%s: %s' % (me.module.__class__.__name__,
                                                me.msg)
-                                   for me in res[2].itervalues())
+                                   for me in res[2].itervalues()))
     if len(res[4]) > 0:
         # extract messages and previous ModuleSuspended exceptions
         raise ValueError("Module got suspended while executing variable "
@@ -545,7 +547,7 @@ def call_operation_callback(op, callback, args):
     result = callback(**kwargs)
     for argname, arg in kwargs.iteritems():
         if not arg._copied:
-            warnings.warn("In operation %r, argument %r was not used" %(
+            warnings.warn("In operation %r, argument %r was not used" % (
                           op.name, argname))
     return result
 
@@ -573,14 +575,14 @@ def apply_operation_subworkflow(controller, op, subworkflow, args):
     operation_pipeline = get_upgraded_pipeline(vistrail)
 
     # Copy every module but the InputPorts and the OutputPort
-    operation_modules_map = dict() # old module id -> new module
+    operation_modules_map = dict()  # old module id -> new module
     for module in operation_pipeline.modules.itervalues():
         if module.module_descriptor not in (inputport_desc, outputport_desc):
             operation_modules_map[module.id] = generator.copy_module(module)
 
     # Copy the connections and locate the input ports and the output port
-    operation_params = dict() # param name -> [(module, input port name)]
-    output = None # (module, port name)
+    operation_params = dict()  # param name -> [(module, input port name)]
+    output = None  # (module, port name)
     for connection in operation_pipeline.connection_list:
         src = operation_pipeline.modules[connection.source.moduleId]
         dest = operation_pipeline.modules[connection.destination.moduleId]
@@ -702,7 +704,7 @@ class SimpleVariableLoaderMixin(object):
     def load(self):
         if isinstance(self, CustomVariableLoader):
             return self._simple_load()
-        else: # isinstance(self, FileVariableLoader):
+        else:  # isinstance(self, FileVariableLoader):
             return self._simple_load(self.__filename)
 
     def get_default_variable_name(self):
@@ -746,7 +748,7 @@ class CustomVariableLoader(QtGui.QWidget, BaseVariableLoader):
 
     @staticmethod
     def simple(parameters=dict(), default_varname=DEFAULT_VARIABLE_NAME,
-            load=None):
+               load=None):
         """Make a variable loader very simply.
 
         This function can be used to create a CustomVariableLoader very simply,
@@ -816,7 +818,7 @@ class FileVariableLoader(QtGui.QWidget, BaseVariableLoader):
 
     @staticmethod
     def simple(parameters=dict(), default_varname=DEFAULT_VARIABLE_NAME,
-            extension=None, load=None, get_varname=None):
+               extension=None, load=None, get_varname=None):
         """Make a variable loader very simply.
 
         This function can be used to create a CustomVariableLoader very simply,
@@ -868,7 +870,7 @@ class Port(object):
     INPUT = 2
 
     def __init__(self, name, type=None, optional=False, multiple_values=False,
-            accepts=DATA, is_alias=False):
+                 accepts=DATA, is_alias=False):
         assert type == Port.INPUT or is_alias is False
         self.name = name
         self.type = type
@@ -919,8 +921,9 @@ class Plot(object):
         # Set the plot config widget, ensuring correct parent class
         from dat.gui.overlays import PlotConfigOverlay, \
             DefaultPlotConfigOverlay
-        self.configWidget = kwargs.get('configWidget', DefaultPlotConfigOverlay)
-        if not issubclass(self.configWidget, PlotConfigOverlay): 
+        self.configWidget = kwargs.get('configWidget',
+                                       DefaultPlotConfigOverlay)
+        if not issubclass(self.configWidget, PlotConfigOverlay):
             warnings.warn("Config widget of plot '%s' does not subclass "
                           "'PlotConfigOverlay'. Using default." % self.name)
             self.configWidget = DefaultPlotConfigOverlay
@@ -959,7 +962,7 @@ class Plot(object):
             if name in seenports:
                 raise ValueError("Subworkflow of plot '%s' has several "
                                  "InputPort modules with name '%s'" % (
-                                 self.name, name))
+                                     self.name, name))
             spec = get_function(port, 'spec')
             optional = get_function(port, 'optional')
             if optional == 'True':
@@ -981,7 +984,7 @@ class Plot(object):
                 if not spec:
                     warnings.warn("Subworkflow of plot '%s' has an InputPort "
                                   "'%s' with no type -- assuming Module" % (
-                                  self.name, name))
+                                      self.name, name))
                     spec = 'org.vistrails.vistrails.basic:Module'
                 if not optional:
                     optional = False
@@ -1007,7 +1010,7 @@ class Plot(object):
                          optional != currentport.optional)):
                     warnings.warn("Declaration of port '%s' from plot '%s' "
                                   "differs from subworkflow contents" % (
-                                  name, self.name))
+                                      name, self.name))
                 spec = currentspec
                 type = resolve_descriptor(currentspec, package_identifier)
 
@@ -1031,7 +1034,7 @@ class Plot(object):
             except ValueError, e:
                 raise ValueError("Error reading specs for port '%s' "
                                  "from plot '%s': %s" % (
-                                 name, self.name, e.args[0]))
+                                     name, self.name, e.args[0]))
 
             seenports.add(name)
 
@@ -1070,13 +1073,13 @@ class Plot(object):
                         else:
                             plot_port.is_alias = True
                             spec = (plot_port.type.identifier +
-                                           ':' +
-                                           plot_port.type.name)
+                                    ':' +
+                                    plot_port.type.name)
                             if spec != port_type.sigstring:
                                 warnings.warn("Declaration of port '%s' "
                                               "(alias) from plot '%s' differs "
                                               "from subworkflow contents" % (
-                                              param.alias, self.name))
+                                                  param.alias, self.name))
                         psi = port.port_spec_items[0]
                         if (psi.entry_type is not None and
                                 psi.entry_type.startswith('enum')):
@@ -1088,8 +1091,8 @@ class Plot(object):
                         plot_port.default_value = param.strValue
                         # FIXME : there is no way to not set a value here
                         # Code to get the port's default is below for ref
-                        #if port.defaults and port.defaults[0]:
-                        #    plot_port.default_value = port.defaults[0]
+                        # if port.defaults and port.defaults[0]:
+                        #     plot_port.default_value = port.defaults[0]
                         seenports.add(param.alias)
 
         # If the package declared ports that we didn't see
@@ -1097,7 +1100,7 @@ class Plot(object):
         if currentports and missingports:
             raise ValueError("Declaration of plot '%s' mentions missing "
                              "InputPort module '%s'" % (
-                             self.name, missingports[0]))
+                                 self.name, missingports[0]))
 
         for port in self.ports:
             if isinstance(port, ConstantPort):
@@ -1125,8 +1128,8 @@ class VariableOperation(object):
     backwards; this only works for operations with 2 arguments of different
     types. It is useful for operators such as * and +.
     """
-    def __init__(self, name, args=None, return_type=None,
-             callback=None, subworkflow=None, symmetric=False, wizard=None):
+    def __init__(self, name, args=None, return_type=None, callback=None,
+                 subworkflow=None, symmetric=False, wizard=None):
         self.name = name
         self.package_identifier = None
         self.parameters = args
@@ -1195,8 +1198,8 @@ def read_port_specs(pipeline, port):
     # Connections to the 'Default' port
     connections = [c
                    for c in pipeline.connection_list
-                   if c.destination.moduleId == port.id and
-                           c.destination.name == 'Default']
+                   if (c.destination.moduleId == port.id and
+                       c.destination.name == 'Default')]
     if len(connections) > 1:
         raise ValueError("multiple default values set")
     elif len(connections) == 1:
@@ -1210,8 +1213,8 @@ def read_port_specs(pipeline, port):
     # Connections from the 'InternalPipe' port
     connections = [c
                    for c in pipeline.connection_list
-                   if c.source.moduleId == port.id and
-                           c.source.name == 'InternalPipe']
+                   if (c.source.moduleId == port.id and
+                       c.source.name == 'InternalPipe')]
     if len(connections) != 1:
         # Can't guess anything here
         return default_type, default_value, None, None
@@ -1223,7 +1226,7 @@ def read_port_specs(pipeline, port):
         descriptors = d_port.descriptors()
         if len(descriptors) != 1:
             break
-        if ((default_type, default_value == None, None) and
+        if ((default_type, default_value is None, None) and
                 d_port.defaults and d_port.defaults[0]):
             default_type = descriptors[0].module
             default_value = d_port.defaults[0]
@@ -1368,7 +1371,7 @@ def get_plot_modules(pipelineInfo, pipeline):
     ignore_edges = set(conn_id
                        for param in pipelineInfo.conn_map.itervalues()
                        for var in param
-                       for conn_id in var) # set([conn_id: int])
+                       for conn_id in var)  # set([conn_id: int])
     init_modules = set(pipeline.modules[mod_id]
                        for lp in pipelineInfo.port_map.itervalues()
                        for mod_id, port_name in lp)
@@ -1477,7 +1480,7 @@ class PipelineGenerator(object):
                 c
                 for c in self.all_connections
                 if (c.source.moduleId not in deleted_ids and
-                        c.destination.moduleId not in deleted_ids))
+                    c.destination.moduleId not in deleted_ids))
 
     def delete_modules(self, modules):
         self.delete_linked(modules, depth=0)
@@ -1531,7 +1534,7 @@ def add_variable_subworkflow(generator, variable, plot_ports=None):
 
     # Copy every module but the OutputPort
     output_id = None
-    var_modules_map = dict() # old_mod_id -> new_module
+    var_modules_map = dict()  # old_mod_id -> new_module
     for module in var_pipeline.modules.itervalues():
         if (module.module_descriptor is outputport_desc and
                 get_function(module, 'name') == 'value'):
@@ -1577,7 +1580,7 @@ def add_variable_subworkflow(generator, variable, plot_ports=None):
 
 
 def add_variable_subworkflow_typecast(generator, variable, plot_ports,
-                                       expected_type, typecast):
+                                      expected_type, typecast):
     if issubclass(variable.type.module, expected_type.module):
         return (
                 add_variable_subworkflow(
@@ -1627,7 +1630,7 @@ def add_constant_module(generator, descriptor, constant, plot_ports):
 
 
 def create_pipeline(controller, recipe, row, column, var_sheetname,
-        typecast=None):
+                    typecast=None):
     """Create a pipeline from a recipe and return its information.
     """
     # Build from the root version
@@ -1650,10 +1653,10 @@ def create_pipeline(controller, recipe, row, column, var_sheetname,
             for c in plot_pipeline.connection_list
             if plot_pipeline.modules[
                     c.destination.moduleId
-                ].module_descriptor is inputport_desc)
+            ].module_descriptor is inputport_desc)
 
     # Copy every module but the InputPorts and up
-    plot_modules_map = dict() # old module id -> new module
+    plot_modules_map = dict()  # old module id -> new module
     for module in plot_pipeline.modules.itervalues():
         if (module.module_descriptor is not inputport_desc and
                 module.id not in connected_to_inputport):
@@ -1728,7 +1731,7 @@ def create_pipeline(controller, recipe, row, column, var_sheetname,
     # 'Default' port and ignore them in the following loop
 
     # Copy the connections and locate the input ports
-    plot_params = dict() # param name -> [(module, input port name)]
+    plot_params = dict()  # param name -> [(module, input port name)]
     for connection in plot_pipeline.connection_list:
         src = plot_pipeline.modules[connection.source.moduleId]
         dest = plot_pipeline.modules[connection.destination.moduleId]
@@ -1779,7 +1782,7 @@ def create_pipeline(controller, recipe, row, column, var_sheetname,
     # Maps a port name to the list of parameters
     # for each parameter, we have a list of connections tying it to modules of
     # the plot
-    conn_map = dict() # param: str -> [[conn_id: int]]
+    conn_map = dict()  # param: str -> [[conn_id: int]]
 
     name_to_port = {port.name: port for port in recipe.plot.ports}
     actual_parameters = {}
@@ -1797,7 +1800,7 @@ def create_pipeline(controller, recipe, row, column, var_sheetname,
                         typecast=typecast)
                 p_conns.append(conns)
                 actual_values.append(actual_param)
-            else: # parameter.type == RecipeParameterValue.CONSTANT
+            else:  # parameter.type == RecipeParameterValue.CONSTANT
                 desc = name_to_port[port_name].type
                 p_conns.append(add_constant_module(
                         generator,
@@ -1902,7 +1905,7 @@ def update_pipeline(controller, pipelineInfo, new_recipe, typecast=None):
                         typecast=typecast)
                 conn_lists.append(conns)
                 actual_values.append(actual_param)
-            else: #param.type == RecipeParameterValue.CONSTANT:
+            else:  # param.type == RecipeParameterValue.CONSTANT:
                 desc = name_to_port[port_name].type
                 conn_lists.append(add_constant_module(
                         generator,
@@ -2002,8 +2005,8 @@ def describe_dat_update(added_params, removed_params):
 # We need to use the controller's execute_workflow_list() instead of calling
 # the interpreter directly
 def executePipeline(controller, pipeline,
-        reason, locator, version,
-        **kwargs):
+                    reason, locator, version,
+                    **kwargs):
     """Execute the pipeline while showing a progress dialog.
     """
     _ = translate('executePipeline')
@@ -2015,9 +2018,11 @@ def executePipeline(controller, pipeline,
     progress.setWindowTitle(_("Pipeline Execution"))
     progress.setWindowModality(QtCore.Qt.WindowModal)
     progress.show()
+
     def moduleExecuted(objId):
-        progress.setValue(progress.value()+1)
+        progress.setValue(progress.value() + 1)
         QtCore.QCoreApplication.processEvents()
+
     if 'module_executed_hook' in kwargs:
         kwargs['module_executed_hook'].append(moduleExecuted)
     else:
@@ -2046,6 +2051,7 @@ def executePipeline(controller, pipeline,
 
 
 MISSING_PARAMS = object()
+
 
 def try_execute(controller, pipelineInfo):
     recipe = pipelineInfo.recipe

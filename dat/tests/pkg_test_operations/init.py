@@ -46,19 +46,32 @@ overload_std_4 = VariableOperation(
     return_type=Module)
 
 
-class ModA(Module): pass
+class ModA(Module):
+    pass
 
-class ClassA(object): pass
 
-class ClassB(object): pass
+class ClassA(object):
+    pass
 
-class ModB(ModA, ClassA): pass
 
-class ModC(ModB, ClassB): pass
+class ClassB(object):
+    pass
 
-class ModD(ModA): pass
 
-class ModE(Module): pass
+class ModB(ModA, ClassA):
+    pass
+
+
+class ModC(ModB, ClassB):
+    pass
+
+
+class ModD(ModA):
+    pass
+
+
+class ModE(Module):
+    pass
 
 
 overload_custom_1 = VariableOperation(

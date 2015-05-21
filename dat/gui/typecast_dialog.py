@@ -9,7 +9,7 @@ from dat.vistrails_interface import CancelExecution
 
 
 def choose_operation(typecasts, source_descriptor, expected_descriptor,
-        parent=None):
+                     parent=None):
     _ = translate('typecast_dialog')
 
     dialog = QtGui.QDialog(parent)

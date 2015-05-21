@@ -15,6 +15,7 @@ OP = 4
 
 class Symbol(Token):
     regexp = variable_format
+
     def __init__(self, text):
         self.value = text
         Token.__init__(self, text)
@@ -46,7 +47,7 @@ class String(Token):
 
 class Addition(Token):
     regexp = r'\+'
-    lbp = 20 # Precedence
+    lbp = 20  # Precedence
 
     def led(self, left, context):
         right = context.expression(self.lbp)
@@ -55,7 +56,7 @@ class Addition(Token):
 
 class Substraction(Token):
     regexp = r'-'
-    lbp = 20 # Precedence: same as addition
+    lbp = 20  # Precedence: same as addition
 
     def led(self, left, context):
         # Binary operator
@@ -73,7 +74,7 @@ class Substraction(Token):
 
 class Multiplication(Token):
     regexp = r'\*'
-    lbp = 30 # Precedence: higher than addition
+    lbp = 30  # Precedence: higher than addition
 
     def led(self, left, context):
         right = context.expression(self.lbp)
@@ -82,7 +83,7 @@ class Multiplication(Token):
 
 class Division(Token):
     regexp = r'/'
-    lbp = 30 # Precedence: same as multiplication
+    lbp = 30  # Precedence: same as multiplication
 
     def led(self, left, context):
         right = context.expression(self.lbp)
@@ -91,8 +92,8 @@ class Division(Token):
 
 class LeftParen(Token):
     regexp = r'\('
-    lbp = 100 # Left binding power: highest
-    rbp = 10 # Right binding power: lowest
+    lbp = 100  # Left binding power: highest
+    rbp = 10  # Right binding power: lowest
 
     def led(self, left, context):
         # Binary operator: corresponds to the function call contruct, as in
@@ -138,6 +139,7 @@ lexer.register_tokens(
 
 _variable_format = re.compile('^' + variable_format + '$')
 
+
 def parse_expression(expression):
     equal = expression.find('=')
     if equal == -1:
@@ -148,7 +150,7 @@ def parse_expression(expression):
         target = expression[:equal].strip()
         if not _variable_format.match(target):
             right = equal
-            if right > 0 and expression[right-1] == ' ':
+            if right > 0 and expression[right - 1] == ' ':
                 right -= 1
             if iswhitespace(expression[0:right]):
                 raise InvalidOperation("Missing target variable name",
@@ -158,13 +160,13 @@ def parse_expression(expression):
                 raise InvalidOperation("Invalid target variable name",
                                        None,
                                        (0, right))
-        expression = expression[equal+1:]
+        expression = expression[equal + 1:]
     try:
         return target, lexer.parse(expression)
     except LexerError, e:
         raise InvalidOperation("Error while parsing expression",
                                None,
-                               select=(equal+1 + e.position,
-                                       equal+1 + len(expression)))
+                               select=(equal + 1 + e.position,
+                                       equal + 1 + len(expression)))
     except Error:
         raise InvalidOperation("Error while parsing expression")

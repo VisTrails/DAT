@@ -3,7 +3,7 @@ from PyQt4 import QtCore, QtGui
 
 from dat import MIMETYPE_DAT_VARIABLE, variable_format
 from dat.global_data import GlobalManager
-from dat.gui import get_icon, translate
+from dat.gui import translate
 from dat.gui.generic import CategorizedListWidget, ConsoleWidget, \
     SingleLineTextEdit
 from dat.operations import is_operator, perform_operation, \
@@ -19,7 +19,7 @@ class MarkerHighlighterLineEdit(SingleLineTextEdit):
     def __init__(self):
         SingleLineTextEdit.__init__(self)
         self.__changing = False
-        self.setUndoRedoEnabled(False) # FIXME : _highlight breaks undo :(
+        self.setUndoRedoEnabled(False)  # FIXME : _highlight breaks undo :(
         self.connect(self, QtCore.SIGNAL('textChanged()'), self._highlight)
         self.setTabChangesFocus(True)
 
@@ -76,7 +76,8 @@ class MarkerHighlighterLineEdit(SingleLineTextEdit):
                 self.setSelection(cursor.selectionEnd())
             else:
                 self.setSelection(cursor.selectionStart())
-            return super(MarkerHighlighterLineEdit, self).focusNextPrevChild(forward)
+            return super(MarkerHighlighterLineEdit,
+                         self).focusNextPrevChild(forward)
 
     def focus_first_marker(self):
         text = str(self.toPlainText())
@@ -123,7 +124,7 @@ class OperationPanel(QtGui.QWidget):
 
         self.setAcceptDrops(True)
 
-        self._operations = dict() # VariableOperation -> OperationItem
+        self._operations = dict()  # VariableOperation -> OperationItem
 
         layout = QtGui.QVBoxLayout()
 
@@ -254,7 +255,7 @@ class OperationPanel(QtGui.QWidget):
         self._input_line.setSelection(pos[0], pos[1] - pos[0])
 
     def _show_error(self, message, category, filename, lineno,
-            file=None, line=None):
+                    file=None, line=None):
         self._console.add_error(message[0])
 
     def execute_line(self):

@@ -20,7 +20,7 @@ class GlobalManager(object):
     when they are loaded, by subscribing to VisTrails's registry notifications.
     """
     def __init__(self):
-        self._plots = dict() # (package_identifier: str, name: str) -> Plot
+        self._plots = dict()  # (package_identifier: str, name: str) -> Plot
         self._variable_loaders = set()
         self._variable_operations = set()
 
@@ -67,8 +67,8 @@ class GlobalManager(object):
         This is used when building a recipe from a string and when the overlay
         receives a drop (X-Vistrails/DATPlot).
         """
+        # Might raise KeyError
         return self._plots[(package_identifier, plotname)]
-                # Might raise KeyError
 
     def _get_plots(self):
         return self._plots.itervalues()
@@ -114,8 +114,7 @@ class GlobalManager(object):
                     warnings.warn(
                             "Package %s (%s) declares in _plots something "
                             "that is not a plot: %r" % (
-                            package_identifier, package.codepath,
-                            plot))
+                                package_identifier, package.codepath, plot))
                     continue
                 plot.package_identifier = package_identifier
 
@@ -140,8 +139,7 @@ class GlobalManager(object):
                     warnings.warn(
                             "Package %s (%s) declares in _variable_loaders "
                             "something that is not a variable loader: %r" % (
-                            package_identifier, package.codepath,
-                            loader))
+                                package_identifier, package.codepath, loader))
                     continue
                 loader.package_identifier = package_identifier
                 loader.name = name
@@ -153,7 +151,7 @@ class GlobalManager(object):
                             "Package %s (%s) declares in _operations "
                             "something that is not a variable operation: "
                             "%r" % (package_identifier, package.codepath,
-                            operation))
+                                    operation))
                     continue
 
                 # Resolve the parameter types

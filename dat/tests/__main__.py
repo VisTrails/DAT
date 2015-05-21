@@ -5,7 +5,7 @@ import unittest
 
 top_level = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
 start_dir = os.path.join(top_level, 'dat/tests')
-if not top_level in sys.path:
+if top_level not in sys.path:
     sys.path.append(top_level)
 
 

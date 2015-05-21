@@ -65,7 +65,7 @@ DataParameter[targeted="no"][compatible="no"] {
 
 class DataParameter(QtGui.QPushButton):
     def __init__(self, overlay, port_name, pos, variable, typecast=None,
-            append=False):
+                 append=False):
         QtGui.QPushButton.__init__(self)
 
         self.setSizePolicy(QtGui.QSizePolicy.Minimum,
@@ -154,9 +154,9 @@ class VariableDroppingOverlay(Overlay):
         ports_layout.setFieldGrowthPolicy(
                 QtGui.QFormLayout.AllNonFixedFieldsGrow)
 
-        self._parameters = [] # [[widget]]
-        self._constant_widgets = dict() # widget -> port
-        self._unset_constant_labels = dict() # widget -> QtGui.QLabel
+        self._parameters = []  # [[widget]]
+        self._constant_widgets = dict()  # widget -> port
+        self._unset_constant_labels = dict()  # widget -> QtGui.QLabel
         for i, port in enumerate(self._cell._plot.ports):
             widgets = []
             if isinstance(port, DataPort):
@@ -189,7 +189,7 @@ class VariableDroppingOverlay(Overlay):
                     param.setProperty('targeted', 'no')
                     widgets.append(param)
                     param_panel.layout().addWidget(param)
-            else: # isinstance(port, ConstantPort):
+            else:  # isinstance(port, ConstantPort):
                 gp = GuiParameter(port.type)
                 gp.port_spec_item = PortSpecItem(id=-1, pos=0,
                                                  module=port.type.name,
@@ -238,10 +238,12 @@ class VariableDroppingOverlay(Overlay):
                          lambda: self._cell._set_overlay(None))
             self._execute_button.setEnabled(False)
             self._cancel_button = QtGui.QPushButton(_("Cancel changes"))
+
             def cancel_pending():
                 self._cell._cancel_pending()
                 self._execute_button.setEnabled(False)
                 self._cancel_button.setEnabled(False)
+
             self.connect(self._cancel_button, QtCore.SIGNAL('clicked()'),
                          cancel_pending)
             self._cancel_button.setEnabled(False)
@@ -267,7 +269,7 @@ class VariableDroppingOverlay(Overlay):
         # mouse
 
         if not self._compatible_ports:
-            return # Nothing to target
+            return  # Nothing to target
 
         targeted, mindist, pos = None, None, None
         for i, params in enumerate(self._parameters):
