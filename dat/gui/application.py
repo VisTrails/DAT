@@ -1,5 +1,4 @@
 import logging
-import sys
 import warnings
 from PyQt4 import QtCore, QtGui
 
@@ -167,17 +166,20 @@ class Application(QtGui.QApplication, NotificationDispatcher,
 
         vistrails.gui.theme.initializeCurrentTheme()
 
-        VistrailsApplicationInterface.init(self)
+        VistrailsApplicationInterface.init(self, args=args)
         from vistrails.gui.vistrails_window import QVistrailsWindow
         self.builderWindow = QVistrailsWindow(ui_hooks=vt_hooks.hooks)
         self.builderWindow.closeEvent = lambda e: None
-        self.vistrailsStartup.set_needed_packages(['spreadsheet'])
-        self.vistrailsStartup.init()
+
+        self.startup.set_package_to_enabled('spreadsheet')
+        self.package_manager.initialize_packages()
+
         self.builderWindow.link_registry()
 
         # Create a first controller
         view = self.builderWindow.create_first_vistrail()
         controller = view.get_controller()
+        assert controller is not None
 
         # Set our own spreadsheet cell container class
         from dat.gui.cellcontainer import DATCellContainer
@@ -329,13 +331,13 @@ class Application(QtGui.QApplication, NotificationDispatcher,
         pass
 
 
-def start():
+def start(args=[]):
     """Starts the DAT.
 
     Creates an application and a window and enters Qt's main loop.
     """
     try:
-        app = Application(sys.argv)
+        app = Application(args)
     except vistrails.core.requirements.MissingRequirement, e:
         _ = translate('dat.application')
         QtGui.QMessageBox.critical(

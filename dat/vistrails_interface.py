@@ -215,6 +215,7 @@ class Variable(object):
         """
         if controller is None:
             controller = get_vistrails_application().get_controller()
+            assert controller is not None
         if controller.vistrail.has_tag_str('dat-vars'):
             root_version = controller.vistrail.get_version_number('dat-vars')
         else:

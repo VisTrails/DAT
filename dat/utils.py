@@ -84,10 +84,7 @@ class catch_warning(object):
                 warnings.showwarning = current_showwarning
 
         warnings.showwarning = showwarning
-        if log is not None:
-            return log
-        else:
-            return None
+        return log
 
     def __exit__(self, *exc_info):
         warnings.filters = self._orig_filters
