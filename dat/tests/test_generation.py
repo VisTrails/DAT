@@ -17,8 +17,9 @@ from vistrails.core import get_vistrails_application
 from vistrails.core.db.locator import XMLFileLocator
 from vistrails.core.interpreter.default import get_default_interpreter
 import vistrails.core.modules.basic_modules as basic
+from vistrails.core.modules.module_registry import MissingPackage
 from vistrails.core.modules.sub_module import OutputPort
-from vistrails.core.packagemanager import get_package_manager, PackageManager
+from vistrails.core.packagemanager import get_package_manager
 from vistrails.core.utils import DummyView
 
 
@@ -55,7 +56,7 @@ class Test_generation(unittest.TestCase):
         def disable(codepath):
             try:
                 pm.late_disable_package(codepath)
-            except PackageManager.MissingPackage:
+            except MissingPackage:
                 pass
 
         disable('pkg_test_variables')
