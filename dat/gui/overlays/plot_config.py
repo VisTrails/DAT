@@ -152,10 +152,10 @@ class DefaultPlotConfigOverlay(PlotConfigOverlay):
 
 
 class DATPortItem(PortItem):
-
-    def build_item(self, port_spec, is_connected, is_optional, is_visible):
+    def build_item(self, port_spec, is_connected, is_optional, is_visible,
+                   is_editable=False):
         PortItem.build_item(self, port_spec, is_connected,
-                            is_optional, is_visible)
+                            is_optional, is_visible, is_editable)
         self.setIcon(0, PortItem.null_icon)
         self.setIcon(1, PortItem.null_icon)
 
@@ -175,10 +175,10 @@ class DATPortsList(PortsList):
         return not connected and constant
 
     def create_port_item(self, port_spec, is_connected, is_optional,
-                         is_visible, parent=None):
+                         is_visible, is_editable, parent=None):
         """Creates the port item
         """
-        return PortItem(port_spec, is_connected, True, False, parent)
+        return PortItem(port_spec, is_connected, True, False, False, parent)
 
     # Override visible_clicked to prevent changing this
     def visible_clicked(self, item):
