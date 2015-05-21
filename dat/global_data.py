@@ -112,9 +112,9 @@ class GlobalManager(object):
             for plot in package.init_module._plots:
                 if not isinstance(plot, Plot):
                     warnings.warn(
-                            "Package %s (%s) declares in _plots something "
-                            "that is not a plot: %r" % (
-                                package_identifier, package.codepath, plot))
+                        "Package %s (%s) declares in _plots something "
+                        "that is not a plot: %r" % (
+                            package_identifier, package.codepath, plot))
                     continue
                 plot.package_identifier = package_identifier
 
@@ -137,9 +137,9 @@ class GlobalManager(object):
                                         ._variable_loaders.iteritems()):
                 if not issubclass(loader, BaseVariableLoader):
                     warnings.warn(
-                            "Package %s (%s) declares in _variable_loaders "
-                            "something that is not a variable loader: %r" % (
-                                package_identifier, package.codepath, loader))
+                        "Package %s (%s) declares in _variable_loaders "
+                        "something that is not a variable loader: %r" % (
+                            package_identifier, package.codepath, loader))
                     continue
                 loader.package_identifier = package_identifier
                 loader.name = name
@@ -148,10 +148,10 @@ class GlobalManager(object):
             for operation in package.init_module._variable_operations:
                 if not isinstance(operation, VariableOperation):
                     warnings.warn(
-                            "Package %s (%s) declares in _operations "
-                            "something that is not a variable operation: "
-                            "%r" % (package_identifier, package.codepath,
-                                    operation))
+                        "Package %s (%s) declares in _operations "
+                        "something that is not a variable operation: "
+                        "%r" % (package_identifier, package.codepath,
+                                operation))
                     continue
 
                 # Resolve the parameter types
@@ -159,15 +159,15 @@ class GlobalManager(object):
                 if operation.usable_in_command:
                     for arg in operation.parameters:
                         new_args.append(OperationArgument(
-                                arg.name,
-                                tuple(resolve_descriptor(t, package_identifier)
-                                      for t in arg.types)))
+                            arg.name,
+                            tuple(resolve_descriptor(t, package_identifier)
+                                  for t in arg.types)))
                     operation.parameters = new_args
 
                 # Resolve the return type
                 operation.return_type = resolve_descriptor(
-                        operation.return_type,
-                        package_identifier)
+                    operation.return_type,
+                    package_identifier)
 
                 operation.package_identifier = package_identifier
                 self._add_operation(operation)

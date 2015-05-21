@@ -66,13 +66,13 @@ class VariablePanel(QtGui.QWidget):
             varname = str(varname)
             self.variableSelected.emit(vistraildata.get_variable(varname))
         self.connect(
-                self._list_widget,
-                QtCore.SIGNAL('currentTextChanged(QString)'),
-                select_variable)
+            self._list_widget,
+            QtCore.SIGNAL('currentTextChanged(QString)'),
+            select_variable)
 
         self._variable_loader = LoadVariableDialog(
-                self._vistraildata.controller,
-                self)
+            self._vistraildata.controller,
+            self)
 
         app = get_vistrails_application()
         app.register_notification('dat_new_variable', self.variable_added)
@@ -103,13 +103,13 @@ class VariablePanel(QtGui.QWidget):
             return
 
         confirm = QtGui.QMessageBox.question(
-                self,
-                _("Are you sure?"),
-                str(_("You are about to delete {num} variables. "
-                      "Please confirm."))
-                .format(num=len(selected)),
-                QtGui.QMessageBox.Ok | QtGui.QMessageBox.Cancel,
-                QtGui.QMessageBox.Cancel)
+            self,
+            _("Are you sure?"),
+            str(_("You are about to delete {num} variables. "
+                  "Please confirm."))
+            .format(num=len(selected)),
+            QtGui.QMessageBox.Ok | QtGui.QMessageBox.Cancel,
+            QtGui.QMessageBox.Cancel)
         if confirm == QtGui.QMessageBox.Ok:
             for item in selected:
                 self._vistraildata.remove_variable(str(item.text()))
@@ -130,12 +130,12 @@ class VariablePanel(QtGui.QWidget):
 
         validator = VariableNameValidator(self._vistraildata)
         new_name, proceed = advanced_input_dialog(
-                self,
-                _("Rename variable", "Dialog title"),
-                _("New name:"),
-                selected.text(),
-                default=selected.text(),
-                validate=validator)
+            self,
+            _("Rename variable", "Dialog title"),
+            _("New name:"),
+            selected.text(),
+            default=selected.text(),
+            validate=validator)
 
         if proceed and new_name:
             if not validator.unique(new_name):
@@ -146,8 +146,8 @@ class VariablePanel(QtGui.QWidget):
                 return
             if not validator.format(new_name):
                 QtGui.QMessageBox.warning(
-                        self, _("Couldn't rename variable"),
-                        _("The name you entered is not valid"))
+                    self, _("Couldn't rename variable"),
+                    _("The name you entered is not valid"))
                 return
             varname = str(selected.text())
             self._vistraildata.rename_variable(varname, new_name)
@@ -157,9 +157,9 @@ class VariablePanel(QtGui.QWidget):
         if controller != self._vistraildata.controller:
             return
         pos = bisect(
-                self._list_widget.count(),
-                lambda i: str(self._list_widget.item(i).text()),
-                varname)
+            self._list_widget.count(),
+            lambda i: str(self._list_widget.item(i).text()),
+            varname)
         self._list_widget.insertItem(pos, varname)
 
     def variable_removed(self, controller, varname, renamed_to=None):

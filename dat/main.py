@@ -9,8 +9,8 @@ application_path = None
 def set_sip_api():
     import sip
     api2_classes = [
-            'QData', 'QDateTime', 'QString', 'QTextStream',
-            'QTime', 'QUrl', 'QVariant',
+        'QData', 'QDateTime', 'QString', 'QTextStream',
+        'QTime', 'QUrl', 'QVariant',
     ]
     for cl in api2_classes:
         sip.setapi(cl, 2)
@@ -23,7 +23,7 @@ def setup_vistrails():
     from main().
     """
     root_dir = os.path.abspath(
-            os.path.join(os.path.dirname(__file__), '..'))
+        os.path.join(os.path.dirname(__file__), '..'))
 
     # Attempt to import this very file
     try:

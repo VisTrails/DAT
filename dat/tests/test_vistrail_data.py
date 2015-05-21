@@ -34,61 +34,61 @@ class Test_annotations(unittest.TestCase):
         cls.vistraildata = FakeObj(get_variable=get_variable)
 
         cls.recipe = DATRecipe(
-                cls.plot,
-                {
-                    'param1': (
-                        RecipeParameterValue(
-                            variable=cls.var1),
-                        RecipeParameterValue(
-                            variable=cls.var2),
-                    ),
-                    'param2': (
-                        RecipeParameterValue(
-                            constant='test\'";b=c,r\xC3\xA9mi'),
-                    ),
-                    'param3': (
-                        RecipeParameterValue(
-                            variable=cls.var3),
-                    ),
-                })
-        cls.conn_map = {
+            cls.plot,
+            {
                 'param1': (
-                    (1, 2),
-                    (5,),
+                    RecipeParameterValue(
+                        variable=cls.var1),
+                    RecipeParameterValue(
+                        variable=cls.var2),
                 ),
                 'param2': (
-                    (4,),
+                    RecipeParameterValue(
+                        constant='test\'";b=c,r\xC3\xA9mi'),
                 ),
                 'param3': (
-                    (3,),
+                    RecipeParameterValue(
+                        variable=cls.var3),
                 ),
+            })
+        cls.conn_map = {
+            'param1': (
+                (1, 2),
+                (5,),
+            ),
+            'param2': (
+                (4,),
+            ),
+            'param3': (
+                (3,),
+            ),
         }
         cls.port_map = {
-                'param1': (
-                    (1, 'port1'), (2, 'port2'),
-                ),
-                'param2': (
-                ),
-                'param3': (
-                    (3, 'port3'),
-                ),
+            'param1': (
+                (1, 'port1'), (2, 'port2'),
+            ),
+            'param2': (
+            ),
+            'param3': (
+                (3, 'port3'),
+            ),
         }
 
     def test_build_recipe(self):
         """Tests the _build_recipe_annotation() method.
         """
         self.assertEqual(
-                VistrailData._build_recipe_annotation(
-                        self.recipe,
-                        self.conn_map),
-                'tests.dat.vistrail_data,My Plot'
-                ';param1=v='
-                'var1:1,2|'
-                'var2:5'
-                ';param2=c='
-                'test%27%22%3Bb%3Dc%2Cr%C3%A9mi:4'
-                ';param3=v='
-                'var3:3')
+            VistrailData._build_recipe_annotation(
+                self.recipe,
+                self.conn_map),
+            'tests.dat.vistrail_data,My Plot'
+            ';param1=v='
+            'var1:1,2|'
+            'var2:5'
+            ';param2=c='
+            'test%27%22%3Bb%3Dc%2Cr%C3%A9mi:4'
+            ';param3=v='
+            'var3:3')
 
     def test_read_recipe(self):
         """Tests the _read_annotation() method.
@@ -104,17 +104,17 @@ class Test_annotations(unittest.TestCase):
         GlobalManager.get_plot = get_plot
         try:
             self.assertEqual(
-                    VistrailData._read_recipe_annotation(
-                            self.vistraildata,
-                            'tests.dat.vistrail_data,My Plot'
-                            ';param1=v='
-                            'var1:1,2|'
-                            'var2:5'
-                            ';param2=c='
-                            'test%27%22%3Bb%3Dc%2Cr%C3%A9mi:4'
-                            ';param3=v='
-                            'var3:3'),
-                    (self.recipe, self.conn_map))
+                VistrailData._read_recipe_annotation(
+                    self.vistraildata,
+                    'tests.dat.vistrail_data,My Plot'
+                    ';param1=v='
+                    'var1:1,2|'
+                    'var2:5'
+                    ';param2=c='
+                    'test%27%22%3Bb%3Dc%2Cr%C3%A9mi:4'
+                    ';param3=v='
+                    'var3:3'),
+                (self.recipe, self.conn_map))
         finally:
             # Restore GlobalManager
             GlobalManager.get_plot = old_get_plot
@@ -123,9 +123,9 @@ class Test_annotations(unittest.TestCase):
         """Tests the _build_portmap_annotation() method.
         """
         self.assertEqual(
-                VistrailData._build_portmap_annotation(
-                        self.port_map),
-                'param1='
-                '1,port1:2,port2'
-                ';param3='
-                '3,port3')
+            VistrailData._build_portmap_annotation(
+                self.port_map),
+            'param1='
+            '1,port1:2,port2'
+            ';param3='
+            '3,port3')

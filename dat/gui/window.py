@@ -56,30 +56,30 @@ class MainWindow(QtGui.QMainWindow):
 
         # Spreadsheet hooks
         ss_hooks = dict(
-                window_menu_main=False,
-                window_menu_view=False,
-                window_menu_window=False,
+            window_menu_main=False,
+            window_menu_view=False,
+            window_menu_window=False,
 
-                window_quit_action=False,
-                global_kbd_shortcuts=False,
+            window_quit_action=False,
+            global_kbd_shortcuts=False,
 
-                window_create_first_sheet=False,
-                tab_create_sheet=True,
-                tab_create_sheet_action=VistrailManager.hook_create_tab,
-                tab_open_sheet=False,
-                tab_save_sheet=False,
-                tab_rename_sheet=True,
-                tab_begin_rename_action=VistrailManager.hook_rename_tab_begin,
-                tab_end_rename_action=VistrailManager.hook_rename_tab_end,
-                tab_close_sheet=True,
-                tab_close_sheet_action=VistrailManager.hook_close_tab,
-                tab_delete_cell=False,
+            window_create_first_sheet=False,
+            tab_create_sheet=True,
+            tab_create_sheet_action=VistrailManager.hook_create_tab,
+            tab_open_sheet=False,
+            tab_save_sheet=False,
+            tab_rename_sheet=True,
+            tab_begin_rename_action=VistrailManager.hook_rename_tab_begin,
+            tab_end_rename_action=VistrailManager.hook_rename_tab_end,
+            tab_close_sheet=True,
+            tab_close_sheet_action=VistrailManager.hook_close_tab,
+            tab_delete_cell=False,
         )
 
         # Embed the spreadsheet window as the central widget
         spreadsheetController.set_hooks(ss_hooks)
         self.spreadsheetWindow = spreadsheetController.findSpreadsheetWindow(
-                show=False)
+            show=False)
         self.setCentralWidget(self.spreadsheetWindow)
         self.spreadsheetWindow.setVisible(True)
 
@@ -91,9 +91,9 @@ class MainWindow(QtGui.QMainWindow):
         self._data_provenance = DataProvenancePanel()
 
         self.connect(
-                self._variables,
-                QtCore.SIGNAL('variableSelected(PyQt_PyObject)'),
-                self._data_provenance.showVariable)
+            self._variables,
+            QtCore.SIGNAL('variableSelected(PyQt_PyObject)'),
+            self._data_provenance.showVariable)
 
         def dock_panel(title, widget, pos):
             dock = QtGui.QDockWidget(title)
@@ -115,17 +115,17 @@ class MainWindow(QtGui.QMainWindow):
         self._variables_dock.raise_()
 
         get_vistrails_application().register_notification(
-                'dat_controller_changed',
-                self._controller_changed)
+            'dat_controller_changed',
+            self._controller_changed)
 
     def _controller_changed(self, controller, new=False):
         self._variables.unregister_notifications()
         self._variables = VariablePanel(VistrailManager(controller))
         self._variables_dock.setWidget(self._variables)
         self.connect(
-                self._variables,
-                QtCore.SIGNAL('variableSelected(PyQt_PyObject)'),
-                self._data_provenance.showVariable)
+            self._variables,
+            QtCore.SIGNAL('variableSelected(PyQt_PyObject)'),
+            self._data_provenance.showVariable)
 
         is_dat_controller = VistrailManager(controller) is not None
         self._operations.setEnabled(is_dat_controller)
@@ -137,8 +137,8 @@ class MainWindow(QtGui.QMainWindow):
             view = builderWindow.new_vistrail()
             if view is not None:
                 VistrailManager.set_controller(
-                        view.get_controller(),
-                        register=True)
+                    view.get_controller(),
+                    register=True)
 
     def openFile(self):
         builderWindow = get_vistrails_application().builderWindow
@@ -146,20 +146,20 @@ class MainWindow(QtGui.QMainWindow):
             view = builderWindow.open_vistrail_default()
             if view is not None:
                 VistrailManager.set_controller(
-                        view.get_controller(),
-                        register=True)
+                    view.get_controller(),
+                    register=True)
 
     def saveFile(self):
         from vistrails.core.db.locator import DBLocator, FileLocator
         bw = get_vistrails_application().builderWindow
         bw.get_current_view().save_vistrail(
-                bw.dbDefault and DBLocator or FileLocator())
+            bw.dbDefault and DBLocator or FileLocator())
 
     def saveAsFile(self):
         from vistrails.core.db.locator import DBLocator, FileLocator
         bw = get_vistrails_application().builderWindow
         bw.get_current_view().save_vistrail_as(
-                bw.dbDefault and DBLocator or FileLocator())
+            bw.dbDefault and DBLocator or FileLocator())
 
     def closeEvent(self, event):
         if not self.quitApplication():

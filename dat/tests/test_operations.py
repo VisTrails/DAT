@@ -31,44 +31,44 @@ class Test_operation_parsing(unittest.TestCase):
         """Tests the parse_expression function.
         """
         self.assertEqual(
-                parse_expression('myvar= bb\t+ aa4b*2.1'),
-                (
-                    'myvar',
-                    (OP, '+',
-                        (SYMBOL, 'bb'),
-                        (OP, '*',
-                            (SYMBOL, 'aa4b'),
-                            (NUMBER, 2.1)
-                         )
+            parse_expression('myvar= bb\t+ aa4b*2.1'),
+            (
+                'myvar',
+                (OP, '+',
+                    (SYMBOL, 'bb'),
+                    (OP, '*',
+                        (SYMBOL, 'aa4b'),
+                        (NUMBER, 2.1)
                      )
-                ))
+                 )
+            ))
 
         self.assertEqual(parse_expression('a = 3 + 3')[0], 'a')
 
         self.assertEqual(
-                parse_expression('b = 4 *cd(2+ 5, "test\\"\\\\") + (1-4)/7'),
-                (
-                    'b',
-                    (OP, '+',
-                        (OP, '*',
-                            (NUMBER, 4),
-                            (OP, 'cd',
-                                (OP, '+',
-                                    (NUMBER, 2),
-                                    (NUMBER, 5)
-                                 ),
-                                (STRING, 'test"\\'),
+            parse_expression('b = 4 *cd(2+ 5, "test\\"\\\\") + (1-4)/7'),
+            (
+                'b',
+                (OP, '+',
+                    (OP, '*',
+                        (NUMBER, 4),
+                        (OP, 'cd',
+                            (OP, '+',
+                                (NUMBER, 2),
+                                (NUMBER, 5)
                              ),
+                            (STRING, 'test"\\'),
                          ),
-                        (OP, '/',
-                            (OP, '-',
-                                (NUMBER, 1),
-                                (NUMBER, 4)
-                             ),
-                            (NUMBER, 7)
-                         )
+                     ),
+                    (OP, '/',
+                        (OP, '-',
+                            (NUMBER, 1),
+                            (NUMBER, 4)
+                         ),
+                        (NUMBER, 7)
                      )
-                ))
+                 )
+            ))
 
     def test_parser_errors(self):
         with self.assertRaises(InvalidOperation) as cm:
@@ -121,8 +121,8 @@ class Test_operations(unittest.TestCase):
         pm = get_package_manager()
 
         pm.late_enable_package(
-                'pkg_test_operations',
-                {'pkg_test_operations': 'dat.tests.'})
+            'pkg_test_operations',
+            {'pkg_test_operations': 'dat.tests.'})
 
     def tearDown(self):
         pm = get_package_manager()
@@ -132,14 +132,14 @@ class Test_operations(unittest.TestCase):
         import dat.tests.pkg_test_operations.init as pkg
 
         self.assertEqual(
-                parent_modules(pkg.ModD),
-                {pkg.ModD: 0, pkg.ModA: 1})
+            parent_modules(pkg.ModD),
+            {pkg.ModD: 0, pkg.ModA: 1})
         self.assertEqual(
-                parent_modules(pkg.ModE),
-                {pkg.ModE: 0})
+            parent_modules(pkg.ModE),
+            {pkg.ModE: 0})
         self.assertEqual(
-                parent_modules(pkg.ModC),
-                {pkg.ModC: 0, pkg.ModB: 1, pkg.ModA: 2})
+            parent_modules(pkg.ModC),
+            {pkg.ModC: 0, pkg.ModB: 1, pkg.ModA: 2})
 
     def test_operation_resolution(self):
         import dat.tests.pkg_test_operations.init as pkg
@@ -151,15 +151,15 @@ class Test_operations(unittest.TestCase):
         gd = reg.get_descriptor
 
         self.assertIs(
-                find_operation(
-                        'overload_std',
-                        [gd(String), gd(Integer)]),
-                pkg.overload_std_3)
+            find_operation(
+                'overload_std',
+                [gd(String), gd(Integer)]),
+            pkg.overload_std_3)
 
         with self.assertRaises(InvalidOperation) as cm:
             find_operation(
-                    'overload_std',
-                    [gd(String), gd(HTTPFile)])
+                'overload_std',
+                [gd(String), gd(HTTPFile)])
         self.assertIn("Found no match", cm.exception.message)
 
         with self.assertRaises(InvalidOperation) as cm:
@@ -167,18 +167,18 @@ class Test_operations(unittest.TestCase):
         self.assertIn("There is no ", cm.exception.message)
 
         self.assertIs(
-                find_operation(
-                        'overload_custom',
-                        [gd(pkg.ModC), gd(pkg.ModD)]),
-                pkg.overload_custom_2)
+            find_operation(
+                'overload_custom',
+                [gd(pkg.ModC), gd(pkg.ModD)]),
+            pkg.overload_custom_2)
 
         with self.assertRaises(InvalidOperation) as cm:
             find_operation(
-                    'overload_custom',
-                    [gd(pkg.ModE), gd(pkg.ModE)])
+                'overload_custom',
+                [gd(pkg.ModE), gd(pkg.ModE)])
 
         self.assertIs(
-                find_operation(
-                        'overload_custom',
-                        [gd(pkg.ModD), gd(pkg.ModD)]),
-                pkg.overload_custom_1)
+            find_operation(
+                'overload_custom',
+                [gd(pkg.ModD), gd(pkg.ModD)]),
+            pkg.overload_custom_1)

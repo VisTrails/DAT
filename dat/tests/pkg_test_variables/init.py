@@ -20,4 +20,4 @@ class MyVariableLoader(CustomVariableLoader):
 
 
 _variable_loaders = {
-        MyVariableLoader: "MyVariableLoader"}
+    MyVariableLoader: "MyVariableLoader"}

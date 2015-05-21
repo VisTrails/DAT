@@ -38,12 +38,12 @@ class BuildConstant(ComputeVariable):
         self.value = value
         if isinstance(self.value, basestring):
             self.type = get_module_registry().get_descriptor_by_name(
-                    'org.vistrails.vistrails.basic',
-                    'String')
+                'org.vistrails.vistrails.basic',
+                'String')
         else:  # isinstance(value, float):
             self.type = get_module_registry().get_descriptor_by_name(
-                    'org.vistrails.vistrails.basic',
-                    'Float')
+                'org.vistrails.vistrails.basic',
+                'Float')
 
     def execute(self, controller):
         generator = PipelineGenerator(controller)
@@ -51,11 +51,11 @@ class BuildConstant(ComputeVariable):
         generator.add_module(module)
         generator.update_function(module, 'value', [str(self.value)])
         return Variable(
-                type=self.type,
-                controller=controller,
-                generator=generator,
-                output=(module, 'value'),
-                provenance=data_provenance.Constant(constant=self.value))
+            type=self.type,
+            controller=controller,
+            generator=generator,
+            output=(module, 'value'),
+            provenance=data_provenance.Constant(constant=self.value))
 
 
 class ApplyOperation(ComputeVariable):
@@ -102,7 +102,7 @@ def perform_operation(expression, controller=None):
 
     # Find the actual operations & variables
     controller, root_version, output_module_id = (
-            Variable._get_variables_root(controller))
+        Variable._get_variables_root(controller))
     vistraildata = VistrailManager(controller)
     if vistraildata.get_variable(target) is not None:
         raise InvalidOperation("Target variable %r already exists" % target)
@@ -148,16 +148,16 @@ def find_operation(name, args):
 
     # Initial list of considered operations: correct name
     operations = set([
-            op
-            for op in GlobalManager.variable_operations
-            if op.name == name and op.usable_in_command])
+        op
+        for op in GlobalManager.variable_operations
+        if op.name == name and op.usable_in_command])
     operations.update(builtin_operations.get(name, []))
     if not operations:
         raise InvalidOperation("There is no operation %r" % name)
     operations = set([
-            op
-            for op in operations
-            if len(op.parameters) == len(args)])
+        op
+        for op in operations
+        if len(op.parameters) == len(args)])
     if not operations:
         raise InvalidOperation("There is no operation %r with %d arguments" % (
                                name, len(args)))
@@ -197,9 +197,9 @@ def find_operation(name, args):
                                "%d args" % (name, len(args)))
     if len(operations) > 1:
         warnings.warn(
-                "Found several operations %r matching the given %d args" % (
-                        name, len(args)),
-                category=OperationWarning)
+            "Found several operations %r matching the given %d args" % (
+                name, len(args)),
+            category=OperationWarning)
     return next(iter(operations))
 
 
@@ -213,21 +213,21 @@ def apply_operation(controller, op, args):
         # FIXME : controller is ignored here...
         assert controller == VistrailManager().controller
         result = vistrails_interface.call_operation_callback(
-                op,
-                op.callback,
-                args)
+            op,
+            op.callback,
+            args)
         if result is None:
             raise InvalidOperation("Package error: operation callback "
                                    "returned None")
     else:  # op.subworkflow is not None:
         result = vistrails_interface.apply_operation_subworkflow(
-                controller,
-                op,
-                op.subworkflow,
-                args)
+            controller,
+            op,
+            op.subworkflow,
+            args)
 
     if result.provenance is None:
         result.provenance = data_provenance.Operation(
-                operation=op,
-                arg_list=args)
+            operation=op,
+            arg_list=args)
     return result

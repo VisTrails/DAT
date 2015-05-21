@@ -52,12 +52,12 @@ class OperationWizard(QtGui.QDialog):
         varname_layout = QtGui.QHBoxLayout()
         varname_layout.addWidget(QtGui.QLabel(_("Variable name:")))
         self._varname_edit = AdvancedLineEdit(
-                DEFAULT_VARIABLE_NAME,
-                default=DEFAULT_VARIABLE_NAME,
-                validate=self._validator,
-                flags=(AdvancedLineEdit.COLOR_VALIDITY |
-                       AdvancedLineEdit.COLOR_DEFAULTVALUE |
-                       AdvancedLineEdit.FOLLOW_DEFAULT_UPDATE))
+            DEFAULT_VARIABLE_NAME,
+            default=DEFAULT_VARIABLE_NAME,
+            validate=self._validator,
+            flags=(AdvancedLineEdit.COLOR_VALIDITY |
+                   AdvancedLineEdit.COLOR_DEFAULTVALUE |
+                   AdvancedLineEdit.FOLLOW_DEFAULT_UPDATE))
         varname_layout.addWidget(self._varname_edit)
         vlayout.addStretch()
         vlayout.addLayout(varname_layout)
@@ -72,29 +72,29 @@ class OperationWizard(QtGui.QDialog):
         # Optionally, put a list of variables on the right
         if variables != self.VAR_HIDE:
             self._variable_list = DraggableListWidget(
-                    mimetype=MIMETYPE_DAT_VARIABLE)
+                mimetype=MIMETYPE_DAT_VARIABLE)
             self._variable_list.setSizePolicy(
-                    QtGui.QSizePolicy.Minimum,
-                    self._variable_list.sizePolicy().horizontalPolicy())
+                QtGui.QSizePolicy.Minimum,
+                self._variable_list.sizePolicy().horizontalPolicy())
             for varname in self._vistraildata.variables:
                 if not self.variable_filter(
                         self._vistraildata.get_variable(varname)):
                     continue
                 pos = bisect(
-                        self._variable_list.count(),
-                        lambda i: str(self._variable_list.item(i).text()),
-                        varname)
+                    self._variable_list.count(),
+                    lambda i: str(self._variable_list.item(i).text()),
+                    varname)
                 self._variable_list.insertItem(pos, varname)
             var_right_layout.addWidget(self._variable_list)
 
             if variables == self.VAR_SELECT:
                 self._variable_list.setDragEnabled(False)
                 self._variable_list.setSelectionMode(
-                        QtGui.QAbstractItemView.SingleSelection)
+                    QtGui.QAbstractItemView.SingleSelection)
                 self.connect(
-                        self._variable_list,
-                        QtCore.SIGNAL('itemSelectionChanged()'),
-                        self._selection_changed)
+                    self._variable_list,
+                    QtCore.SIGNAL('itemSelectionChanged()'),
+                    self._selection_changed)
 
         main_layout = QtGui.QVBoxLayout()
         main_layout.addLayout(var_right_layout)
@@ -107,8 +107,8 @@ class OperationWizard(QtGui.QDialog):
         main_layout.addWidget(self._error_label)
 
         buttons = QtGui.QDialogButtonBox(
-                QtGui.QDialogButtonBox.Ok | QtGui.QDialogButtonBox.Cancel,
-                QtCore.Qt.Horizontal)
+            QtGui.QDialogButtonBox.Ok | QtGui.QDialogButtonBox.Cancel,
+            QtCore.Qt.Horizontal)
         self.connect(buttons, QtCore.SIGNAL('accepted()'),
                      self._accept)
         self.connect(buttons, QtCore.SIGNAL('rejected()'),

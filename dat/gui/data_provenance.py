@@ -119,10 +119,10 @@ class ProvenanceSceneLayout(object):
                     varname = varname[:8]
                 else:
                     varname = translate(ProvenanceSceneLayout)(
-                            '(deleted)')
+                        '(deleted)')
                 warnings.warn(
-                        "A variable (version %r) referenced from provenance "
-                        "is missing!" % provenance['version'])
+                    "A variable (version %r) referenced from provenance "
+                    "is missing!" % provenance['version'])
                 item = VariableProvenanceItem(varname, provenance)
             elif varname is not None and varname[:8] == 'dat-var-':
                 self.populate(prev, row + 1)
@@ -249,9 +249,9 @@ class DataProvenancePanel(QtGui.QSplitter):
             self._scene = QtGui.QGraphicsScene()
             self._viewer = ZoomPanGraphicsView(self._scene)
             self.connect(
-                    self._viewer,
-                    QtCore.SIGNAL('itemClicked(QGraphicsItem*)'),
-                    self._item_clicked)
+                self._viewer,
+                QtCore.SIGNAL('itemClicked(QGraphicsItem*)'),
+                self._item_clicked)
 
             # Create the scene recursively, starting at the bottom
             layout = ProvenanceSceneLayout(variable._controller)

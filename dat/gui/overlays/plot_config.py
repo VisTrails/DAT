@@ -76,8 +76,8 @@ class DefaultPlotConfigOverlay(PlotConfigOverlay):
 
         # Get all of the plot modules in the pipeline
         plot_modules = get_plot_modules(
-                pipelineInfo,
-                cell._controller.current_pipeline)
+            pipelineInfo,
+            cell._controller.current_pipeline)
 
         registry = get_module_registry()
         getter = registry.get_configuration_widget
@@ -132,10 +132,10 @@ class DefaultPlotConfigOverlay(PlotConfigOverlay):
         pipeline = mngr.get_pipeline(self.cell.cellInfo)
         if pipeline.version != self.cell._controller.current_version:
             new_pipeline = PipelineInformation(
-                    self.cell._controller.current_version,
-                    pipeline.recipe,
-                    pipeline.conn_map,
-                    pipeline.port_map)
+                self.cell._controller.current_version,
+                pipeline.recipe,
+                pipeline.conn_map,
+                pipeline.port_map)
             mngr.created_pipeline(self.cell.cellInfo, new_pipeline)
             self.cell.update_pipeline(True)
         else:

@@ -20,7 +20,7 @@ class Test_gui(unittest.TestCase):
         old_translate = QtCore.QCoreApplication.translate
         try:
             QtCore.QCoreApplication.translate = cr = CallRecorder(
-                    old_translate)
+                old_translate)
 
             from dat.gui import translate
             tr = translate(Test_gui)
@@ -30,23 +30,23 @@ class Test_gui(unittest.TestCase):
 
             self.assertEqual(tr(msg), msg)
             call1 = (
-                    [
-                            'dat.tests.test_gui.Test_gui',
-                            msg,
-                            None,
-                            QtCore.QCoreApplication.UnicodeUTF8],
-                    dict())
+                [
+                    'dat.tests.test_gui.Test_gui',
+                    msg,
+                    None,
+                    QtCore.QCoreApplication.UnicodeUTF8],
+                dict())
             self.assertEqual(cr.calls, [call1])
 
             tr = translate('this test')
             self.assertEqual(tr(msg, "disambiguation"), msg)
             call2 = (
-                    [
-                            'this test',
-                            msg,
-                            "disambiguation",
-                            QtCore.QCoreApplication.UnicodeUTF8],
-                    dict())
+                [
+                    'this test',
+                    msg,
+                    "disambiguation",
+                    QtCore.QCoreApplication.UnicodeUTF8],
+                dict())
             self.assertEqual(cr.calls, [call1, call2])
         finally:
             QtCore.QCoreApplication.translate = old_translate

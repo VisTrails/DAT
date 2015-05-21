@@ -16,47 +16,47 @@ class TestRecipe(unittest.TestCase):
         plot = FakeObj(package_identifier='tests.dat', name='My Plot')
         plot2 = FakeObj(package_identifier='tests.dat', name='Not My Plot')
         rec1 = DATRecipe(
-                plot,
-                dict(
-                        param1=[],
-                        param2=[RecipeParameterValue(variable=myvar)]))
+            plot,
+            dict(
+                param1=[],
+                param2=[RecipeParameterValue(variable=myvar)]))
         rec2 = DATRecipe(
-                plot2,
-                dict(
-                        param1=[],
-                        param2=[RecipeParameterValue(variable=myvar)]))
+            plot2,
+            dict(
+                param1=[],
+                param2=[RecipeParameterValue(variable=myvar)]))
         rec3 = DATRecipe(
-                plot,
-                dict(
-                        param1=(),
-                        param2=(RecipeParameterValue(variable=myvar),)))
+            plot,
+            dict(
+                param1=(),
+                param2=(RecipeParameterValue(variable=myvar),)))
         rec4 = DATRecipe(
-                plot,
-                dict(
-                        param1=[RecipeParameterValue(variable=othervar)],
-                        param2=[RecipeParameterValue(variable=myvar)]))
+            plot,
+            dict(
+                param1=[RecipeParameterValue(variable=othervar)],
+                param2=[RecipeParameterValue(variable=myvar)]))
         rec5 = DATRecipe(
-                plot,
-                dict(
-                        param1=[],
-                        param2=[RecipeParameterValue(constant='myvar')]))
+            plot,
+            dict(
+                param1=[],
+                param2=[RecipeParameterValue(constant='myvar')]))
         rec6 = DATRecipe(
-                plot,
-                dict(
-                        param1=[],
-                        param2=[RecipeParameterValue(constant='othervar')]))
+            plot,
+            dict(
+                param1=[],
+                param2=[RecipeParameterValue(constant='othervar')]))
         rec7 = DATRecipe(
-                plot,
-                dict(
-                        param1=[],
-                        param2=[RecipeParameterValue(variable=myvar,
-                                                     typecast='op1')]))
+            plot,
+            dict(
+                param1=[],
+                param2=[RecipeParameterValue(variable=myvar,
+                                             typecast='op1')]))
         rec8 = DATRecipe(
-                plot,
-                dict(
-                        param1=[],
-                        param2=[RecipeParameterValue(variable=myvar,
-                                                     typecast='*')]))
+            plot,
+            dict(
+                param1=[],
+                param2=[RecipeParameterValue(variable=myvar,
+                                             typecast='*')]))
 
         self.assertTrue(rec1 == rec1)
         self.assertTrue(rec3 == rec3)

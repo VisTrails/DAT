@@ -132,9 +132,9 @@ class Comma(Token):
 
 lexer = Lexer()
 lexer.register_tokens(
-        Symbol, Number, String,
-        Addition, Substraction, Multiplication, Division,
-        LeftParen, RightParen, Comma)
+    Symbol, Number, String,
+    Addition, Substraction, Multiplication, Division,
+    LeftParen, RightParen, Comma)
 
 
 _variable_format = re.compile('^' + variable_format + '$')

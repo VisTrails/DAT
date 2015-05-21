@@ -53,11 +53,11 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
         # Notifications
         app = get_vistrails_application()
         app.register_notification(
-                'dat_new_variable', self._variable_added)
+            'dat_new_variable', self._variable_added)
         app.register_notification(
-                'dat_removed_variable', self._variable_removed)
+            'dat_removed_variable', self._variable_removed)
         app.register_notification(
-                'dragging_to_overlays', self._set_dragging)
+            'dragging_to_overlays', self._set_dragging)
         self._controller = app.get_controller()
 
         # Overlay
@@ -65,12 +65,12 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
         self._overlay_scrollarea = QtGui.QScrollArea(self)
         self._overlay_scrollarea.setObjectName('overlay_scrollarea')
         self._overlay_scrollarea.setStyleSheet(
-                'QScrollArea#overlay_scrollarea {'
-                '    background-color: transparent;'
-                '}'
-                'Overlay {'
-                '    background-color: transparent;'
-                '}')
+            'QScrollArea#overlay_scrollarea {'
+            '    background-color: transparent;'
+            '}'
+            'Overlay {'
+            '    background-color: transparent;'
+            '}')
         self._overlay_scrollarea.setWidgetResizable(True)
 
         # Toolbar
@@ -79,17 +79,17 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
         self._container_toolbar.hide()
 
         self._show_action = QtGui.QAction(
-                get_icon('show_overlay.png'),
-                "Show overlay",
-                self)
+            get_icon('show_overlay.png'),
+            "Show overlay",
+            self)
         self.connect(self._show_action, QtCore.SIGNAL('triggered()'),
                      self.show_overlay)
         self._show_action_enabled = False
 
         self._hide_action = QtGui.QAction(
-                get_icon('hide_overlay.png'),
-                "Hide overlay",
-                self)
+            get_icon('hide_overlay.png'),
+            "Hide overlay",
+            self)
         self.connect(self._hide_action, QtCore.SIGNAL('triggered()'),
                      lambda: self._set_overlay(None))
         self._hide_action_enabled = False
@@ -138,11 +138,11 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
         if cellInfo is None:  # We were removed from the spreadsheet
             app = get_vistrails_application()
             app.unregister_notification(
-                    'dat_new_variable', self._variable_added)
+                'dat_new_variable', self._variable_added)
             app.unregister_notification(
-                    'dat_removed_variable', self._variable_removed)
+                'dat_removed_variable', self._variable_removed)
             app.unregister_notification(
-                    'dragging_to_overlays', self._set_dragging)
+                'dragging_to_overlays', self._set_dragging)
 
     def _set_dragging(self, dragging):
         """This is a hack to avoid an issue with Qt's mouse event propagation.
@@ -153,7 +153,7 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
         overlay... It would cause a segmentation fault on Mac OS.
         """
         self._overlay_scrollarea.setAttribute(
-                QtCore.Qt.WA_TransparentForMouseEvents, dragging)
+            QtCore.Qt.WA_TransparentForMouseEvents, dragging)
 
     def _variable_added(self, controller, varname, renamed_from=None):
         if (renamed_from is None or
@@ -241,11 +241,11 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
         if self.widget() is not None:
             # Get pipeline info from VisTrails
             pipelineInfo = self.cellInfo.tab.getCellPipelineInfo(
-                    self.cellInfo.row, self.cellInfo.column)
+                self.cellInfo.row, self.cellInfo.column)
             version = pipelineInfo[0]['version']
             return vistraildata.get_pipeline(
-                    version,
-                    infer_for_cell=self.cellInfo)
+                version,
+                infer_for_cell=self.cellInfo)
         else:
             # Get pipeline info from DAT: we might be building something here
             return vistraildata.get_pipeline(self.cellInfo)
@@ -349,11 +349,11 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
     def do_layout(self):
         if self.containedWidget is not None:
             self.containedWidget.setGeometry(
-                    4, 4,
-                    self.width() - 8, self.height() - 8)
+                4, 4,
+                self.width() - 8, self.height() - 8)
         self._overlay_scrollarea.setGeometry(
-                    4, 4,
-                    self.width() - 8, self.height() - 8)
+            4, 4,
+            self.width() - 8, self.height() - 8)
         self._error_icon.setGeometry(self.width() - 24, 0, 24, 24)
 
     def dragEnterEvent(self, event):
@@ -492,7 +492,7 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
             elif constant.constant == value:
                 return False
         self._parameters[port_name] = [
-                RecipeParameterValue(constant=value)]
+            RecipeParameterValue(constant=value)]
         if self.widget() is not None:
             self._execute_pending = True
         else:
@@ -520,12 +520,12 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
             # No pipeline: build one
             if pipeline is None:
                 pipeline = vistrails_interface.create_pipeline(
-                        self._controller,
-                        recipe,
-                        self.cellInfo.row,
-                        self.cellInfo.column,
-                        vistraildata.sheetname_var(self.cellInfo.tab),
-                        typecast=self._typecast)
+                    self._controller,
+                    recipe,
+                    self.cellInfo.row,
+                    self.cellInfo.column,
+                    vistraildata.sheetname_var(self.cellInfo.tab),
+                    typecast=self._typecast)
                 recipe = pipeline.recipe
                 new_params_it = recipe.parameters.iteritems()
                 self._parameters = {param: list(values)
@@ -536,21 +536,21 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
             elif pipeline.recipe != recipe:
                 try:
                     pipeline = vistrails_interface.update_pipeline(
-                            self._controller,
-                            pipeline,
-                            recipe,
-                            typecast=self._typecast)
+                        self._controller,
+                        pipeline,
+                        recipe,
+                        typecast=self._typecast)
                 except vistrails_interface.UpdateError, e:
                     warnings.warn("Could not update pipeline, creating new "
                                   "one:\n"
                                   "%s" % e)
                     pipeline = vistrails_interface.create_pipeline(
-                            self._controller,
-                            recipe,
-                            self.cellInfo.row,
-                            self.cellInfo.column,
-                            vistraildata.sheetname_var(self.cellInfo.tab),
-                            typecast=self._typecast)
+                        self._controller,
+                        recipe,
+                        self.cellInfo.row,
+                        self.cellInfo.column,
+                        vistraildata.sheetname_var(self.cellInfo.tab),
+                        typecast=self._typecast)
                 recipe = pipeline.recipe
                 new_params_it = recipe.parameters.iteritems()
                 self._parameters = {param: list(values)
@@ -566,8 +566,8 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
 
             # Execute the new pipeline if possible
             error = vistrails_interface.try_execute(
-                    self._controller,
-                    pipeline)
+                self._controller,
+                pipeline)
             if (error is vistrails_interface.MISSING_PARAMS and
                     self.widget() is not None):
                 # Clear the cell
@@ -583,10 +583,10 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
     def _typecast(self, controller, variable,
                   source_descriptor, expected_descriptor):
         typecasts = get_typecast_operations(
-                source_descriptor,
-                expected_descriptor)
+            source_descriptor,
+            expected_descriptor)
         choice = typecast_dialog.choose_operation(
-                typecasts,
-                source_descriptor, expected_descriptor,
-                self)
+            typecasts,
+            source_descriptor, expected_descriptor,
+            self)
         return apply_operation(controller, choice, [variable]), choice

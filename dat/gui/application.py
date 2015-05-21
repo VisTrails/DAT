@@ -54,9 +54,9 @@ class NotificationDispatcher(object):
             notifications[notification_id] = set()
         else:
             warnings.warn(
-                    "Notification created twice: %s" % notification_id,
-                    NotificationDispatcher.UsageWarning,
-                    stacklevel=2)
+                "Notification created twice: %s" % notification_id,
+                NotificationDispatcher.UsageWarning,
+                stacklevel=2)
 
     def register_notification(self, notification_id, method,
                               window=None, view=None):
@@ -68,10 +68,10 @@ class NotificationDispatcher(object):
             notifications[notification_id].add(method)
         except KeyError:
             warnings.warn(
-                    "Registered to non-existing notification %s" % (
-                            notification_id),
-                    NotificationDispatcher.UsageWarning,
-                    stacklevel=2)
+                "Registered to non-existing notification %s" % (
+                    notification_id),
+                NotificationDispatcher.UsageWarning,
+                stacklevel=2)
             notifications[notification_id] = set([method])
 
     def unregister_notification(self, notification_id, method,
@@ -84,19 +84,19 @@ class NotificationDispatcher(object):
             methods = notifications[notification_id]
         except KeyError:
             warnings.warn(
-                    "Unregistered from non-existing notification %s" % (
-                            notification_id),
-                    NotificationDispatcher.UsageWarning,
-                    stacklevel=2)
+                "Unregistered from non-existing notification %s" % (
+                    notification_id),
+                NotificationDispatcher.UsageWarning,
+                stacklevel=2)
         else:
             try:
                 methods.remove(method)
             except KeyError:
                 warnings.warn(
-                        "Unregistered non-registered method from "
-                        "notification %s" % notification_id,
-                        NotificationDispatcher.UsageWarning,
-                        stacklevel=2)
+                    "Unregistered non-registered method from notification %s" %
+                    notification_id,
+                    NotificationDispatcher.UsageWarning,
+                    stacklevel=2)
 
     @staticmethod
     def _broadcast_notification(notification_id, methods, args, kwargs):
@@ -190,8 +190,8 @@ class Application(QtGui.QApplication, NotificationDispatcher,
         # notification
         VistrailManager.init()
         VistrailManager.set_controller(
-                controller,
-                register=True)
+            controller,
+            register=True)
 
         # Create the main window
         mw = MainWindow()
@@ -203,22 +203,22 @@ class Application(QtGui.QApplication, NotificationDispatcher,
         # Create a spreadsheet and execute the visualizations when a new
         # controller is selected
         self.register_notification(
-                'dat_controller_changed',
-                self._controller_changed)
+            'dat_controller_changed',
+            self._controller_changed)
 
         # Change the current controller when another sheet is selected
         self.register_notification(
-                'spreadsheet_sheet_changed',
-                self._sheet_changed)
+            'spreadsheet_sheet_changed',
+            self._sheet_changed)
 
     def _controller_changed(self, controller, new=False):
         if controller is not None:
             QtCore.QMetaObject.invokeMethod(
-                    self,
-                    '_controller_changed_deferred',
-                    QtCore.Qt.QueuedConnection,
-                    QtCore.Q_ARG(object, controller),
-                    QtCore.Q_ARG(bool, new))
+                self,
+                '_controller_changed_deferred',
+                QtCore.Qt.QueuedConnection,
+                QtCore.Q_ARG(object, controller),
+                QtCore.Q_ARG(bool, new))
         # We defer this signal because we need all VisTrails components to
         # notice that the controller changed before we execute something, else
         # components might receive the 'set_pipeline' signal before
@@ -231,16 +231,16 @@ class Application(QtGui.QApplication, NotificationDispatcher,
             # Non-DAT controller here: create a sheet for it, so that we don't
             # interfere with DAT
             sh_window = spreadsheetController.findSpreadsheetWindow(
-                    create=False)
+                create=False)
             if sh_window is not None:
                 tab_controller = sh_window.tabController
                 if self._vt_sheet is None:
                     self._vt_sheet = StandardWidgetSheetTab(
-                            tab_controller,
-                            2, 3)
+                        tab_controller,
+                        2, 3)
                     tab_controller.addTabWidget(
-                            self._vt_sheet,
-                            "VisTrails Sheet")
+                        self._vt_sheet,
+                        "VisTrails Sheet")
                     VistrailManager.set_sheet_immortal(self._vt_sheet, True)
 
                 tab_controller.setCurrentWidget(self._vt_sheet)
@@ -254,23 +254,23 @@ class Application(QtGui.QApplication, NotificationDispatcher,
             for cellInfo, pipeline in vistraildata.all_cells:
                 tab = cellInfo.tab
                 error = vistrails_interface.try_execute(
-                        controller,
-                        pipeline)
+                    controller,
+                    pipeline)
                 if error is not None:
                     from dat.gui.cellcontainer import DATCellContainer
                     tab.setCellWidget(
-                            cellInfo.row,
-                            cellInfo.column,
-                            DATCellContainer(
-                                    cellInfo=CellInformation(
-                                            tab,
-                                            cellInfo.row,
-                                            cellInfo.column),
-                                    error=error))
+                        cellInfo.row,
+                        cellInfo.column,
+                        DATCellContainer(
+                            cellInfo=CellInformation(
+                                tab,
+                                cellInfo.row,
+                                cellInfo.column),
+                            error=error))
 
         # Make one of these tabs current
         sh_window = spreadsheetController.findSpreadsheetWindow(
-                create=False)
+            create=False)
         if sh_window is not None:
             tab = sh_window.tabController.currentWidget()
             if tab not in spreadsheet_tabs.values():
@@ -337,11 +337,11 @@ def start():
         app = Application(sys.argv)
     except vistrails.core.requirements.MissingRequirement, e:
         QtGui.QMessageBox.critical(
-                None,
-                _("Missing requirement"),
-                str(_("VisTrails reports that a requirement is missing.\n"
-                      "This application can't continue without {required}."))
-                .format(required=e.requirement))
+            None,
+            _("Missing requirement"),
+            str(_("VisTrails reports that a requirement is missing.\n"
+                  "This application can't continue without {required}."))
+            .format(required=e.requirement))
         return 1
 
     return app.exec_()

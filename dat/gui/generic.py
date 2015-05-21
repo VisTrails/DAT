@@ -69,10 +69,10 @@ class CategorizedListWidget(QtGui.QTreeWidget):
         except KeyError:
             top_level = QtGui.QTreeWidgetItem([category])
             pos = bisect(
-                    self.topLevelItemCount(),
-                    lambda i: str(self.topLevelItem(i).text(0)),
-                    category,
-                    comp=lambda x, y: x.lower() < y.lower())
+                self.topLevelItemCount(),
+                lambda i: str(self.topLevelItem(i).text(0)),
+                category,
+                comp=lambda x, y: x.lower() < y.lower())
             self.insertTopLevelItem(pos, top_level)
             self._categories[category] = top_level, {item: w}
         else:

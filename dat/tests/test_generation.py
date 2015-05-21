@@ -36,7 +36,7 @@ class Test_generation(unittest.TestCase):
             raise unittest.SkipTest("No Application is available")
 
         cls._application.register_notification(
-                'dat_new_loader', cls._new_loader)
+            'dat_new_loader', cls._new_loader)
 
         pm = get_package_manager()
 
@@ -87,16 +87,16 @@ class Test_generation(unittest.TestCase):
         # Float(17.63), Float(24.37), PythonCalc('+'), OutputPort
 
         output_port = vistrails_interface.find_modules_by_type(
-                pipeline,
-                [OutputPort])
+            pipeline,
+            [OutputPort])
         self.assertEqual(len(output_port), 1)
         output_port, = output_port
         self.assertEqual(
-                vistrails_interface.get_function(output_port, 'name'),
-                'value')
+            vistrails_interface.get_function(output_port, 'name'),
+            'value')
         self.assertEqual(
-                vistrails_interface.get_function(output_port, 'spec'),
-                'org.vistrails.vistrails.basic:Float')
+            vistrails_interface.get_function(output_port, 'spec'),
+            'org.vistrails.vistrails.basic:Float')
 
     def test_pipeline_creation(self):
         import dat.tests.pkg_test_plots.init as pkg_test_plots
@@ -112,35 +112,35 @@ class Test_generation(unittest.TestCase):
         vistraildata.new_variable('var2', loader.load())
 
         cellInfo = FakeObj(
-                row=0,
-                column=0,
-                tab=FakeObj(
-                        tabWidget=FakeObj(
-                                tabText=lambda w: 'Sheet 1')))
+            row=0,
+            column=0,
+            tab=FakeObj(
+                tabWidget=FakeObj(
+                    tabText=lambda w: 'Sheet 1')))
 
         recipe = DATRecipe(
-                pkg_test_plots.concat_plot,
-                {
-                    'param1': (
-                        RecipeParameterValue(
-                                variable=vistraildata.get_variable('var1')),
-                    ),
-                    'param2': (
-                        RecipeParameterValue(
-                                variable=vistraildata.get_variable('var2')),
-                    ),
-                    'param3': (
-                        RecipeParameterValue(
-                                constant="!"),
-                    ),
-                })
+            pkg_test_plots.concat_plot,
+            {
+                'param1': (
+                    RecipeParameterValue(
+                        variable=vistraildata.get_variable('var1')),
+                ),
+                'param2': (
+                    RecipeParameterValue(
+                        variable=vistraildata.get_variable('var2')),
+                ),
+                'param3': (
+                    RecipeParameterValue(
+                        constant="!"),
+                ),
+            })
 
         pipelineInfo = vistrails_interface.create_pipeline(
-                controller,
-                recipe,
-                cellInfo.row,
-                cellInfo.column,
-                None)  # This plot has no cell module so this is fine
+            controller,
+            recipe,
+            cellInfo.row,
+            cellInfo.column,
+            None)  # This plot has no cell module so this is fine
 
         controller.change_selected_version(pipelineInfo.version)
 
@@ -149,10 +149,10 @@ class Test_generation(unittest.TestCase):
 
         interpreter = get_default_interpreter()
         interpreter.execute(
-                controller.current_pipeline,
-                view=DummyView(),
-                locator=controller.locator,
-                current_version=pipelineInfo.version)
+            controller.current_pipeline,
+            view=DummyView(),
+            locator=controller.locator,
+            current_version=pipelineInfo.version)
 
         call = (['Hello, world!'], dict())
         self.assertEqual(result.calls, [call])
@@ -209,19 +209,19 @@ class Test_variable_creation(unittest.TestCase):
 
     def test_get_var_type(self):
         locator = XMLFileLocator(os.path.join(
-                os.path.dirname(__file__),
-                'variables.xml'))
+            os.path.dirname(__file__),
+            'variables.xml'))
         vistrail = locator.load()
 
         desc_var1 = Variable.read_type(get_upgraded_pipeline(
-                vistrail,
-                'dat-var-var1'))
+            vistrail,
+            'dat-var-var1'))
         self.assertEqual(
-                desc_var1.module,
-                basic.Float)
+            desc_var1.module,
+            basic.Float)
         desc_var2 = Variable.read_type(get_upgraded_pipeline(
-                vistrail,
-                'dat-var-var2'))
+            vistrail,
+            'dat-var-var2'))
         self.assertEqual(
-                desc_var2.module,
-                basic.String)
+            desc_var2.module,
+            basic.String)

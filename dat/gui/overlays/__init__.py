@@ -31,9 +31,9 @@ class Overlay(QtGui.QWidget):
         else:
             color = Overlay.background
         qp.fillRect(
-                0, 0,
-                self.width(), self.height(),
-                color)
+            0, 0,
+            self.width(), self.height(),
+            color)
 
     def paintEvent(self, event):
         qp = QtGui.QPainter(self)

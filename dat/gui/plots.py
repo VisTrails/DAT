@@ -12,9 +12,8 @@ class PlotList(DraggableCategorizedListWidget):
     def buildData(self, item):
         data = QtCore.QMimeData()
         data.setData(
-                self._mime_type,
-                '%s,%s' % (
-                        item.plot.package_identifier, item.plot.name))
+            self._mime_type,
+            '%s,%s' % (item.plot.package_identifier, item.plot.name))
         return data
 
 
@@ -41,8 +40,8 @@ class PlotPanel(QtGui.QWidget):
         layout = QtGui.QVBoxLayout()
 
         self._list_widget = PlotList(
-                self,
-                MIMETYPE_DAT_PLOT)
+            self,
+            MIMETYPE_DAT_PLOT)
         layout.addWidget(self._list_widget)
 
         self.setLayout(layout)

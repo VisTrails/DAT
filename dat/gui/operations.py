@@ -38,8 +38,8 @@ class MarkerHighlighterLineEdit(SingleLineTextEdit):
             text = text.replace('>', '&gt;')
             text = text.replace(' ', '&nbsp;')
             text = MarkerHighlighterLineEdit._html_marker_pattern.sub(
-                    '<span style="background-color: #99F;">&lt;\\1&gt;</span>',
-                    text)
+                '<span style="background-color: #99F;">&lt;\\1&gt;</span>',
+                text)
             self.setHtml(text)
             cursor = self.textCursor()
             cursor.setPosition(pos)
@@ -52,7 +52,7 @@ class MarkerHighlighterLineEdit(SingleLineTextEdit):
         text = str(self.toPlainText())
         if forward:
             marker = MarkerHighlighterLineEdit._marker_pattern.search(
-                    text, cursor.selectionEnd())
+                text, cursor.selectionEnd())
             if marker is not None:
                 marker = marker.span()
         else:
@@ -61,7 +61,7 @@ class MarkerHighlighterLineEdit(SingleLineTextEdit):
             pos = 0
             while True:
                 m = MarkerHighlighterLineEdit._marker_pattern.search(
-                        text, pos, cursor.selectionStart())
+                    text, pos, cursor.selectionStart())
                 if m is not None:
                     marker = m.span()
                     pos = marker[1]
@@ -94,9 +94,9 @@ class MarkerHighlighterLineEdit(SingleLineTextEdit):
     def replace_first_marker(self, value):
         text = str(self.toPlainText())
         text = MarkerHighlighterLineEdit._marker_pattern.sub(
-                value,
-                text,
-                1)
+            value,
+            text,
+            1)
         self.setText(text)
 
 
@@ -144,9 +144,9 @@ class OperationPanel(QtGui.QWidget):
         self._list.setSelectionMode(QtGui.QAbstractItemView.NoSelection)
         self._list.header().setResizeMode(QtGui.QHeaderView.Stretch)
         self.connect(
-                self._list,
-                QtCore.SIGNAL('itemClicked(QTreeWidgetItem*, int)'),
-                self.operation_clicked)
+            self._list,
+            QtCore.SIGNAL('itemClicked(QTreeWidgetItem*, int)'),
+            self.operation_clicked)
         layout.addWidget(self._list)
 
         self.setLayout(layout)
@@ -219,9 +219,9 @@ class OperationPanel(QtGui.QWidget):
         text = operation.name
         if is_operator(text):
             append = '\0<%s>\0 %s <%s>' % (
-                    operation.parameters[0].name,
-                    text,
-                    operation.parameters[1].name)
+                operation.parameters[0].name,
+                text,
+                operation.parameters[1].name)
         else:
             append = text + '('
             if operation.parameters:
@@ -239,8 +239,7 @@ class OperationPanel(QtGui.QWidget):
         marker = MarkerHighlighterLineEdit._marker_pattern.match(selection)
         if marker is not None and marker.end() == len(selection):
             # Replace it with the new operation
-            text = (
-                    text[:self._input_line.textCursor().selectionStart()] +
+            text = (text[:self._input_line.textCursor().selectionStart()] +
                     append +
                     text[self._input_line.textCursor().selectionEnd()])
         # Else

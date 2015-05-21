@@ -29,38 +29,38 @@ class Test_vistrails_interface(unittest.TestCase):
         desc_HTTPFile = reg.get_descriptor(HTTPFile)
 
         self.assertRaises(
-                TypeError,
-                lambda: resolve_descriptor(42))
+            TypeError,
+            lambda: resolve_descriptor(42))
         self.assertEqual(
-                resolve_descriptor(desc_HTTPFile),
-                desc_HTTPFile)
+            resolve_descriptor(desc_HTTPFile),
+            desc_HTTPFile)
         self.assertEqual(
-                resolve_descriptor('org.vistrails.vistrails.http:HTTPFile'),
-                desc_HTTPFile)
+            resolve_descriptor('org.vistrails.vistrails.http:HTTPFile'),
+            desc_HTTPFile)
         self.assertEqual(
-                resolve_descriptor('org.vistrails.vistrails.http:HTTPFile',
-                                   'org.vistrails.vistrails.basic'),
-                desc_HTTPFile)
+            resolve_descriptor('org.vistrails.vistrails.http:HTTPFile',
+                               'org.vistrails.vistrails.basic'),
+            desc_HTTPFile)
         self.assertEqual(
-                resolve_descriptor('org.vistrails.vistrails.http:HTTPFile',
-                                   'org.vistrails.vistrails.http'),
-                desc_HTTPFile)
+            resolve_descriptor('org.vistrails.vistrails.http:HTTPFile',
+                               'org.vistrails.vistrails.http'),
+            desc_HTTPFile)
         self.assertEqual(
-                resolve_descriptor('HTTPFile',
-                                   'org.vistrails.vistrails.http'),
-                desc_HTTPFile)
+            resolve_descriptor('HTTPFile',
+                               'org.vistrails.vistrails.http'),
+            desc_HTTPFile)
         self.assertEqual(
-                resolve_descriptor(HTTPFile),
-                desc_HTTPFile)
+            resolve_descriptor(HTTPFile),
+            desc_HTTPFile)
         self.assertEqual(
-                resolve_descriptor(String),
-                desc_String)
+            resolve_descriptor(String),
+            desc_String)
         self.assertEqual(
-                resolve_descriptor('String', 'org.vistrails.vistrails.basic'),
-                desc_String)
+            resolve_descriptor('String', 'org.vistrails.vistrails.basic'),
+            desc_String)
         self.assertEqual(
-                resolve_descriptor('String'),
-                desc_String)
+            resolve_descriptor('String'),
+            desc_String)
 
     def make_pipeline(self):
         """Creates an example pipeline that is used to conduct tests.
@@ -80,10 +80,10 @@ class Test_vistrails_interface(unittest.TestCase):
 
         def connect(outmod, inmod):
             controller.add_connection(
-                    modules[outmod].id,
-                    'value',
-                    modules[inmod].id,
-                    'value')
+                modules[outmod].id,
+                'value',
+                modules[inmod].id,
+                'value')
 
         for (outmod, inmod) in [(0, 3),
                                 (1, 4), (1, 5), (5, 6),
@@ -111,7 +111,7 @@ class Test_vistrails_interface(unittest.TestCase):
             action = create_action(operations)
             controller.add_new_action(action)
             controller.change_selected_version(
-                    controller.perform_action(action))
+                controller.perform_action(action))
 
             survivors = [rmodules[m.id]
                          for m in controller.current_pipeline.module_list]
@@ -128,7 +128,7 @@ class Test_vistrails_interface(unittest.TestCase):
         controller, modules = self.make_pipeline()
         test_delete([1, 7], [0, 2, 3, 6, 10, 11], controller, modules,
                     connection_filter=lambda c: c.source.moduleId not in (
-                            modules[5].id, modules[9].id))
+                        modules[5].id, modules[9].id))
         test_delete([3, 6, 7], [2, 4],
                     depth=2)
 
@@ -152,22 +152,22 @@ class Test_vistrails_interface(unittest.TestCase):
         from vistrails.core.modules.basic_modules import Boolean, Float, String
 
         self.assertEqual(
-                set(m.id for m in find_modules_by_type(
-                         controller.current_pipeline,
-                         [String])),
-                set([mod1.id, mod3.id]))
+            set(m.id for m in find_modules_by_type(
+                controller.current_pipeline,
+                [String])),
+            set([mod1.id, mod3.id]))
 
         self.assertEqual(
-                [m.id for m in find_modules_by_type(
-                         controller.current_pipeline,
-                         [Float])],
-                [mod2.id, mod4.id])
+            [m.id for m in find_modules_by_type(
+                controller.current_pipeline,
+                [Float])],
+            [mod2.id, mod4.id])
 
         self.assertEqual(
-                find_modules_by_type(
-                        controller.current_pipeline,
-                        [Boolean]),
-                [])
+            find_modules_by_type(
+                controller.current_pipeline,
+                [Boolean]),
+            [])
 
     def test_describe_update(self):
         """Tests the describe_dat_update() function.
@@ -175,57 +175,57 @@ class Test_vistrails_interface(unittest.TestCase):
         from dat.vistrails_interface import describe_dat_update
 
         self.assertEqual(
-                describe_dat_update(
-                        ['port'],
-                        []),
-                "Added DAT parameter to port")
+            describe_dat_update(
+                ['port'],
+                []),
+            "Added DAT parameter to port")
         self.assertEqual(
-                describe_dat_update(
-                        ['port', 'port'],
-                        []),
-                "Added DAT parameters to port")
+            describe_dat_update(
+                ['port', 'port'],
+                []),
+            "Added DAT parameters to port")
         self.assertEqual(
-                describe_dat_update(
-                        ['port', 'port'],
-                        ['port']),
-                "Changed DAT parameters on port")
+            describe_dat_update(
+                ['port', 'port'],
+                ['port']),
+            "Changed DAT parameters on port")
         self.assertEqual(
-                describe_dat_update(
-                        ['port'],
-                        ['port']),
-                "Changed DAT parameter on port")
+            describe_dat_update(
+                ['port'],
+                ['port']),
+            "Changed DAT parameter on port")
         self.assertEqual(
-                describe_dat_update(
-                        [],
-                        ['port']),
-                "Removed DAT parameter from port")
+            describe_dat_update(
+                [],
+                ['port']),
+            "Removed DAT parameter from port")
         self.assertEqual(
-                describe_dat_update(
-                        [],
-                        ['port', 'port']),
-                "Removed DAT parameters from port")
+            describe_dat_update(
+                [],
+                ['port', 'port']),
+            "Removed DAT parameters from port")
         self.assertEqual(
-                describe_dat_update(
-                        ['a', 'b'],
-                        []),
-                "Added DAT parameters")
+            describe_dat_update(
+                ['a', 'b'],
+                []),
+            "Added DAT parameters")
         self.assertEqual(
-                describe_dat_update(
-                        [],
-                        ['a', 'b']),
-                "Removed DAT parameters")
+            describe_dat_update(
+                [],
+                ['a', 'b']),
+            "Removed DAT parameters")
         self.assertEqual(
-                describe_dat_update(
-                        ['port', 'port'],
-                        ['port']),
-                "Changed DAT parameters on port")
+            describe_dat_update(
+                ['port', 'port'],
+                ['port']),
+            "Changed DAT parameters on port")
         self.assertEqual(
-                describe_dat_update(
-                        ['a', 'b'],
-                        ['a']),
-                "Changed DAT parameters")
+            describe_dat_update(
+                ['a', 'b'],
+                ['a']),
+            "Changed DAT parameters")
         self.assertEqual(
-                describe_dat_update(
-                        ['a'],
-                        ['b']),
-                "Changed DAT parameters")
+            describe_dat_update(
+                ['a'],
+                ['b']),
+            "Changed DAT parameters")

@@ -120,8 +120,8 @@ class FileLoaderPanel(QtGui.QWidget):
 
         # Pick a file
         picked = QtGui.QFileDialog.getOpenFileName(
-                self,
-                _("Choose a file"))
+            self,
+            _("Choose a file"))
         if picked is None:
             return
 
@@ -146,14 +146,14 @@ class FileLoaderPanel(QtGui.QWidget):
                 if loader.can_load(filename):
                     widget = loader(filename)
                     widget.default_variable_name_observer = (
-                            self.default_variable_name_changed)
+                        self.default_variable_name_changed)
                     # The order of these lines is important, because adding an
                     # item to the list emits a signal
                     self._loader_stack.addWidget(widget)
                     self._loader_list.addItem(loader.name, widget)
             if self._loader_stack.count() == 0:
                 self._loader_stack.addWidget(
-                        QtGui.QLabel(_("No loader accepts this file")))
+                    QtGui.QLabel(_("No loader accepts this file")))
         else:
             self._loader_stack.addWidget(QtGui.QLabel(_("No file selected")))
 
@@ -173,8 +173,8 @@ class FileLoaderPanel(QtGui.QWidget):
         self._loader_stack.setCurrentIndex(index)
 
         self.default_variable_name_observer(
-                self,
-                self._loader_stack.widget(index).get_default_variable_name())
+            self,
+            self._loader_stack.widget(index).get_default_variable_name())
 
     def add_file_loader(self, loader):
         """Adds a FileVariableLoader to this panel.
@@ -227,8 +227,8 @@ class FileLoaderPanel(QtGui.QWidget):
         variable = loader.load()
         if variable is not None and variable.provenance is None:
             variable.provenance = data_provenance.Loader(
-                    loader=loader,
-                    file=str(self._file_edit.text()))
+                loader=loader,
+                file=str(self._file_edit.text()))
         return variable
 
 
@@ -259,12 +259,12 @@ class LoadVariableDialog(QtGui.QDialog):
         varname_layout = QtGui.QHBoxLayout()
         varname_layout.addWidget(QtGui.QLabel(_("Variable name:")))
         self._varname_edit = AdvancedLineEdit(
-                DEFAULT_VARIABLE_NAME,
-                default=DEFAULT_VARIABLE_NAME,
-                validate=self._validator,
-                flags=(AdvancedLineEdit.COLOR_VALIDITY |
-                       AdvancedLineEdit.COLOR_DEFAULTVALUE |
-                       AdvancedLineEdit.FOLLOW_DEFAULT_UPDATE))
+            DEFAULT_VARIABLE_NAME,
+            default=DEFAULT_VARIABLE_NAME,
+            validate=self._validator,
+            flags=(AdvancedLineEdit.COLOR_VALIDITY |
+                   AdvancedLineEdit.COLOR_DEFAULTVALUE |
+                   AdvancedLineEdit.FOLLOW_DEFAULT_UPDATE))
         varname_layout.addWidget(self._varname_edit)
         main_layout.addLayout(varname_layout)
 
@@ -286,7 +286,7 @@ class LoadVariableDialog(QtGui.QDialog):
 
         self._file_loader = FileLoaderPanel()
         self._file_loader.default_variable_name_observer = (
-                self.default_variable_name_changed)
+            self.default_variable_name_changed)
         self._add_tab(self._file_loader, _("File"))
 
         app = get_vistrails_application()
@@ -309,7 +309,7 @@ class LoadVariableDialog(QtGui.QDialog):
         if idx >= 0:
             loader = self._tabs[idx]
             self.default_variable_name_changed(
-                    None, loader.get_default_variable_name())
+                None, loader.get_default_variable_name())
 
     def _add_tab(self, tab, name):
         widget = QtGui.QWidget()
@@ -342,7 +342,7 @@ class LoadVariableDialog(QtGui.QDialog):
         elif issubclass(loader, CustomVariableLoader):
             l = loader()
             l.default_variable_name_observer = (
-                    self.default_variable_name_changed)
+                self.default_variable_name_changed)
             self._add_tab(l, loader.name)
 
     def loader_removed(self, loader):
@@ -419,12 +419,12 @@ class LoadVariableDialog(QtGui.QDialog):
             _ = translate(LoadVariableDialog)
 
             QtGui.QMessageBox.critical(
-                    self,
-                    _("Error"),
-                    "%s\n%s: %s" % (
-                            _("Got an exception from the VisTrails package:"),
-                            e.__class__.__name__,
-                            str(e)))
+                self,
+                _("Error"),
+                "%s\n%s: %s" % (
+                    _("Got an exception from the VisTrails package:"),
+                    e.__class__.__name__,
+                    str(e)))
             return False
 
         if variable is None:

@@ -64,8 +64,8 @@ class Test_catch_warning(unittest.TestCase):
     """
     def check_warnings(self, wlist, expected):
         self.assertEqual(
-                [(w.category, w.message.message) for w in wlist],
-                expected)
+            [(w.category, w.message.message) for w in wlist],
+            expected)
 
     def test_catches(self):
         h = CallRecorder()

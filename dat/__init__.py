@@ -11,8 +11,8 @@ MIMETYPE_DAT_PLOT = 'X-Vistrails/DATPlot'
 variable_format_1st_char = r'[A-Za-z_$@]'
 variable_format_other_chars = r'[A-Za-z_$@0-9]'
 variable_format = r'%s%s*' % (
-        variable_format_1st_char,
-        variable_format_other_chars)
+    variable_format_1st_char,
+    variable_format_other_chars)
 
 
 class RecipeParameterValue(object):
@@ -60,7 +60,7 @@ class RecipeParameterValue(object):
             else:
                 typecast = ''
             return 'RecipeParameterValue(variable=%s%s)' % (
-                    self.variable.name, typecast)
+                self.variable.name, typecast)
         else:
             return 'RecipeParameterValue(constant=%r)' % self.constant
 
@@ -75,8 +75,8 @@ class DATRecipe(object):
                            for param, values in parameters.iteritems()
                            if values}
         self._hash = hash((
-                self.plot,
-                frozenset(self.parameters.iteritems())))
+            self.plot,
+            frozenset(self.parameters.iteritems())))
 
     def __eq__(self, other):
         if not isinstance(other, DATRecipe):
@@ -91,9 +91,9 @@ class DATRecipe(object):
 
     def __repr__(self):
         return 'DATRecipe(plot=%r, parameters={%s})' % (
-                self.plot.name,
-                ', '.join('%s: %r' % (k, v) for
-                          k, v in self.parameters.iteritems()))
+            self.plot.name,
+            ', '.join('%s: %r' % (k, v) for
+                      k, v in self.parameters.iteritems()))
 
 
 class PipelineInformation(object):

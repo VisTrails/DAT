@@ -79,8 +79,8 @@ class _DataProvenanceNode(object):
     def __repr__(self):
         it = self.data_dict.iteritems()
         return '%s(%s)' % (
-                self.__class__.__name__,
-                ', '.join('%s=%r' % (k, v) for k, v in it))
+            self.__class__.__name__,
+            ', '.join('%s=%r' % (k, v) for k, v in it))
 
 
 ###############################################################################
@@ -94,10 +94,10 @@ class Loader(_DataProvenanceNode):
         except KeyError:
             loader = kwargs.pop('loader')
             _DataProvenanceNode.__init__(
-                    self,
-                    pkg_id=loader.package_identifier,
-                    name=loader.name,
-                    **kwargs)
+                self,
+                pkg_id=loader.package_identifier,
+                name=loader.name,
+                **kwargs)
 
 
 class Constant(_DataProvenanceNode):
@@ -107,9 +107,9 @@ class Constant(_DataProvenanceNode):
         except KeyError:
             constant = kwargs.pop('constant')
             _DataProvenanceNode.__init__(
-                    self,
-                    constant=constant,
-                    **kwargs)
+                self,
+                constant=constant,
+                **kwargs)
 
 
 class Variable(_DataProvenanceNode):
@@ -119,11 +119,11 @@ class Variable(_DataProvenanceNode):
         except KeyError:
             variable = kwargs.pop('variable')
             version = variable._controller.vistrail.get_version_number(
-                    'dat-var-%s' % variable.name)
+                'dat-var-%s' % variable.name)
             _DataProvenanceNode.__init__(
-                    self,
-                    version=version,
-                    **kwargs)
+                self,
+                version=version,
+                **kwargs)
 
 
 class Operation(_DataProvenanceNode):
@@ -142,12 +142,12 @@ class Operation(_DataProvenanceNode):
                     else:
                         # Materialized variable: reference it instead
                         args[decl_arg.name] = Variable(
-                                variable=variable._materialized)
+                            variable=variable._materialized)
             _DataProvenanceNode.__init__(
-                    self,
-                    pkg_id=operation.package_identifier,
-                    name=operation.name,
-                    args=args)
+                self,
+                pkg_id=operation.package_identifier,
+                name=operation.name,
+                args=args)
 
 
 ###############################################################################

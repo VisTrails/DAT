@@ -19,21 +19,21 @@ def _color_version_nodes(node, action, tag, description):
         # Variable root
         brush = QtGui.QBrush(QtGui.QColor(0, 0, 0))
         return dict(
-                VERSION_USER_BRUSH=brush,
-                VERSION_OTHER_BRUSH=brush,
-                VERSION_LABEL_COLOR=QtGui.QColor(255, 255, 255),
-                VERSION_SHAPE='rectangle')
+            VERSION_USER_BRUSH=brush,
+            VERSION_OTHER_BRUSH=brush,
+            VERSION_LABEL_COLOR=QtGui.QColor(255, 255, 255),
+            VERSION_SHAPE='rectangle')
     elif tag is not None and tag.startswith('dat-var-'):
         # Variables
         return dict(
-                VERSION_USER_BRUSH=QtGui.QBrush(QtGui.QColor(27, 27, 75)),
-                VERSION_OTHER_BRUSH=QtGui.QBrush(QtGui.QColor(72, 50, 25)),
-                VERSION_LABEL_COLOR=QtGui.QColor(255, 255, 255),
-                VERSION_SHAPE='rectangle')
+            VERSION_USER_BRUSH=QtGui.QBrush(QtGui.QColor(27, 27, 75)),
+            VERSION_OTHER_BRUSH=QtGui.QBrush(QtGui.QColor(72, 50, 25)),
+            VERSION_LABEL_COLOR=QtGui.QColor(255, 255, 255),
+            VERSION_SHAPE='rectangle')
     elif pipelineInfo is not None:
         return dict(
-                VERSION_USER_BRUSH=QtGui.QBrush(QtGui.QColor(171, 169, 214)),
-                VERSION_OTHER_BRUSH=QtGui.QBrush(QtGui.QColor(219, 198, 179)))
+            VERSION_USER_BRUSH=QtGui.QBrush(QtGui.QColor(171, 169, 214)),
+            VERSION_OTHER_BRUSH=QtGui.QBrush(QtGui.QColor(219, 198, 179)))
     else:
         return dict()
 
@@ -56,8 +56,8 @@ def _get_custom_version_panels(controller, version):
     recipe = pipelineInfo.recipe
     recipe_widget = QtGui.QGroupBox(_("DAT recipe"))
     recipe_widget.setSizePolicy(
-            recipe_widget.sizePolicy().horizontalPolicy(),
-            QtGui.QSizePolicy.Fixed)
+        recipe_widget.sizePolicy().horizontalPolicy(),
+        QtGui.QSizePolicy.Fixed)
     layout = QtGui.QVBoxLayout()
 
     line = QtGui.QHBoxLayout()
@@ -83,7 +83,7 @@ def _get_custom_version_panels(controller, version):
     text = '\n'.join(text)
     variable_list.setPlainText(text)
     variable_list.setFixedHeight(
-            variable_list.document().size().height())
+        variable_list.document().size().height())
     layout.addWidget(variable_list)
 
     recipe_widget.setLayout(layout)
@@ -91,5 +91,5 @@ def _get_custom_version_panels(controller, version):
 
 
 hooks = dict(
-        version_node_theme=_color_version_nodes,
-        version_prop_panels=_get_custom_version_panels)
+    version_node_theme=_color_version_nodes,
+    version_prop_panels=_get_custom_version_panels)

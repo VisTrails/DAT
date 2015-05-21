@@ -17,15 +17,13 @@ def choose_operation(typecasts, source_descriptor, expected_descriptor,
     layout = QtGui.QVBoxLayout()
 
     label = QtGui.QLabel(_(
-            "A {actual} variable was put in a {expected} port. These are not "
-            "compatible, but the following operations can do the "
-            "conversion:").format(
-                    actual="%s (%s)" % (
-                            source_descriptor.module.__name__,
-                            source_descriptor.identifier),
-                    expected="%s (%s)" % (
-                            expected_descriptor.module.__name__,
-                            expected_descriptor.identifier)))
+        "A {actual} variable was put in a {expected} port. These are not "
+        "compatible, but the following operations can do the "
+        "conversion:").format(
+            actual="%s (%s)" % (source_descriptor.module.__name__,
+                                source_descriptor.identifier),
+            expected="%s (%s)" % (expected_descriptor.module.__name__,
+                                  expected_descriptor.identifier)))
     label.setWordWrap(True)
     layout.addWidget(label)
     list_widget = CategorizedListWidget()
@@ -57,8 +55,8 @@ def choose_operation(typecasts, source_descriptor, expected_descriptor,
                 return
         ok.setEnabled(False)
     QtCore.QObject.connect(
-            list_widget, QtCore.SIGNAL('itemSelectionChanged()'),
-            check_selection)
+        list_widget, QtCore.SIGNAL('itemSelectionChanged()'),
+        check_selection)
     check_selection()
 
     dialog.setLayout(layout)

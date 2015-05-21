@@ -64,12 +64,12 @@ class catch_warning(object):
             if issubclass(category, self._category):
                 if log is not None:
                     log.append(warnings.WarningMessage(
-                            message, category, filename, lineno,
-                            file, line))
+                        message, category, filename, lineno,
+                        file, line))
                 if self._handle is not None:
                     self._handle(
-                            message, category, filename, lineno,
-                            file, line)
+                        message, category, filename, lineno,
+                        file, line)
             else:
                 current_filters = warnings.filters
                 warnings.filters = self._orig_filters + current_filters
@@ -79,7 +79,7 @@ class catch_warning(object):
                 # Might cause some issues with the warning repetition logic,
                 # but should be acceptable in most cases
                 warnings.warn_explicit(
-                        message, category, filename, lineno)
+                    message, category, filename, lineno)
                 warnings.filters = current_filters
                 warnings.showwarning = current_showwarning
 
@@ -115,10 +115,10 @@ def deferrable_via_qt(*argtypes):
             if defer:
                 qtargs = [QtCore.Q_ARG(t, v) for t, v in izip(argtypes, args)]
                 QtCore.QMetaObject.invokeMethod(
-                        self,
-                        func.__name__,
-                        QtCore.Qt.QueuedConnection,
-                        *qtargs)
+                    self,
+                    func.__name__,
+                    QtCore.Qt.QueuedConnection,
+                    *qtargs)
                 return deferred_result
             else:
                 return func(self, *args)

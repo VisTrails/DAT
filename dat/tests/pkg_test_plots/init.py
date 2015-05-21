@@ -26,16 +26,16 @@ class StrMaker(CustomVariableLoader):
 
 
 _variable_loaders = {
-        StrMaker: "StrMaker"}
+    StrMaker: "StrMaker"}
 
 
 concat_plot = Plot(
-        name="Concatenator",
-        subworkflow='{package_dir}/concat.xml',
-        description="Plot used internally to perform tests",
-        ports=[
-                DataPort(name='param1', type=basic.String),
-                DataPort(name='param2', type=basic.String, optional=True),
-                ConstantPort(name='param3', type=basic.String)])
+    name="Concatenator",
+    subworkflow='{package_dir}/concat.xml',
+    description="Plot used internally to perform tests",
+    ports=[
+        DataPort(name='param1', type=basic.String),
+        DataPort(name='param2', type=basic.String, optional=True),
+        ConstantPort(name='param3', type=basic.String)])
 
 _plots = [concat_plot]

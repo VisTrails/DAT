@@ -80,9 +80,9 @@ class DataParameter(QtGui.QPushButton):
                 self.setText(variable.name)
 
             self.connect(
-                    self,
-                    QtCore.SIGNAL('clicked()'),
-                    lambda: overlay.remove_parameter(port_name, pos))
+                self,
+                QtCore.SIGNAL('clicked()'),
+                lambda: overlay.remove_parameter(port_name, pos))
         elif append:
             self.setText('+')
         else:
@@ -152,7 +152,7 @@ class VariableDroppingOverlay(Overlay):
         spacing_layout.addSpacing(20)
         ports_layout = QtGui.QFormLayout()
         ports_layout.setFieldGrowthPolicy(
-                QtGui.QFormLayout.AllNonFixedFieldsGrow)
+            QtGui.QFormLayout.AllNonFixedFieldsGrow)
 
         self._parameters = []  # [[widget]]
         self._constant_widgets = dict()  # widget -> port
@@ -324,8 +324,8 @@ class VariableDroppingOverlay(Overlay):
         except KeyError:
             pass
         changed = self._cell.change_constant(
-                self._constant_widgets[widget],
-                contents)
+            self._constant_widgets[widget],
+            contents)
         if changed and self._execute_button is not None:
             self._execute_button.setEnabled(True)
             self._cancel_button.setEnabled(True)

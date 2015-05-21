@@ -23,14 +23,14 @@ class Test_variablenames(unittest.TestCase):
 
         new_varname = unique_varname('variable', vistraildata)
         self.assertEqual(
-                new_varname,
-                'variable_2')
+            new_varname,
+            'variable_2')
         self.assertTrue(VariableNameValidator.format(new_varname))
 
         new_varname = unique_varname('variable_4', vistraildata)
         self.assertEqual(
-                new_varname,
-                'variable_6')
+            new_varname,
+            'variable_6')
         self.assertTrue(VariableNameValidator.format(new_varname))
 
     def test_validator(self):

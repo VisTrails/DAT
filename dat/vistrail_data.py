@@ -103,8 +103,8 @@ class VistrailData(object):
                     if param_val.typecast is not None:
                         value += ',%s' % param_val.typecast
                 value += ':' + ','.join(
-                        '%d' % conn_id
-                        for conn_id in conn_list)
+                    '%d' % conn_id
+                    for conn_id in conn_list)
         return value
 
     @staticmethod
@@ -137,7 +137,7 @@ class VistrailData(object):
                         raise ValueError
                     if t == 'c':
                         plist.append(RecipeParameterValue(
-                                constant=urllib2.unquote(val[0])))
+                            constant=urllib2.unquote(val[0])))
                     else:  # t == 'v':
                         v = val[0].split(',')
                         if len(v) not in (1, 2):
@@ -145,11 +145,11 @@ class VistrailData(object):
                         variable = vistraildata.get_variable(v[0])
                         if len(v) == 2:
                             plist.append(RecipeParameterValue(
-                                    variable=variable,
-                                    typecast=v[1]))
+                                variable=variable,
+                                typecast=v[1]))
                         else:
                             plist.append(RecipeParameterValue(
-                                    variable=variable))
+                                variable=variable))
                     cplist.append(read_connlist(val[1]))
                 parameters[param] = tuple(plist)
                 conn_map[param] = tuple(cplist)
@@ -169,8 +169,8 @@ class VistrailData(object):
                 continue
 
             value.append('%s=' % param + ':'.join(
-                    '%d,%s' % (mod_id, portname)
-                    for mod_id, portname in port_list))
+                '%d,%s' % (mod_id, portname)
+                for mod_id, portname in port_list))
 
         return ';'.join(value)
 
@@ -243,8 +243,8 @@ class VistrailData(object):
 
                     # Get the type from the OutputPort module's spec input port
                     type = Variable.read_type(get_upgraded_pipeline(
-                            self._controller.vistrail,
-                            version))
+                        self._controller.vistrail,
+                        version))
                     if type is None:
                         warnings.warn("Found invalid DAT variable pipeline "
                                       "%r, ignored" % tag)
@@ -253,7 +253,7 @@ class VistrailData(object):
                     provenance = self._data_provenance.get(version)
 
                     variable = Variable.VariableInformation(
-                            varname, self._controller, type, provenance)
+                        varname, self._controller, type, provenance)
 
                     self._variables[varname] = variable
                     self._add_variable(varname)
@@ -266,8 +266,8 @@ class VistrailData(object):
                 recipe, conn_map = self._read_recipe_annotation(self, an.value)
                 if recipe is not None:
                     pipeline = PipelineInformation(
-                            version, recipe, conn_map,
-                            None)  # to be filled by the next block
+                        version, recipe, conn_map,
+                        None)  # to be filled by the next block
                     self._version_to_pipeline[version] = pipeline
         # Then, read the port maps
         for an in annotations:
@@ -278,9 +278,9 @@ class VistrailData(object):
                     warnings.warn("Found a DAT port map annotation with no "
                                   "associated recipe -- removing")
                     self._controller.vistrail.set_action_annotation(
-                            an.action_id,
-                            an.key,
-                            None)
+                        an.action_id,
+                        an.key,
+                        None)
                 else:
                     port_map = self._read_portmap_annotation(an.value)
                     if port_map is not None:
@@ -300,21 +300,21 @@ class VistrailData(object):
         changed = self.controller.changed
         try:
             var = self.controller.get_vistrail_variable(
-                    'dat-sheet-%d' % sheet_id)
+                'dat-sheet-%d' % sheet_id)
             if var is not None:
                 name = var.value
                 ctrl_name, sheet = name.split(' / ', 1)
                 if ctrl_name != self.name:
                     name = u'%s / %s' % (self.name, sheet)
                     self.controller.set_vistrail_variable(
+                        var.name,
+                        VistrailVariable(
                             var.name,
-                            VistrailVariable(
-                                    var.name,
-                                    var.uuid,
-                                    var.package,
-                                    var.module,
-                                    var.namespace,
-                                    name))
+                            var.uuid,
+                            var.package,
+                            var.module,
+                            var.namespace,
+                            name))
                 return name
             else:
                 names = set(v.value.split(' / ', 1)[1]
@@ -325,14 +325,14 @@ class VistrailData(object):
                     if name not in names:
                         name = u'%s / %s' % (self.name, name)
                         self.controller.set_vistrail_variable(
+                            'dat-sheet-%d' % sheet_id,
+                            VistrailVariable(
                                 'dat-sheet-%d' % sheet_id,
-                                VistrailVariable(
-                                        'dat-sheet-%d' % sheet_id,
-                                        str(uuid.uuid1()),
-                                        'org.vistrails.vistrails.basic',
-                                        'String',
-                                        '',
-                                        name))
+                                str(uuid.uuid1()),
+                                'org.vistrails.vistrails.basic',
+                                'String',
+                                '',
+                                name))
                         return name
         finally:
             # If the only change in the controller is the vistrail variable we
@@ -344,27 +344,27 @@ class VistrailData(object):
         name = u'%s / %s' % (self.name, new_name)
 
         var = self.controller.get_vistrail_variable(
-                'dat-sheet-%d' % sheet_id)
+            'dat-sheet-%d' % sheet_id)
         if var is not None:
             self.controller.set_vistrail_variable(
+                var.name,
+                VistrailVariable(
                     var.name,
-                    VistrailVariable(
-                            var.name,
-                            var.uuid,
-                            var.package,
-                            var.module,
-                            var.namespace,
-                            name))
+                    var.uuid,
+                    var.package,
+                    var.module,
+                    var.namespace,
+                    name))
         else:
             self.controller.set_vistrail_variable(
+                'dat-sheet-%d' % sheet_id,
+                VistrailVariable(
                     'dat-sheet-%d' % sheet_id,
-                    VistrailVariable(
-                            'dat-sheet-%d' % sheet_id,
-                            str(uuid.uuid1()),
-                            'org.vistrails.vistrails.basic',
-                            'String',
-                            '',
-                            name))
+                    str(uuid.uuid1()),
+                    'org.vistrails.vistrails.basic',
+                    'String',
+                    '',
+                    name))
         return name
 
     def new_tab(self, add, tab_controller, rows=2, cols=2, sheet_id=None):
@@ -394,8 +394,8 @@ class VistrailData(object):
         for pipeline in self._version_to_pipeline.itervalues():
             try:
                 row, col, sheetname_var = get_pipeline_location(
-                        self._controller,
-                        pipeline)
+                    self._controller,
+                    pipeline)
                 if sheetname_var.name.startswith('dat-sheet-'):
                     sheet_id = int(sheetname_var.name[10:])
                 else:
@@ -422,11 +422,11 @@ class VistrailData(object):
             except KeyError:
                 rowCount, colCount = sheet_sizes.get(sheet_id, (2, 2))
                 spreadsheet_tab = self.new_tab(
-                        True,
-                        tab_controller,
-                        rowCount,
-                        colCount,
-                        sheet_id)[0]
+                    True,
+                    tab_controller,
+                    rowCount,
+                    colCount,
+                    sheet_id)[0]
             cellInfo = CellInformation(spreadsheet_tab, row, col)
             self._cell_to_pipeline[cellInfo] = pipeline
             self._cell_to_version[cellInfo] = pipeline.version
@@ -440,7 +440,7 @@ class VistrailData(object):
     def sheetname_var(self, tab):
         sheet_id = self._spreadsheet_tabs_rev[tab]
         return self.controller.get_vistrail_variable(
-                'dat-sheet-%d' % sheet_id)
+            'dat-sheet-%d' % sheet_id)
 
     def update_spreadsheet_tabs(self):
         """Updates the title of the spreadsheet tab.
@@ -469,11 +469,11 @@ class VistrailData(object):
 
         # Record the data provenance in an annotation
         version = self.controller.vistrail.get_version_number(
-                'dat-var-%s' % varname)
+            'dat-var-%s' % varname)
         self.controller.vistrail.set_action_annotation(
-                version,
-                self._DATA_PROVENANCE_KEY,
-                data_provenance.save_to_annotation(variable.provenance))
+            version,
+            self._DATA_PROVENANCE_KEY,
+            data_provenance.save_to_annotation(variable.provenance))
 
         # Add a record in our map of provenance data
         self._data_provenance[version] = variable.provenance
@@ -492,24 +492,24 @@ class VistrailData(object):
                         for p_values in pipeline.recipe.parameters.itervalues()
                         for p in p_values):
                     self._controller.vistrail.set_action_annotation(
-                            pipeline.version,
-                            self._RECIPE_KEY,
-                            self._build_recipe_annotation(
-                                    pipeline.recipe,
-                                    pipeline.conn_map))
+                        pipeline.version,
+                        self._RECIPE_KEY,
+                        self._build_recipe_annotation(
+                            pipeline.recipe,
+                            pipeline.conn_map))
 
         get_vistrails_application().send_notification(
-                'dat_new_variable',
-                self._controller,
-                varname,
-                renamed_from=renamed_from)
+            'dat_new_variable',
+            self._controller,
+            varname,
+            renamed_from=renamed_from)
 
     def _remove_variable(self, varname, renamed_to=None):
         get_vistrails_application().send_notification(
-                'dat_removed_variable',
-                self._controller,
-                varname,
-                renamed_to=renamed_to)
+            'dat_removed_variable',
+            self._controller,
+            varname,
+            renamed_to=renamed_to)
 
         if renamed_to is None:
             # A variable was removed!
@@ -524,8 +524,8 @@ class VistrailData(object):
                     to_remove.add(pipeline.version)
             if to_remove:
                 warnings.warn(
-                        "Variable %r was used in %d pipelines!" % (
-                                varname, len(to_remove)))
+                    "Variable %r was used in %d pipelines!" % (
+                        varname, len(to_remove)))
             for version in to_remove:
                 del self._version_to_pipeline[version]
 
@@ -533,9 +533,9 @@ class VistrailData(object):
                 for key in (
                         self._RECIPE_KEY, self._PORTMAP_KEY):
                     self._controller.vistrail.set_action_annotation(
-                            version,
-                            key,
-                            None)
+                        version,
+                        key,
+                        None)
 
             cell_to_remove = []
             for cellInfo, version in self._cell_to_version.iteritems():
@@ -604,15 +604,15 @@ class VistrailData(object):
             if p == pipeline:
                 return  # Ok I guess
             warnings.warn(
-                    "A new pipeline was created with a previously known "
-                    "version!\n"
-                    "  version=%r\n"
-                    "  old recipe=%r\n"
-                    "  new recipe=%r\n"
-                    "replacing..." % (
-                        pipeline.version,
-                        p.recipe,
-                        pipeline.recipe))
+                "A new pipeline was created with a previously known "
+                "version!\n"
+                "  version=%r\n"
+                "  old recipe=%r\n"
+                "  new recipe=%r\n"
+                "replacing..." % (
+                    pipeline.version,
+                    p.recipe,
+                    pipeline.recipe))
         except KeyError:
             pass
         self._cell_to_version[cellInfo] = pipeline.version
@@ -621,15 +621,15 @@ class VistrailData(object):
 
         # Add the annotation in the vistrail
         self._controller.vistrail.set_action_annotation(
-                pipeline.version,
-                self._RECIPE_KEY,
-                self._build_recipe_annotation(pipeline.recipe,
-                                              pipeline.conn_map))
+            pipeline.version,
+            self._RECIPE_KEY,
+            self._build_recipe_annotation(pipeline.recipe,
+                                          pipeline.conn_map))
 
         self._controller.vistrail.set_action_annotation(
-                pipeline.version,
-                self._PORTMAP_KEY,
-                self._build_portmap_annotation(pipeline.port_map))
+            pipeline.version,
+            self._PORTMAP_KEY,
+            self._build_portmap_annotation(pipeline.port_map))
 
     def _infer_pipelineinfo(self, version, cellInfo):
         """Try to make up a pipelineInfo for a version and store it.
@@ -658,8 +658,8 @@ class VistrailData(object):
         # from the old pipeline are still here
 
         pipeline = get_upgraded_pipeline(
-                self._controller.vistrail,
-                version)
+            self._controller.vistrail,
+            version)
 
         new_parameters = dict()
         new_conn_map = dict()
@@ -743,14 +743,14 @@ class VistrailManager(object):
         """
         app = get_vistrails_application()
         app.register_notification(
-                'controller_changed',
-                lambda c: self.set_controller(c, _auto=True))
+            'controller_changed',
+            lambda c: self.set_controller(c, _auto=True))
         app.register_notification(
-                'controller_closed',
-                self.forget_controller)
+            'controller_closed',
+            self.forget_controller)
         app.register_notification(
-                'vistrail_saved',
-                self.controller_name_changed)
+            'vistrail_saved',
+            self.controller_name_changed)
         self.initialized = True
 
     def set_controller(self, controller, register=False,
@@ -791,9 +791,9 @@ class VistrailManager(object):
                 new = True
 
         get_vistrails_application().send_notification(
-                'dat_controller_changed',
-                controller,
-                new=new)
+            'dat_controller_changed',
+            controller,
+            new=new)
 
     def __call__(self, controller=None):
         """Accesses a VistrailData for a specific controller.
@@ -815,7 +815,7 @@ class VistrailManager(object):
     def _make_ctrl_name(self, ctrl_name):
         if not ctrl_name:
             ctrl_name = u"Untitled{ext}".format(
-                    ext=vistrails_default_file_type())
+                ext=vistrails_default_file_type())
 
         name = ctrl_name
         i = 1

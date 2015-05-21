@@ -57,10 +57,10 @@ def translate(context):
 
     def tr(sourceText, disambiguation=None):
         return unicode(QtCore.QCoreApplication.translate(
-                context,
-                sourceText,
-                disambiguation,
-                QtCore.QCoreApplication.UnicodeUTF8))
+            context,
+            sourceText,
+            disambiguation,
+            QtCore.QCoreApplication.UnicodeUTF8))
 
     return tr
 
