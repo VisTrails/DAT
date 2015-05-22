@@ -1709,7 +1709,7 @@ def create_pipeline(controller, recipe, row, column, var_sheetname,
         if new_location:
             # Connect the CellLocation to the SpreadsheetCell
             generator.connect_modules(
-                location_module, 'self',
+                location_module, 'value',
                 cell_module, 'Location')
 
         generator.update_function(
@@ -1729,7 +1729,7 @@ def create_pipeline(controller, recipe, row, column, var_sheetname,
         if new_sheetref or new_location:
             # Connection the SheetReference to the CellLocation
             generator.connect_modules(
-                sheetref_module, 'self',
+                sheetref_module, 'value',
                 location_module, 'SheetReference')
 
         generator.connect_var(
