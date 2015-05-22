@@ -1,3 +1,4 @@
+import logging
 import os
 import sys
 import traceback
@@ -64,6 +65,8 @@ def setup_vistrails():
 def main():
     """Entry point for DAT.
     """
+    logging.basicConfig(level=logging.INFO)
+
     setup_vistrails()
 
     try:
