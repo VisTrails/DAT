@@ -151,7 +151,7 @@ class Application(QtGui.QApplication, NotificationDispatcher,
 
     Initializes DAT metadata and VisTrails.
     """
-    def __init__(self, args):
+    def __init__(self, args, optionsDict={}):
         QtGui.QApplication.__init__(self, args)
         NotificationDispatcher.__init__(self)
         # There are lots of issues with how the notifications are used
@@ -166,7 +166,9 @@ class Application(QtGui.QApplication, NotificationDispatcher,
 
         vistrails.gui.theme.initializeCurrentTheme()
 
-        VistrailsApplicationInterface.init(self, args=args)
+        VistrailsApplicationInterface.init(self,
+                                           options_dict=optionsDict,
+                                           args=args)
         from vistrails.gui.vistrails_window import QVistrailsWindow
         self.builderWindow = QVistrailsWindow(ui_hooks=vt_hooks.hooks)
         self.builderWindow.closeEvent = lambda e: None
@@ -331,13 +333,13 @@ class Application(QtGui.QApplication, NotificationDispatcher,
         pass
 
 
-def start(args=[]):
+def start(args=[], optionsDict={}):
     """Starts the DAT.
 
     Creates an application and a window and enters Qt's main loop.
     """
     try:
-        app = Application(args)
+        app = Application(args, optionsDict)
     except vistrails.core.requirements.MissingRequirement, e:
         _ = translate('dat.application')
         QtGui.QMessageBox.critical(

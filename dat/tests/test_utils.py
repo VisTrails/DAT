@@ -131,6 +131,8 @@ class Test_deferrable_via_qt(unittest.TestCase):
 
         # Defer the call
         self.assertIs(obj.foo(True, 42, defer=True), deferred_result)
+        with self.assertRaises(RuntimeError):
+            assert deferred_result
         self.assertEqual(called[0], 2)
 
         # It gets executed by Qt

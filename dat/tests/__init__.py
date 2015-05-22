@@ -63,7 +63,10 @@ def setup_application(setup=True):
     if _application is None and setup:
         try:
             from dat.gui.application import Application
-            _application = Application([])
+            _application = Application([], {
+                'installBundles': False,
+                'dontUnloadModules': True,
+            })
         except Exception:
             pass
     return _application

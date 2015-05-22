@@ -68,7 +68,7 @@ def main():
 
     try:
         import dat.gui.application
-        v = dat.gui.application.start(sys.argv)
+        v = dat.gui.application.start(args=sys.argv)
         dat.gui.application.stop()
         sys.exit(v)
     except Exception:

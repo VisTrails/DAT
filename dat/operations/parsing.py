@@ -39,6 +39,7 @@ class String(Token):
     regexp = r'"(?:[^\\"]|\\\\|\\")*"'
 
     def __init__(self, text):
+        super(String, self).__init__(text)
         self.value = text[1:-1].replace('\\"', '"').replace('\\\\', '\\')
 
     def nud(self, context):
