@@ -122,7 +122,7 @@ class FileLoaderPanel(QtGui.QWidget):
         picked = QtGui.QFileDialog.getOpenFileName(
             self,
             _("Choose a file"))
-        if picked is None:
+        if not picked:
             return
 
         self.select_file(str(picked))
