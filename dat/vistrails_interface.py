@@ -3,7 +3,6 @@
 This module contains most of the code that deals with VisTrails pipelines.
 """
 
-import importlib
 import inspect
 from itertools import chain, izip
 import os
@@ -98,8 +97,7 @@ class ModuleWrapper(object):
     """
     def __init__(self, variable, module_type):
         self._variable = variable
-        descriptor = resolve_descriptor(module_type,
-                                        self._variable._vt_package_id)
+        descriptor = resolve_descriptor(module_type)
         controller = self._variable._generator.controller
         self._module = controller.create_module_from_descriptor(descriptor)
         self._variable._generator.add_module(self._module)
@@ -131,8 +129,7 @@ class ModuleWrapper(object):
             raise ValueError("add_function() called with a different number "
                              "of values from the given input port")
         for t_param, p_descr in izip(vt_type, port.descriptors()):
-            t_descr = resolve_descriptor(t_param,
-                                         self._variable._vt_package_id)
+            t_descr = resolve_descriptor(t_param)
             if not issubclass(t_descr.module, p_descr.module):
                 raise ValueError("add_function() called with incompatible "
                                  "types")
@@ -266,23 +263,8 @@ class Variable(object):
 
         if generator is None and materialized is None:
             self._generator = PipelineGenerator(controller)
-
-            # Get the VisTrails package that's creating this Variable by
-            # inspecting the stack
-            caller = inspect.currentframe().f_back
-            try:
-                module = inspect.getmodule(caller).__name__
-                if module.endswith('.__init__'):
-                    module = module[:-9]
-                if module.endswith('.init'):
-                    module = module[:-5]
-                pkg = importlib.import_module(module)
-                self._vt_package_id = pkg.identifier
-            except (ImportError, AttributeError):
-                self._vt_package_id = None
         elif generator is not None:
             self._generator = generator
-            self._vt_package_id = None
             if output is not None:
                 self._output_module, self._outputport_name = output
         else:
@@ -290,7 +272,7 @@ class Variable(object):
 
         self._materialized = materialized
 
-        self.type = resolve_descriptor(type, self._vt_package_id)
+        self.type = resolve_descriptor(type)
 
     def add_module(self, module_type):
         """Add a new module to the pipeline and return a wrapper.
