@@ -40,6 +40,7 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
         self._parameter_hovered = None
         self._insert_pos = None
         self._dragging = False
+        self._fake_widget = None
 
         # Notifications
         app = get_vistrails_application()
@@ -265,12 +266,10 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
                 self.toolBar = None
             if widget:
                 widget.setParent(self)
-                widget.show()
             self._displayed_widget = self.containedWidget = widget
 
         if widget is None:
             return
-        widget.raise_()
         self._set_toolbar_buttons(True)
 
         self.contentsUpdated()
@@ -320,7 +319,7 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
         self._set_overlay(None)
 
     def _set_overlay(self, overlay_class, **kwargs):
-        if overlay_class is None:
+        if overlay_class is None and not self._execute_pending:
             # Default overlay
             if self._plot is not None and self.has_error():
                 self._set_overlay(VariableDroppingOverlay, overlayed=False)
@@ -350,6 +349,17 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
             else:
                 self._set_toolbar_buttons(None)
 
+            if self._fake_widget is not None:
+                print "restores widget()"
+                self.containedWidget.setParent(self)
+                self.containedWidget.show()
+                self.containedWidget.raise_()
+                self._displayed_widget = self.containedWidget
+                self._fake_widget.setParent(None)
+                self._fake_widget.deleteLater()
+                self._do_layout()
+            self._fake_widget = None
+
             # Now that we are done with the overlay, we can go on with a
             # deferred execution
             if self._execute_pending:
@@ -365,6 +375,29 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
             self._overlay_scrollarea.setWidget(self._overlay)
             self._overlay.show()
             self._overlay_scrollarea.raise_()
+
+            widget = self.containedWidget
+            if widget:
+                if widget is not None:
+                    if hasattr(widget, 'grabWindowPixmap'):
+                        pixmap = widget.grabWindowPixmap()
+                    else:
+                        pixmap = QtGui.QPixmap.grabWidget(widget)
+
+                print "removes widget()"
+                self.containedWidget.setParent(None)
+                self.containedWidget.hide()
+
+                self._fake_widget = QtGui.QLabel(self)
+                self._fake_widget.setPixmap(pixmap)
+                self._fake_widget.setAttribute(
+                        QtCore.Qt.WA_TransparentForMouseEvents, True)
+                self._fake_widget.lower()
+                self._fake_widget.show()
+                self._displayed_widget = self._fake_widget
+                self._do_layout()
+
+                self.containedWidget.hide()
             self._overlay_scrollarea.setGeometry(0, 0,
                                                  self.width(), self.height())
             self._set_toolbar_buttons(None)
