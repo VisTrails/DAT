@@ -65,7 +65,9 @@ def setup_application(setup=True):
             from dat.gui.application import Application
             _application = Application([], {
                 'installBundles': False,
+                'developerDebugger': False,
                 'dontUnloadModules': True,
+                'enablePackagesSilently': True,
             })
         except Exception:
             pass
