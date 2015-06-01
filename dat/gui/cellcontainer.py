@@ -500,9 +500,10 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
         return True
 
     def _cancel_pending(self):
-        """Cancels the pending execution (returns to
+        """Cancels the pending execution.
+
+        Reset the cell's recipe to whatever pipeline is already in it.
         """
-        # Reset the cell's recipe to whatever pipeline is already in it
         self.contentsUpdated()
 
     @deferrable_via_qt(bool)
