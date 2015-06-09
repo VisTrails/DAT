@@ -270,7 +270,7 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
                 self.toolBar = None
             if widget:
                 widget.setParent(self)
-            self._displayed_widget = self.containedWidget = widget
+            self.containedWidget = widget
 
         if widget is None:
             return
@@ -361,7 +361,6 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
                 self.containedWidget.setParent(self)
                 self.containedWidget.show()
                 self.containedWidget.raise_()
-                self._displayed_widget = self.containedWidget
                 self._fake_widget.setParent(None)
                 self._fake_widget.deleteLater()
                 self.do_layout()
@@ -401,7 +400,6 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
                     QtCore.Qt.WA_TransparentForMouseEvents, True)
                 self._fake_widget.lower()
                 self._fake_widget.show()
-                self._displayed_widget = self._fake_widget
 
                 self.containedWidget.hide()
             self.do_layout()
