@@ -50,7 +50,6 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
         self._parameter_hovered = None
         self._insert_pos = None
         self._dragging = False
-        self._saved_widget = None
         self._fake_widget = None
 
         # Notifications
@@ -186,7 +185,6 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
 
                 print "removes widget()"
                 widget.setParent(None)
-                self._saved_widget = widget
 
                 self._fake_widget = QtGui.QLabel()
                 self._fake_widget.setPixmap(pixmap)
@@ -199,14 +197,15 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
             self._overlay_scrollarea.setVisible(True)
             self._overlay_scrollarea.lower()
         else:
-            if self._saved_widget is not None:
-                print "restores widget()"
-                self._saved_widget.setParent(self)
-                self._saved_widget.raise_()
-                self._saved_widget = None
+            if self._fake_widget is not None:
+                widget = self.containedWidget
+                if widget is not None:
+                    print "restores widget()"
+                    widget.setParent(self)
+                    widget.raise_()
                 self._fake_widget.setParent(None)
                 self._fake_widget.deleteLater()
-            self._fake_widget = None
+                self._fake_widget = None
 
             self._set_overlay(None)
 
