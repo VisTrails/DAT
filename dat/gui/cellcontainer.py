@@ -147,6 +147,31 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
             app.unregister_notification(
                 'dragging_to_overlays', self._set_dragging)
 
+    def _make_fake_widget(self):
+        if self._fake_widget is None:
+            if hasattr(self.containedWidget, 'grabWindowPixmap'):
+                pixmap = self.containedWidget.grabWindowPixmap()
+            else:
+                pixmap = QtGui.QPixmap.grabWidget(self.containedWidget)
+            painter = QtGui.QPainter(pixmap)
+            painter.setPen(QtGui.QPen(QtGui.QColor(255, 0, 0), 5))
+            painter.drawLine(
+                5, 5,
+                pixmap.width() - 10, pixmap.height() - 10)
+            painter.drawLine(
+                pixmap.width() - 10, 5,
+                5, pixmap.height() - 10)
+            painter.end()
+            painter = None
+
+            self.containedWidget.setParent(None)
+            self.containedWidget.hide()
+
+            self._fake_widget = QtGui.QLabel(self)
+            self._fake_widget.setPixmap(pixmap)
+            self._fake_widget.setAttribute(
+                QtCore.Qt.WA_TransparentForMouseEvents, True)
+
     def _set_dragging(self, dragging):
         """This is a hack to workaround issues related to dragging.
         """
@@ -166,48 +191,27 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
         # We can just replace the cell with an image of the previous content,
         # like the spreadsheet does with QCellPresenter
         if dragging:
-            widget = self.containedWidget
-            if widget is not None:
-                if hasattr(widget, 'grabWindowPixmap'):
-                    pixmap = widget.grabWindowPixmap()
-                else:
-                    pixmap = QtGui.QPixmap.grabWidget(widget)
-                painter = QtGui.QPainter(pixmap)
-                painter.setPen(QtGui.QPen(QtGui.QColor(255, 0, 0), 5))
-                painter.drawLine(
-                    5, 5,
-                    pixmap.width() - 10, pixmap.height() - 10)
-                painter.drawLine(
-                    pixmap.width() - 10, 5,
-                    5, pixmap.height() - 10)
-                painter.end()
-                painter = None
-
-                print "removes widget()"
-                widget.setParent(None)
-
-                self._fake_widget = QtGui.QLabel()
-                self._fake_widget.setPixmap(pixmap)
-                self._fake_widget.setAttribute(
-                    QtCore.Qt.WA_TransparentForMouseEvents, True)
-                self._fake_widget.setParent(self)
+            if self.containedWidget is not None:
+                self._make_fake_widget()
                 self._fake_widget.raise_()
+                self._fake_widget.show()
 
             self._overlay_scrollarea.setParent(self)
             self._overlay_scrollarea.setVisible(True)
             self._overlay_scrollarea.lower()
+
+            self.do_layout()
         else:
             if self._fake_widget is not None:
-                widget = self.containedWidget
-                if widget is not None:
-                    print "restores widget()"
-                    widget.setParent(self)
-                    widget.raise_()
                 self._fake_widget.setParent(None)
                 self._fake_widget.deleteLater()
                 self._fake_widget = None
+                if self.containedWidget is not None:
+                    self.containedWidget.setParent(self)
+                    self.containedWidget.show()
+                    self.containedWidget.raise_()
 
-            self._set_overlay(None)
+                self.do_layout()
 
     def _variable_added(self, controller, varname, renamed_from=None):
         if (renamed_from is None or
@@ -262,7 +266,8 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
         This is called by the spreadsheet to put or remove a visualization in
         this cell.
         """
-        if widget != self.containedWidget:
+        assert self._fake_widget is None
+        if widget is not self.containedWidget:
             if self.containedWidget:
                 self.containedWidget.setParent(None)
                 self.containedWidget.deleteLater()
@@ -278,6 +283,7 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
         self.contentsUpdated()
 
     def takeWidget(self):
+        assert self._fake_widget is None
         widget = self.containedWidget
         if widget is not None:
             widget.setParent(None)
@@ -340,14 +346,12 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
                 return
 
         if self._overlay is not None:
-            print "deletes overlay"
             self._overlay.setParent(None)
             self._overlay.deleteLater()
 
         if overlay_class is None:
             self._overlay = None
             if not self._dragging:
-                print "removes overlay_scrollarea"
                 self._overlay_scrollarea.setParent(None)
                 self._overlay_scrollarea.setVisible(False)
             if self._plot is not None:
@@ -356,14 +360,14 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
                 self._set_toolbar_buttons(None)
 
             if self._fake_widget is not None:
-                print "restores widget()"
-                self.containedWidget.setParent(self)
-                self.containedWidget.show()
-                self.containedWidget.raise_()
                 self._fake_widget.setParent(None)
                 self._fake_widget.deleteLater()
+                self._fake_widget = None
+                if self.containedWidget:
+                    self.containedWidget.setParent(self)
+                    self.containedWidget.show()
+                    self.containedWidget.raise_()
                 self.do_layout()
-            self._fake_widget = None
 
             # Now that we are done with the overlay, we can go on with a
             # deferred execution
@@ -371,36 +375,19 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
                 self.update_pipeline()
                 self._execute_pending = False
         else:
-            print "creates overlay %s" % overlay_class.__name__
+            if self.containedWidget is not None:
+                self._make_fake_widget()
+                self._fake_widget.lower()
+                self._fake_widget.show()
+
             self._overlay = overlay_class(self, **kwargs)
             if not self._dragging:
-                print "adds overlay_scrollarea"
                 self._overlay_scrollarea.setParent(self)
                 self._overlay_scrollarea.setVisible(True)
             self._overlay_scrollarea.setWidget(self._overlay)
             self._overlay.show()
             self._overlay_scrollarea.raise_()
 
-            widget = self.containedWidget
-            if widget:
-                if widget is not None:
-                    if hasattr(widget, 'grabWindowPixmap'):
-                        pixmap = widget.grabWindowPixmap()
-                    else:
-                        pixmap = QtGui.QPixmap.grabWidget(widget)
-
-                print "removes widget()"
-                self.containedWidget.setParent(None)
-                self.containedWidget.hide()
-
-                self._fake_widget = QtGui.QLabel(self)
-                self._fake_widget.setPixmap(pixmap)
-                self._fake_widget.setAttribute(
-                    QtCore.Qt.WA_TransparentForMouseEvents, True)
-                self._fake_widget.lower()
-                self._fake_widget.show()
-
-                self.containedWidget.hide()
             self.do_layout()
             self._set_toolbar_buttons(None)
 
@@ -439,8 +426,13 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
         self.do_layout()
 
     def do_layout(self):
-        if self.containedWidget is not None:
-            self.containedWidget.setGeometry(
+        if self._fake_widget is not None:
+            widget = self._fake_widget
+        else:
+            widget = self.containedWidget
+
+        if widget is not None:
+            widget.setGeometry(
                 4, 4,
                 self.width() - 8, self.height() - 8)
         self._overlay_scrollarea.setGeometry(
