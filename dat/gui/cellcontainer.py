@@ -153,16 +153,6 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
                 pixmap = self.containedWidget.grabWindowPixmap()
             else:
                 pixmap = QtGui.QPixmap.grabWidget(self.containedWidget)
-            painter = QtGui.QPainter(pixmap)
-            painter.setPen(QtGui.QPen(QtGui.QColor(255, 0, 0), 5))
-            painter.drawLine(
-                5, 5,
-                pixmap.width() - 10, pixmap.height() - 10)
-            painter.drawLine(
-                pixmap.width() - 10, 5,
-                5, pixmap.height() - 10)
-            painter.end()
-            painter = None
 
             self.containedWidget.setParent(None)
             self.containedWidget.hide()
