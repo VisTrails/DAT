@@ -17,9 +17,9 @@ from dat.vistrails_interface.pipelines import PipelineGenerator, \
     add_constant_module
 from dat.vistrails_interface.utils import resolve_descriptor, \
     get_upgraded_pipeline, get_function, read_port_specs, walk_modules, \
-    delete_linked, find_modules_by_type
-from dat.vistrails_interface.wrappers import ModuleWrapper, Variable, \
-    ArgumentWrapper, add_variable_subworkflow
+    find_modules_by_type
+from dat.vistrails_interface.wrappers import Variable, ArgumentWrapper, \
+    add_variable_subworkflow
 
 from vistrails.core import get_vistrails_application
 from vistrails.core.db.action import create_action
