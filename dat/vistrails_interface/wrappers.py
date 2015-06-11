@@ -4,17 +4,23 @@ Some of this is meant to be used from packages; they are reexported from
 :mod:`dat.packages`.
 """
 
+import inspect
 from itertools import izip
+import os
+import warnings
 
 from vistrails.core import get_vistrails_application
 from vistrails.core.db.action import create_action
+from vistrails.core.db.locator import XMLFileLocator
+from vistrails.core.modules.basic_modules import Constant
 from vistrails.core.modules.module_registry import get_module_registry
+from vistrails.core.modules.sub_module import InputPort
 from vistrails.core.vistrail.pipeline import Pipeline
-
-from dat.vistrails_interface.utils import resolve_descriptor, \
-    get_upgraded_pipeline, get_function, find_modules_by_type
+from vistrails.gui.modules.utils import get_widget_class
 
 from dat.vistrails_interface.pipelines import PipelineGenerator
+from dat.vistrails_interface.utils import resolve_descriptor, \
+    get_upgraded_pipeline, get_function, read_port_specs, find_modules_by_type
 
 
 class ModuleWrapper(object):
@@ -343,6 +349,274 @@ class ArgumentWrapper(object):
             self._variable._outputport_name,
             module._module,
             inputport_name)
+
+
+class Port(object):
+    """A simple bean containing informations about one of a plot's port.
+
+    These are optionally passed to Plot's constructor by a VisTrails package,
+    else they will be built from the InputPort modules found in the pipeline.
+
+    'accepts' can be either DATA, which means the port should receive a
+    variable through drag and drop, or INPUT, which means the port will be
+    settable through VisTrails's constant widgets. In the later case, the
+    module type should be a constant.
+    """
+    DATA = 1
+    INPUT = 2
+
+    def __init__(self, name, type=None, optional=False, multiple_values=False,
+                 accepts=DATA, is_alias=False):
+        assert type == Port.INPUT or is_alias is False
+        self.name = name
+        self.type = type
+        self.is_alias = is_alias
+        self.optional = optional
+        self.multiple_values = multiple_values
+        self.accepts = accepts
+
+
+class DataPort(Port):
+    def __init__(self, *args, **kwargs):
+        Port.__init__(self, *args, accepts=Port.DATA, **kwargs)
+
+
+class ConstantPort(Port):
+    def __init__(self, *args, **kwargs):
+        Port.__init__(self, *args, accepts=Port.INPUT, **kwargs)
+
+
+class Plot(object):
+    def __init__(self, name, **kwargs):
+        """A plot descriptor.
+
+        Describes a Plot. These objects should be created by a VisTrails
+        package for each Plot it wants to registers with DAT, and added to a
+        global '_plots' variable in the 'init' module (for a reloadable
+        package).
+
+        name is mandatory and will be displayed to the user.
+        description is a text that explains what your Plot is about, and can be
+        localized.
+        ports should be a list of Port objects describing the input your Plot
+        expects.
+        subworkflow is the path to the subworkflow that will be used for this
+        Plot. In this string, '{package_dir}' will be replaced with the current
+        package's path.
+        """
+        self.name = name
+        self.description = kwargs.get('description')
+
+        caller = inspect.currentframe().f_back
+        package = os.path.dirname(inspect.getabsfile(caller))
+
+        # Build plot from a subworkflow
+        self.subworkflow = kwargs['subworkflow'].format(package_dir=package)
+        self.ports = kwargs.get('ports', [])
+
+        # Set the plot config widget, ensuring correct parent class
+        from dat.gui.overlays import PlotConfigOverlay, \
+            DefaultPlotConfigOverlay
+        self.configWidget = kwargs.get('configWidget',
+                                       DefaultPlotConfigOverlay)
+        if not issubclass(self.configWidget, PlotConfigOverlay):
+            warnings.warn("Config widget of plot '%s' does not subclass "
+                          "'PlotConfigOverlay'. Using default." % self.name)
+            self.configWidget = DefaultPlotConfigOverlay
+
+    def _read_metadata(self, package_identifier):
+        """Reads a plot's ports from the subworkflow file
+
+        Finds each InputPort module and gets the parameter name, optional flag
+        and type from its 'name', 'optional' and 'spec' input functions.
+
+        If input ports were declared in this Plot, we check that they are
+        indeed present and were all listed (either list all of them or none).
+
+        If the module type is a subclass of Constant, we will assume the port
+        is to be set via direct input (ConstantPort), else by dragging a
+        variable (DataPort).
+
+        We also automatically add aliased input ports of compatible constant
+        types as optional ConstantPort's.
+        """
+        locator = XMLFileLocator(self.subworkflow)
+        vistrail = locator.load()
+        pipeline = get_upgraded_pipeline(vistrail)
+
+        inputports = find_modules_by_type(pipeline, [InputPort])
+        if not inputports:
+            raise ValueError("No InputPort module")
+
+        currentports = {port.name: port for port in self.ports}
+        seenports = set()
+        for port in inputports:
+            name = get_function(port, 'name')
+            if not name:
+                raise ValueError(
+                    "Subworkflow of plot '%s' in package '%s' has an "
+                    "InputPort with no name" % (
+                        self.name, package_identifier))
+            if name in seenports:
+                raise ValueError(
+                    "Subworkflow of plot '%s' in package '%s' has several "
+                    "InputPort modules with name '%s'" % (
+                        self.name, package_identifier, name))
+            spec = get_function(port, 'spec')
+            optional = get_function(port, 'optional')
+            if optional == 'True':
+                optional = True
+            elif optional == 'False':
+                optional = False
+            else:
+                optional = None
+
+            try:
+                currentport = currentports[name]
+            except KeyError:
+                # If the package didn't provide any port, it's ok, we can
+                # discover them. But if some were present and some were
+                # forgotten, emit a warning
+                if currentports:
+                    warnings.warn(
+                        "Declaration of plot '%s' in package '%s' omitted "
+                        "port '%s'" % (
+                            self.name, package_identifier, name))
+                if not spec:
+                    warnings.warn(
+                        "Subworkflow of plot '%s' in package '%s' has an "
+                        "InputPort '%s' with no type; assuming Module" % (
+                            self.name, package_identifier, name))
+                    spec = 'org.vistrails.vistrails.basic:Module'
+                if not optional:
+                    optional = False
+                type = resolve_descriptor(spec, package_identifier)
+                if issubclass(type.module, Constant):
+                    currentport = ConstantPort(
+                        name=name,
+                        type=type,
+                        optional=optional)
+                else:
+                    currentport = DataPort(
+                        name=name,
+                        type=type,
+                        optional=optional)
+
+                self.ports.append(currentport)
+            else:
+                currentspec = (currentport.type.identifier +
+                               ':' +
+                               currentport.type.name)
+                if ((spec and spec != currentspec) or
+                        (optional is not None and
+                         optional != currentport.optional)):
+                    warnings.warn(
+                        "Declaration of port '%s' from plot '%s' in "
+                        "package '%s' differs from subworkflow "
+                        "contents" % (
+                            name, self.name, package_identifier))
+                spec = currentspec
+                type = resolve_descriptor(currentspec, package_identifier)
+
+            # Get info from the PortSpec
+            currentport.default_value = None
+            currentport.enumeration = None
+            try:
+                (default_type, default_value,
+                 entry_type, enum_values) = read_port_specs(
+                     pipeline,
+                     port)
+                if default_value is not None:
+                    if not issubclass(default_type, type.module):
+                        raise ValueError("incompatible type %r" % ((
+                                         default_type,
+                                         type.module),))
+                    elif default_type is type.module:
+                        currentport.default_value = default_value
+                currentport.entry_type = entry_type
+                currentport.enum_values = enum_values
+            except ValueError, e:
+                raise ValueError(
+                    "Error reading specs for port '%s' from plot '%s' of "
+                    "package '%s': %s" % (
+                        name, self.name, package_identifier, e.args[0]))
+
+            seenports.add(name)
+
+        # Now to add aliased parameters
+        for module in pipeline.module_list:
+            for function in module.functions:
+                port = module.get_port_spec(function.name, 'input')
+                problem = None
+                if len(port.descriptors()) != 1:
+                    problem = (
+                        "Aliased parameter '{alias}' on port '{port}' of "
+                        "module '{module}' in plot '{plot}' of package "
+                        "'{pkg}' has multiple descriptors")
+                port_type = port.descriptors()[0]
+                if not issubclass(port_type.module, Constant):
+                    problem = (
+                        "Aliased parameter '{alias}' on port '{port}' of "
+                        "module '{module}' in plot '{plot}' of package "
+                        "'{pkg}' is not a constant")
+                for param in function.parameters:
+                    if param.alias:
+                        if problem is not None:
+                            warnings.warn(problem.format(
+                                plot=self.name,
+                                pkg=package_identifier,
+                                module=module.name,
+                                port=function.name,
+                                alias=param.alias))
+                            continue
+                        try:
+                            plot_port = currentports[param.alias]
+                        except KeyError:
+                            plot_port = ConstantPort(
+                                name=param.alias,
+                                type=port_type,
+                                optional=True,
+                                is_alias=True)
+                            self.ports.append(plot_port)
+                        else:
+                            plot_port.is_alias = True
+                            spec = (plot_port.type.identifier +
+                                    ':' +
+                                    plot_port.type.name)
+                            if spec != port_type.sigstring:
+                                warnings.warn(
+                                    "Declaration of port '%s' (alias) from "
+                                    "plot '%s' in package '%s' differs from "
+                                    "subworkflow contents" % (
+                                        param.alias, self.name,
+                                        package_identifier))
+                        psi = port.port_spec_items[0]
+                        if (psi.entry_type is not None and
+                                psi.entry_type.startswith('enum')):
+                            plot_port.entry_type = psi.entry_type
+                            plot_port.enum_values = psi.values
+                        else:
+                            plot_port.entry_type = None
+                            plot_port.enum_values = None
+                        plot_port.default_value = param.strValue
+                        # FIXME : there is no way to not set a value here
+                        # Code to get the port's default is below for ref
+                        # if port.defaults and port.defaults[0]:
+                        #     plot_port.default_value = port.defaults[0]
+                        seenports.add(param.alias)
+
+        # If the package declared ports that we didn't see
+        missingports = list(set(currentports.keys()) - seenports)
+        if currentports and missingports:
+            raise ValueError(
+                "Declaration of plot '%s' in package '%s' mentions "
+                "missing InputPort module '%s'" % (
+                    self.name, package_identifier, missingports[0]))
+
+        for port in self.ports:
+            if isinstance(port, ConstantPort):
+                module = port.type
+                port.widget_class = get_widget_class(module)
 
 
 def add_variable_subworkflow(generator, variable, plot_ports=None):

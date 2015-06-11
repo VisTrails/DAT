@@ -37,10 +37,11 @@ import re
 import dat
 from dat.gui import translate
 from dat.gui.operation_wizard import OperationWizard
-from dat.vistrails_interface import Plot, DataPort, ConstantPort, Variable, \
-    CustomVariableLoader, FileVariableLoader, \
+from dat.vistrails_interface import CustomVariableLoader, FileVariableLoader, \
     VariableOperation, OperationArgument, \
     get_variable_value
+from dat.vistrails_interface.wrappers import Variable, DataPort, \
+    ConstantPort, Plot
 
 
 _re_1st = re.compile(dat.variable_format_1st_char)
