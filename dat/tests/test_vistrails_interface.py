@@ -95,7 +95,7 @@ class Test_vistrails_interface(unittest.TestCase):
     def test_delete_linked(self):
         """Tests the delete_linked() function.
         """
-        from dat.vistrails_interface import delete_linked
+        from dat.vistrails_interface.utils import delete_linked
         from vistrails.core.db.action import create_action
 
         def test_delete(to_delete, expected_survivors,
