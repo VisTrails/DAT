@@ -24,7 +24,9 @@ from vistrails.core.db.locator import XMLFileLocator
 from vistrails.core.interpreter.default import get_default_interpreter
 from vistrails.core.modules.module_registry import get_module_registry
 from vistrails.core.utils import DummyView
+from vistrails.core.vistrail import build_pipeline
 from vistrails.core.vistrail.controller import VistrailController
+from vistrails.core.vistrail.pipeline import Pipeline
 from vistrails.core.vistrail.vistrail import Vistrail
 from vistrails.packages.spreadsheet.basic_widgets import CellLocation, \
     SpreadsheetCell, SheetReference
@@ -552,7 +554,18 @@ def create_pipeline(controller, recipe, row, column, var_sheetname,
         vistrail = locator.load()
         plot_pipeline = get_upgraded_pipeline(vistrail)
     elif recipe.plot.callback is not None:
-        plot_pipeline = recipe.plot.callback()
+        callback_ret = recipe.plot.callback()
+        if isinstance(callback_ret, Pipeline):
+            plot_pipeline = callback_ret
+        elif callback_ret[0] == 'pipeline':
+            plot_pipeline, = callback_ret[1:]
+        elif callback_ret[0] == 'python_lists':
+            plot_pipeline = build_pipeline(*callback_ret[1:])
+        else:
+            raise ValueError("Plot callback returned invalid value %r" %
+                             callback_ret[0])
+    else:
+        assert False
 
     connected_to_inputport = set(
         c.source.moduleId
