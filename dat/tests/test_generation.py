@@ -33,8 +33,6 @@ class Test_generation(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls._application = dat.tests.setup_application()
-        if cls._application is None:
-            raise unittest.SkipTest("No Application is available")
 
         cls._application.register_notification(
             'dat_new_loader', cls._new_loader)

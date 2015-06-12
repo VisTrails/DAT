@@ -136,8 +136,6 @@ class Test_gui(unittest.TestCase):
 class Test_advancedlineedit(unittest.TestCase):
     def setUp(self):
         self._app = dat.tests.setup_application()
-        if self._app is None:
-            self.skipTest("No Application is available")
 
     def tearDown(self):
         self._app.quit()

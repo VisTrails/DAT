@@ -61,14 +61,11 @@ _application = None
 def setup_application(setup=True):
     global _application
     if _application is None and setup:
-        try:
-            from dat.gui.application import Application
-            _application = Application([], {
-                'installBundles': False,
-                'developerDebugger': False,
-                'dontUnloadModules': True,
-                'enablePackagesSilently': True,
-            })
-        except Exception:
-            pass
+        from dat.gui.application import Application
+        _application = Application([], {
+            'installBundles': False,
+            'developerDebugger': False,
+            'dontUnloadModules': True,
+            'enablePackagesSilently': True,
+        })
     return _application

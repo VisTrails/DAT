@@ -115,8 +115,6 @@ class Test_operations(unittest.TestCase):
     @classmethod
     def setUp(cls):
         cls._application = dat.tests.setup_application()
-        if cls._application is None:
-            raise unittest.SkipTest("No application is available")
 
         pm = get_package_manager()
 
