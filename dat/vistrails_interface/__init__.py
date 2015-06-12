@@ -3,9 +3,7 @@
 This package contains most of the code that deals with VisTrails pipelines.
 """
 
-import inspect
 from itertools import chain
-import os
 import warnings
 
 from PyQt4 import QtCore, QtGui
@@ -455,78 +453,6 @@ class FileVariableLoader(QtGui.QWidget, BaseVariableLoader):
                  _simple_extension=extension,
                  _simple_load=load,
                  _simple_get_varname=staticmethod(get_varname)))
-
-
-class VariableOperation(object):
-    """An operation descriptor.
-
-    Describes a variable operation. These objects should be created by a
-    VisTrails package for each operation it wants to register with DAT, and
-    added to a global '_variable_operations' list in the 'init' module (for a
-    reloadable package).
-
-    name is mandatory and is what will need to be typed to call the operation.
-    It can also be an operator: +, -, *, /
-    callback is a function that will be called to construct the new variable
-    from the operands.
-    args is a tuple; each element is the type (or types) accepted for that
-    parameter. For instance, an operation that accepts two arguments, the first
-    argument being a String and the second argument either a Float or an
-    Integer, use: args=(String, (Float, Integer))
-    symmetric means that the function will be called if the arguments are
-    backwards; this only works for operations with 2 arguments of different
-    types. It is useful for operators such as * and +.
-    """
-    def __init__(self, name, args=None, return_type=None, callback=None,
-                 subworkflow=None, symmetric=False, wizard=None):
-        self.name = name
-        self.package_identifier = None
-        self.parameters = args
-        self.return_type = return_type
-        self.callback = self.subworkflow = None
-        self.usable_in_command = True
-        if callback is not None and subworkflow is not None:
-            raise ValueError("VariableOperation() got both callback and "
-                             "subworkflow parameters")
-        elif callback is not None:
-            self.callback = callback
-        elif subworkflow is not None:
-            caller = inspect.currentframe().f_back
-            package = os.path.dirname(inspect.getabsfile(caller))
-            self.subworkflow = subworkflow.format(package_dir=package)
-        elif wizard is None:
-            raise ValueError("VariableOperation() got neither callback nor "
-                             "subworkflow parameters")
-        else:
-            self.usable_in_command = False
-        if self.usable_in_command:
-            if self.parameters is None:
-                raise TypeError("missing parameter 'args'")
-            if self.return_type is None:
-                raise TypeError("missing parameter 'return_type")
-        self.symmetric = symmetric
-        self.wizard = wizard
-
-
-class OperationArgument(object):
-    """One of the argument of an operation.
-
-    Describes one of the arguments of a VariableOperation. These objects should
-    be created by a VisTrails package and passed in a list as the 'args'
-    argument of VariableOperation's constructor.
-
-    name is mandatory and is what will be passed to the callback function or
-    subworkflow. Note that arguments are passed as keywords, not positional
-    arguments.
-    types is a VisTrails Module subclass, or a sequence of Module subclasses,
-    in which case the argument will accept any of these types.
-    """
-    def __init__(self, name, types):
-        self.name = name
-        if isinstance(types, (list, tuple)):
-            self.types = tuple(types)
-        else:
-            self.types = (types,)
 
 
 def get_pipeline_location(controller, pipelineInfo):

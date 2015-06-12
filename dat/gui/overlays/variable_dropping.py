@@ -6,7 +6,7 @@ from dat import MIMETYPE_DAT_VARIABLE
 from dat.gui import translate
 from dat.operations.typecasting import get_typecast_operations
 from dat.vistrail_data import VistrailManager
-from dat.vistrails_interface import DataPort
+from dat.vistrails_interface.wrappers import DataPort
 
 from vistrails.core.vistrail.port_spec_item import PortSpecItem
 from vistrails.gui.ports_pane import Parameter as GuiParameter

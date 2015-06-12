@@ -1,9 +1,9 @@
 import warnings
 
 from dat import BaseVariableLoader
-from dat.vistrails_interface import VariableOperation, OperationArgument
 from dat.vistrails_interface.utils import resolve_descriptor
-from dat.vistrails_interface.wrappers import Plot
+from dat.vistrails_interface.wrappers import Plot, VariableOperation, \
+    OperationArgument
 
 from vistrails.core.application import get_vistrails_application
 from vistrails.core.modules.module_registry import get_module_registry
