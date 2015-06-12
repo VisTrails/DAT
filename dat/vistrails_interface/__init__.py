@@ -365,9 +365,9 @@ class CustomVariableLoader(QtGui.QWidget, BaseVariableLoader):
         pairs.
         Example:
             [
-            ('url', str),
-            ('user', (str, 'admin')),
-            ('password', (str, '', "Password: (birthdate by default)"));
+                ('url', str),
+                ('user', (str, 'admin')),
+                ('password', (str, '', "Password: (birthdate by default)"));
             ]
         load is the callback used to build the variable, it will be given the
         filename as only argument.
@@ -434,9 +434,9 @@ class FileVariableLoader(QtGui.QWidget, BaseVariableLoader):
         pairs.
         Example:
             [
-            ('url', str),
-            ('user', (str, 'admin')),
-            ('password', (str, '', "Password: (birthdate by default)"));
+                ('url', str),
+                ('user', (str, 'admin')),
+                ('password', (str, '', "Password: (birthdate by default)"));
             ]
         extension is the file extension of the files that will be accepted; if
         None, every file is accepted.
@@ -630,7 +630,7 @@ def create_pipeline(controller, recipe, row, column, var_sheetname,
         warnings.warn("Plot subworkflow '%s' does not contain a "
                       "spreadsheet cell module" % recipe.plot.name)
 
-    # TODO : use walk_modules() to find all  modules above an InputPort's
+    # TODO : use walk_modules() to find all modules above an InputPort's
     # 'Default' port and ignore them in the following loop
 
     # Copy the connections and locate the input ports

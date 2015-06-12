@@ -3,32 +3,36 @@
 This is the only module that VisTrails packages need to import. It provides
 the classes and methods necessary to define plot types and variable loaders.
 
-You might want to maintain compatibility with VisTrails, like so:
-try:
-    import dat.packages
-except ImportError:
-    pass # This happens if the package was imported from VisTrails, not from
-         # DAT
-         # In that case, don't define plots or variable loaders.
-else:
-    # Create a translator (optional)
-    _ = dat.packages.translate('packages.MyPackage')
+You might want to maintain compatibility with VisTrails, like so::
 
-    _plots = [
-        Plot(name="...",
-             subworkflow="{package_dir}/....xml",
-             description=_("..."),
-             ports=[        # You don't have to list the ports, they can be
-                 Port(...), # discovered from the subworkflow. If you do,
-                 ...]),     # warnings will be issued for missing/wrong ports.
-    ]
+    try:
+        import dat.packages
+    except ImportError:
+        pass # This happens if the package was imported from VisTrails, not
+             # from DAT
+             # In that case, don't define plots or variable loaders.
+    else:
+        # Create a translator (optional)
+        _ = dat.packages.translate('packages.MyPackage')
 
-    class MyLoader(dat.packages.CustomVariableLoader):
-        ...
+        _plots = [
+            Plot(name="...",
+                 subworkflow="{package_dir}/....xml",
+                 description=_("..."),
+                 # You don't have to list the ports, they can be discovered
+                 # from the subworkflow. If you do, warnings will be issued for
+                 # missing/wrong ports.
+                 ports=[
+                     Port(...),
+                     ...]),
+        ]
 
-    _variable_loaders = [
-        MyLoader: _("My new loader"),
-    ]
+        class MyLoader(dat.packages.CustomVariableLoader):
+            ...
+
+        _variable_loaders = [
+            MyLoader: _("My new loader"),
+        ]
 """
 
 import os
