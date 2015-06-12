@@ -1,5 +1,5 @@
 from dat.packages import Variable, VariableOperation, OperationArgument
-from dat.vistrails_interface import resolve_descriptor
+from dat.vistrails_interface.utils import resolve_descriptor
 
 from vistrails.core.modules.basic_modules import Float, String
 

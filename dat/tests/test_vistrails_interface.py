@@ -20,7 +20,7 @@ class Test_vistrails_interface(unittest.TestCase):
     def test_resolve_descriptor(self):
         """Tests the resolve_descriptor() function.
         """
-        from dat.vistrails_interface import resolve_descriptor
+        from dat.vistrails_interface.utils import resolve_descriptor
         from vistrails.core.modules.basic_modules import String
         from vistrails.packages.URL.init import DownloadFile
 
