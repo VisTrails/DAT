@@ -410,8 +410,20 @@ class Plot(object):
         caller = inspect.currentframe().f_back
         package = os.path.dirname(inspect.getabsfile(caller))
 
+        self.callback = self.subworkflow = None
+
         # Build plot from a subworkflow
-        self.subworkflow = kwargs['subworkflow'].format(package_dir=package)
+        if 'callback' in kwargs and 'subworkflow' in kwargs:
+            raise ValueError("Plot() got both callback and subworkflow "
+                             "parameters")
+        elif 'callback' in kwargs:
+            self.callback = kwargs['callback']
+        elif 'subworkflow' in kwargs:
+            self.subworkflow = kwargs['subworkflow'].format(
+                package_dir=package)
+        else:
+            raise ValueError("Plot() got neither callback nor subworkflow "
+                             "parameters")
         self.ports = kwargs.get('ports', [])
 
         # Set the plot config widget, ensuring correct parent class
@@ -440,6 +452,9 @@ class Plot(object):
         We also automatically add aliased input ports of compatible constant
         types as optional ConstantPort's.
         """
+        if self.subworkflow is None:
+            return
+
         locator = XMLFileLocator(self.subworkflow)
         vistrail = locator.load()
         pipeline = get_upgraded_pipeline(vistrail)

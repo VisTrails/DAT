@@ -547,16 +547,18 @@ def create_pipeline(controller, recipe, row, column, var_sheetname,
         'org.vistrails.vistrails.basic', 'InputPort')
 
     # Add the plot subworkflow
-    locator = XMLFileLocator(recipe.plot.subworkflow)
-    vistrail = locator.load()
-    plot_pipeline = get_upgraded_pipeline(vistrail)
+    if recipe.plot.subworkflow is not None:
+        locator = XMLFileLocator(recipe.plot.subworkflow)
+        vistrail = locator.load()
+        plot_pipeline = get_upgraded_pipeline(vistrail)
+    elif recipe.plot.callback is not None:
+        plot_pipeline = recipe.plot.callback()
 
     connected_to_inputport = set(
         c.source.moduleId
         for c in plot_pipeline.connection_list
-        if plot_pipeline.modules[
-            c.destination.moduleId
-        ].module_descriptor is inputport_desc)
+        if (plot_pipeline.modules[c.destination.moduleId]
+                .module_descriptor is inputport_desc))
 
     # Copy every module but the InputPorts and up
     plot_modules_map = dict()  # old module id -> new module
