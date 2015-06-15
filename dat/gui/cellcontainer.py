@@ -154,6 +154,8 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
             else:
                 pixmap = QtGui.QPixmap.grabWidget(self.containedWidget)
 
+            self.containedWidget.setAttribute(
+                QtCore.Qt.WA_TransparentForMouseEvents, True)
             self.containedWidget.setParent(None)
             self.containedWidget.hide()
 
@@ -197,6 +199,9 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
                 self._fake_widget.deleteLater()
                 self._fake_widget = None
                 if self.containedWidget is not None:
+                    self.containedWidget.setAttribute(
+                        QtCore.Qt.WA_TransparentForMouseEvents, False)
+
                     self.containedWidget.setParent(self)
                     self.containedWidget.show()
                     self.containedWidget.raise_()
