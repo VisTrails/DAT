@@ -1,4 +1,4 @@
 [submodule "vistrails"]
 	path = vistrails
 	url = https://github.com/VisTrails/VisTrails.git
-	branch = dat
+	branch = dat-changes
