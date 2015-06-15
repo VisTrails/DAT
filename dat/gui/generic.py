@@ -77,7 +77,12 @@ class CategorizedListWidget(QtGui.QTreeWidget):
             self._categories[category] = top_level, {item: w}
         else:
             items[item] = w
-        top_level.addChild(w)
+        pos = bisect(
+            top_level.childCount(),
+            lambda i: str(top_level.child(i).text(0)),
+            w.text(0),
+            comp=lambda x, y: x.lower() < y.lower())
+        top_level.insertChild(pos, w)
 
     def removeItem(self, item, category):
         top_level, items = self._categories[category]
