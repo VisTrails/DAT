@@ -362,6 +362,8 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
                     self.containedWidget.setParent(self)
                     self.containedWidget.show()
                     self.containedWidget.raise_()
+                    self.containedWidget.setAttribute(
+                        QtCore.Qt.WA_TransparentForMouseEvents, False)
                 self.do_layout()
 
             # Now that we are done with the overlay, we can go on with a
