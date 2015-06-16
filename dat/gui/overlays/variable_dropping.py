@@ -132,7 +132,7 @@ class VariableDroppingOverlay(Overlay):
         self.setupUi(kwargs.get('overlayed', True))
 
     def setupUi(self, overlayed):
-        _ = translate(DataParameter)
+        _ = translate(VariableDroppingOverlay)
 
         main_layout = QtGui.QVBoxLayout()
 
