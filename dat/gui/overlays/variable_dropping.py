@@ -204,8 +204,7 @@ class VariableDroppingOverlay(Overlay):
                     isset = False
                 param = port.widget_class(gp)
                 self._constant_widgets[param] = port.name
-                self.connect(param, QtCore.SIGNAL('contentsChanged'),
-                             self.constant_changed)
+                param.contentsChanged.connect(self.constant_changed)
                 param_panel = QtGui.QWidget()
                 param_panel.setLayout(QtGui.QHBoxLayout())
                 param_panel.layout().addWidget(param)
