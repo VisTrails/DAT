@@ -94,6 +94,14 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
                      lambda: self._set_overlay(None))
         self._hide_action_enabled = False
 
+        self._edit_code = QtGui.QAction(
+            get_icon('source_code.png'),
+            "Edit code",
+            self)
+        self.connect(self._edit_code, QtCore.SIGNAL('triggered()'),
+                     self.edit_code)
+        self._container_toolbar.addAction(self._edit_code)
+
         # Error icon
         self._error_icon = QtGui.QLabel(self)
         self._error_icon.setPixmap(get_icon('error.png').pixmap(24, 24))
@@ -591,3 +599,7 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
             source_descriptor, expected_descriptor,
             self)
         return apply_operation(controller, choice, [variable]), choice
+
+    def edit_code(self):
+        QtGui.QMessageBox.information(self, "Edit code",
+                                      "Triggered code edition thing")
