@@ -7,6 +7,7 @@ from dat import MIMETYPE_DAT_VARIABLE, MIMETYPE_DAT_PLOT, DATRecipe, \
 from dat.gui import get_icon
 from dat.gui import typecast_dialog
 from dat.global_data import GlobalManager
+from dat.gui.code_editor import CodeEditor
 from dat.operations import apply_operation, get_typecast_operations
 from dat.utils import deferrable_via_qt
 from dat.vistrail_data import VistrailManager
@@ -41,6 +42,8 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
         QtGui.QWidget.__init__(self, parent)
 
         self.setAcceptDrops(True)
+
+        self._code_editor = None
 
         # Attributes
         self._parameters = dict()  # param name -> [RecipeParameterValue]
@@ -279,6 +282,9 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
             self._plot = None
             self._parameters = dict()
         self._set_overlay(None)
+
+        if self._code_editor is not None:
+            self._code_editor.contentsUpdated()
 
     def _set_overlay(self, overlay_class, **kwargs):
         if overlay_class is None:
@@ -601,5 +607,13 @@ class DATCellContainer(CellContainerInterface, QtGui.QWidget):
         return apply_operation(controller, choice, [variable]), choice
 
     def edit_code(self):
-        QtGui.QMessageBox.information(self, "Edit code",
-                                      "Triggered code edition thing")
+        print "edit_code()"
+        if self._code_editor is not None:
+            self._code_editor.raise_()
+        else:
+            CodeEditor(self)
+
+    def set_code_editor(self, editor):
+        if self._code_editor is not None:
+            self._code_editor.deleteLater()
+        self._code_editor = editor
