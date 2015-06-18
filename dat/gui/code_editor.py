@@ -2,6 +2,7 @@ from PyQt4 import QtCore, QtGui
 
 from dat.gui import translate
 
+from vistrails.core.scripting.export import write_workflow_to_python
 from vistrails.gui.modules.python_source_configure import PythonEditor
 
 
@@ -41,8 +42,11 @@ class CodeEditor(QtGui.QWidget):
         self._cell.set_code_editor(None)
 
     def contentsUpdated(self):
-        self._editor.setPlainText("if __name__ == '__main__':\n"
-                                  "    print \"TODO\"")
+        version = self._cell.get_pipeline().version
+        vistrail = self._cell._controller.vistrail
+        pipeline = vistrail.getPipelineVersionNumber(version)
+        code = write_workflow_to_python(pipeline)
+        self._editor.setPlainText(code)
 
     def execute(self):
         pass
