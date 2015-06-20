@@ -374,6 +374,9 @@ class Port(object):
         self.type = type
         self.is_alias = is_alias
         self.optional = optional
+        self.default_value = None
+        self.entry_type = None
+        self.enum_values = None
         self.multiple_values = multiple_values
         self.accepts = accepts
 
@@ -557,7 +560,6 @@ class Plot(object):
 
             # Get info from the PortSpec
             currentport.default_value = None
-            currentport.enumeration = None
             try:
                 (default_type, default_value,
                  entry_type, enum_values) = read_port_specs(
