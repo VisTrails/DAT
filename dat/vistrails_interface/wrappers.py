@@ -559,7 +559,6 @@ class Plot(object):
                 type = resolve_descriptor(currentspec, package_identifier)
 
             # Get info from the PortSpec
-            currentport.default_value = None
             try:
                 (default_type, default_value,
                  entry_type, enum_values) = read_port_specs(
@@ -655,7 +654,7 @@ class Plot(object):
         for port in self.ports:
             if isinstance(port, ConstantPort):
                 module = port.type
-                port.widget_class = get_widget_class(module)
+                port.widget_class = get_widget_class(module, port.entry_type)
 
 
 class VariableOperation(object):
