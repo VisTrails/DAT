@@ -45,7 +45,7 @@ class CodeEditor(QtGui.QWidget):
         version = self._cell.get_pipeline().version
         vistrail = self._cell._controller.vistrail
         pipeline = vistrail.getPipelineVersionNumber(version)
-        code = write_workflow_to_python(pipeline)
+        code = '\n'.join(write_workflow_to_python(pipeline))
         self._editor.setPlainText(code)
 
     def execute(self):
