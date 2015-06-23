@@ -9,6 +9,7 @@ from itertools import izip
 import os
 import warnings
 
+from dat.utils import abbrev
 from dat.vistrails_interface.pipelines import PipelineGenerator
 from dat.vistrails_interface.utils import resolve_descriptor, \
     get_upgraded_pipeline, get_function, read_port_specs, find_modules_by_type
@@ -19,6 +20,7 @@ from vistrails.core.db.locator import XMLFileLocator
 from vistrails.core.modules.basic_modules import Constant
 from vistrails.core.modules.module_registry import get_module_registry
 from vistrails.core.modules.sub_module import InputPort
+from vistrails.core.vistrail import build_pipeline
 from vistrails.core.vistrail.pipeline import Pipeline
 from vistrails.gui.modules.utils import get_widget_class
 
@@ -413,11 +415,11 @@ class Plot(object):
         self.callback = self.subworkflow = None
 
         # Build plot from a subworkflow
-        if 'callback' in kwargs and 'subworkflow' in kwargs:
-            raise ValueError("Plot() got both callback and subworkflow "
+        if 'pipeline' in kwargs and 'subworkflow' in kwargs:
+            raise ValueError("Plot() got both pipeline and subworkflow "
                              "parameters")
-        elif 'callback' in kwargs:
-            self.callback = kwargs['callback']
+        elif 'pipeline' in kwargs:
+            self.pipeline_arg = kwargs['pipeline']
         elif 'subworkflow' in kwargs:
             self.subworkflow = kwargs['subworkflow'].format(
                 package_dir=package)
@@ -436,6 +438,31 @@ class Plot(object):
                           "'PlotConfigOverlay'. Using default." % self.name)
             self.configWidget = DefaultPlotConfigOverlay
 
+    def get_pipeline(self):
+        """Gets the pipeline.
+
+        This might mean materializing it from a callback or translating it from
+        a user-friendly format.
+        """
+        if self.subworkflow is not None:
+            locator = XMLFileLocator(self.subworkflow)
+            vistrail = locator.load()
+            return get_upgraded_pipeline(vistrail)
+        else:
+            callback_ret = self.pipeline_arg
+            if callable(callback_ret):
+                callback_ret = callback_ret()
+            if isinstance(callback_ret, Pipeline):
+                return callback_ret
+            elif callback_ret[0] == 'pipeline':
+                pipeline, = callback_ret[1:]
+                return pipeline
+            elif callback_ret[0] == 'python_lists':
+                return build_pipeline(*callback_ret[1:])
+            else:
+                raise ValueError("Plot pipeline is invalid value %s" %
+                                 abbrev(repr(callback_ret)))
+
     def _read_metadata(self, package_identifier):
         """Reads a plot's ports from the subworkflow file
 
@@ -452,12 +479,7 @@ class Plot(object):
         We also automatically add aliased input ports of compatible constant
         types as optional ConstantPort's.
         """
-        if self.subworkflow is None:
-            return
-
-        locator = XMLFileLocator(self.subworkflow)
-        vistrail = locator.load()
-        pipeline = get_upgraded_pipeline(vistrail)
+        pipeline = self.get_pipeline()
 
         inputports = find_modules_by_type(pipeline, [InputPort])
         if not inputports:
