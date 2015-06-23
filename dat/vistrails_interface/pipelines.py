@@ -1,12 +1,12 @@
 """Pipeline-generation code.
 """
 
+from dat.vistrails_interface.utils import delete_linked
+
 from vistrails.core.db.action import create_action
 from vistrails.core.modules.module_registry import get_module_registry
 from vistrails.core.vistrail.connection import Connection
 from vistrails.core.vistrail.module import Module as PipelineModule
-
-from dat.vistrails_interface.utils import delete_linked
 
 
 class PipelineGenerator(object):

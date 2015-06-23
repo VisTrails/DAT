@@ -9,6 +9,10 @@ from itertools import izip
 import os
 import warnings
 
+from dat.vistrails_interface.pipelines import PipelineGenerator
+from dat.vistrails_interface.utils import resolve_descriptor, \
+    get_upgraded_pipeline, get_function, read_port_specs, find_modules_by_type
+
 from vistrails.core import get_vistrails_application
 from vistrails.core.db.action import create_action
 from vistrails.core.db.locator import XMLFileLocator
@@ -17,10 +21,6 @@ from vistrails.core.modules.module_registry import get_module_registry
 from vistrails.core.modules.sub_module import InputPort
 from vistrails.core.vistrail.pipeline import Pipeline
 from vistrails.gui.modules.utils import get_widget_class
-
-from dat.vistrails_interface.pipelines import PipelineGenerator
-from dat.vistrails_interface.utils import resolve_descriptor, \
-    get_upgraded_pipeline, get_function, read_port_specs, find_modules_by_type
 
 
 class ModuleWrapper(object):
