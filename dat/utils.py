@@ -91,6 +91,22 @@ class catch_warning(object):
         warnings.showwarning = self._orig_showwarning
 
 
+def abbrev(s, length=30, ellipsis='...'):
+    """Makes sure a sequence is at most a given number of elements.
+
+    >>> abbrev("hello", 8)
+    'hello'
+    >>> abbrev("hello world", 10)
+    'hello w...'
+    >>> abbrev([1, 2, 8, 4, 7], 4, [0, 0])
+    [1, 2, 0, 0]
+    """
+    if len(s) <= length:
+        return s
+    else:
+        return s[:length - len(ellipsis)] + ellipsis
+
+
 class DeferredResult(object):
     def __nonzero__(self, *args):
         raise RuntimeError("DeferredResult should be ignored!")
