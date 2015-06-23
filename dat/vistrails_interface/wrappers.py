@@ -20,6 +20,8 @@ from vistrails.core.db.locator import XMLFileLocator
 from vistrails.core.modules.basic_modules import Constant
 from vistrails.core.modules.module_registry import get_module_registry
 from vistrails.core.modules.sub_module import InputPort
+from vistrails.core.modules.utils import create_descriptor_string, \
+    parse_descriptor_string
 from vistrails.core.vistrail import build_pipeline
 from vistrails.core.vistrail.pipeline import Pipeline
 from vistrails.gui.modules.utils import get_widget_class
@@ -547,6 +549,9 @@ class Plot(object):
                 currentspec = (currentport.type.identifier +
                                ':' +
                                currentport.type.name)
+                # Canonicalize spec
+                spec = create_descriptor_string(*parse_descriptor_string(
+                    spec, package_identifier))
                 if ((spec and spec != currentspec) or
                         (optional is not None and
                          optional != currentport.optional)):
