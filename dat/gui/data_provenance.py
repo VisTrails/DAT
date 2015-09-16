@@ -98,8 +98,7 @@ class ProvenanceSceneLayout(object):
         except KeyError:
             pass
         else:
-            if node.row <= row:
-                node.row = row + 1
+            node.row = max(node.row, row)
             return node.item
 
         item = None
@@ -149,8 +148,7 @@ class ProvenanceSceneLayout(object):
         nb_rows = 0
         for node in self.nodes.itervalues():
             rows.setdefault(node.row, []).append(node)
-            if node.row + 1 > nb_rows:
-                nb_rows = node.row + 1
+            nb_rows = max(nb_rows, node.row + 1)
 
         # Order nodes on each row
         for row in xrange(nb_rows):
